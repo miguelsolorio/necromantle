@@ -22,6 +22,7 @@ export class Hud {
   private toastT = 0;
   private hurtT = 0;
   private hurtVig: HTMLElement;
+  private promptEl: HTMLElement;
   hidden = false;
 
   constructor(private cam: ThirdPersonCamera) {
@@ -32,17 +33,19 @@ export class Hud {
       <div class="reticle"></div><div class="softlock"></div>
       <div class="lockhint">CLICK TO PLAY<small>WASD move · mouse aim · LMB bolt · RMB orb · 1 rift step · 2 flame nova · shift sprint · Q potion · F1 dev panel</small></div>
       <div class="toast"></div>
+      <div class="prompt"></div>
       <div class="hurtvig"></div>
       <div class="dead">YOU HAVE FALLEN<small>PRESS R TO RISE AGAIN</small></div>
-      <div class="hud-orb health"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
-      <div class="hud-orb energy"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
-      <div class="skillbar"></div>
-      <div class="xpbar"><i></i><div class="lvl">1</div></div>`;
+      <div class="hudbottom">
+        <div class="hud-orb health"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
+        <div class="bar"><div class="skillbar"></div><div class="xpbar"><i></i><div class="lvl">1</div></div></div>
+        <div class="hud-orb energy"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
+      </div>`;
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
     this.hpFill = q('.hud-orb.health .fill'); this.hpVal = q('.hud-orb.health .val');
     this.enFill = q('.hud-orb.energy .fill'); this.enVal = q('.hud-orb.energy .val');
     this.xp = q('.xpbar i'); this.lvl = q('.xpbar .lvl');
-    this.area = q('[data-area]'); this.objective = q('[data-obj]'); this.lock = q('.softlock'); this.lockhint = q('.lockhint'); this.toastEl = q(".toast"); this.deadEl = q(".dead"); this.hurtVig = q(".hurtvig");
+    this.area = q('[data-area]'); this.objective = q('[data-obj]'); this.lock = q('.softlock'); this.lockhint = q('.lockhint'); this.toastEl = q(".toast"); this.deadEl = q(".dead"); this.hurtVig = q(".hurtvig"); this.promptEl = q(".prompt");
     const bar = q('.skillbar');
     for (const id of ['bolt', 'orb', 'rift', 'nova', 'frost', 'cataclysm']) {
       const el = document.createElement('div'); el.className = 'slot'; el.innerHTML = `${ICONS[id]}<div class="cdv" style="display:none"></div><div class="key"></div>`;
@@ -58,6 +61,8 @@ export class Hud {
   setHidden(h: boolean): void { this.hidden = h; this.root.classList.toggle('hidden', h); }
   setArea(name: string, sub: string): void { this.area.textContent = name; (this.root.querySelector('[data-sub]') as HTMLElement).textContent = sub; }
   setObjective(text: string): void { this.objective.textContent = text; }
+  /** Contextual key prompt near the reticle; pass null to hide. */
+  prompt(text: string | null): void { this.promptEl.textContent = text ?? ""; this.promptEl.classList.toggle("on", !!text); }
   hurt(): void { this.hurtT = 0.35; this.hurtVig.classList.add("on"); }
   toast(title: string, sub = "", dur = 2.6): void { this.toastEl.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`; this.toastEl.classList.add('on'); this.toastT = dur; }
 

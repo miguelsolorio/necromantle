@@ -27,6 +27,9 @@ interface Placement { id: KitId; x: number; z: number; y?: number; rot?: number;
  */
 export class BenchmarkScene extends World {
   readonly torches: PointLight[] = [];
+  /** Where the player must stand to try the cathedral door, and the portal plane that flares when they do. */
+  doorPoint = new Vector3(0, 0, 40);
+  doorPortal: Mesh | null = null;
   private flames: Mesh[] = [];
   private colliderMat!: StandardMaterial;
   colliderCount = 0;
@@ -148,9 +151,14 @@ export class BenchmarkScene extends World {
     // invisible slab over the ramp (camera obstruction) and blockers so nobody walks under the platform
     const slab = MeshBuilder.CreateBox("stairSlab", { width: 7 * stairScale[0], height: 0.3, depth: Math.hypot(topY, 4 * stairScale[2]) }, this.scene);
     slab.position.set(0, topY / 2 - 0.15, stairZ0 + 2 * stairScale[2]); slab.rotation.x = -Math.atan2(topY, 4 * stairScale[2]);
-    slab.isVisible = false; slab.isPickable = true; slab.metadata = { static: true }; slab.parent = this.root;
+    slab.isVisible = false; slab.isPickable = false; slab.metadata = { static: true }; slab.parent = this.root;
     this.addCollider("platformUnder", new Vector3(0, (topY - 0.6) / 2, topZ + T), new Vector3(T * 3, topY - 0.6, 2 * T));
     for (const sx of [-1, 1]) this.addCollider(`stairRail${sx}`, new Vector3(sx * (3.5 * stairScale[0] + 0.3), (topY + 2) / 2, stairZ0 + 2 * stairScale[2]), new Vector3(0.6, topY + 2, 4 * stairScale[2] + 0.5));
+    // platform edges: low parapets so nobody drops off the threshold sideways or forward past the stair mouth
+    for (const sx of [-1, 1]) this.addCollider(`platformSide${sx}`, new Vector3(sx * (T * 1.5 + 0.3), topY + 1, topZ + T), new Vector3(0.6, 2, 2 * T));
+    for (const sx of [-1, 1]) this.addCollider(`platformFront${sx}`, new Vector3(sx * (3.5 * stairScale[0] + T * 1.5) / 2, topY + 1, topZ - 0.3), new Vector3(T * 1.5 - 3.5 * stairScale[0], 2, 0.6));
+    this.doorPoint = new Vector3(0, topY, topZ + T * 2 - 2.5);
+    this.doorPortal = null;
     // ---- big ground plane under everything (painterly stone, mid-value: rule R-06)
     const ground = MeshBuilder.CreateGround('ground', { width: 400, height: 400, subdivisions: 2 }, this.scene);
     const gm = new PBRMaterial('groundMat', this.scene);
@@ -184,7 +192,7 @@ export class BenchmarkScene extends World {
     const pm = new StandardMaterial("portalMat", this.scene);
     pm.emissiveColor = PALETTE.arcane.scale(0.9); pm.diffuseColor = Color3.Black(); pm.opacityTexture = Textures.softDot(this.scene); pm.disableLighting = true; pm.alphaMode = 1; pm.backFaceCulling = false;
     portal.material = pm; portal.position.set(0, topY + 4.5, topZ + T * 2 - 1.6); portal.isPickable = false;
-    portal.parent = this.root; this.rig.addGlow(portal);
+    portal.parent = this.root; this.rig.addGlow(portal); this.doorPortal = portal;
     // door glow behind the arch
     const doorGlow = this.addTorch(new Vector3(0, topY + 5, topZ + T * 2 - 3), 18, 22, PALETTE.arcane.scale(0.9));
     doorGlow.name = 'doorGlow';

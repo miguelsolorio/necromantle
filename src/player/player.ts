@@ -81,22 +81,36 @@ export class Player {
         const mat = m.material as PBRMaterial | null;
         if (mat && mat instanceof PBRMaterial) { mat.metallic = 0; mat.roughness = 0.85; mat.specularIntensity = 0.3; mat.albedoColor = new Color3(0.95, 0.8, 1.05); mat.maxSimultaneousLights = 8; }
       }
-      // staff: attach to the right hand slot
-      const staff = await loader.instanceStatic(PLAYER.weapon, 'sorcerer.staff', { castShadow: false, receiveShadow: false });
-      for (const m of staff.getChildMeshes()) { m.checkCollisions = false; m.isPickable = false; m.metadata = { character: true }; rig.addCaster(m); }
-      const tip = new TransformNode("sorcerer.staffTip", this.scene);
-      tip.parent = staff; tip.position.set(0, -1.75, 0);
-      if (this.handNode) {
-        staff.parent = this.handNode; staff.position.set(0, 0, 0); staff.scaling.setAll(1.15);
-        // KayKit hand slot: local +Y runs along the forearm and the staff head sits at local -Y; a -90° roll about Z stands it upright
-        staff.rotation.set(0, 0, -Math.PI / 2);
+      // The pack's Mage carries a wand, a two-handed staff and two spellbooks: keep the staff and the closed book only.
+      let staffMesh: AbstractMesh | null = null;
+      for (const m of inst.meshes) {
+        const n = m.name.split('|').pop() ?? '';
+        if (n === '1H_Wand' || n === 'Spellbook_open') m.setEnabled(false);
+        if (n === '2H_Staff') staffMesh = m;
       }
+      const tip = new TransformNode('sorcerer.staffTip', this.scene);
+      if (staffMesh) {
+        // the staff's long axis is not necessarily local Y: take the far end of the longest axis, whichever end is higher in the bind pose
+        const bb = staffMesh.getBoundingInfo().boundingBox;
+        const ext = bb.maximum.subtract(bb.minimum); const mid = bb.minimum.add(bb.maximum).scale(0.5);
+        const axis = ext.x > ext.y && ext.x > ext.z ? 'x' : ext.z > ext.y ? 'z' : 'y';
+        const a = mid.clone(); const b = mid.clone();
+        (a as any)[axis] = (bb.minimum as any)[axis]; (b as any)[axis] = (bb.maximum as any)[axis];
+        staffMesh.computeWorldMatrix(true);
+        const wm = staffMesh.getWorldMatrix();
+        const hand = this.handNode ? this.handNode.getAbsolutePosition() : Vector3.Zero();
+        // the grip is near the hand; the head is the end farthest from it
+        const best = Vector3.Distance(Vector3.TransformCoordinates(a, wm), hand) > Vector3.Distance(Vector3.TransformCoordinates(b, wm), hand) ? a : b;
+        tip.parent = staffMesh;
+        tip.position.copyFrom(best);
+      } else if (this.handNode) { tip.parent = this.handNode; tip.position.set(0, 1.5, 0); }
       this.staffTipNode = tip;
       // arcane crystal at the tip
       const crystal = MeshBuilder.CreateSphere('sorcerer.crystal', { diameter: 0.22, segments: 8 }, this.scene);
       const cm = new PBRMaterial('sorcerer.crystalMat', this.scene);
       cm.emissiveColor = PALETTE.arcaneCore.clone(); cm.albedoColor = Color3.Black(); cm.metallic = 0; cm.roughness = 0.3;
       crystal.material = cm; crystal.parent = tip; crystal.isPickable = false; rig.addGlow(crystal);
+      if (staffMesh) crystal.scaling.setAll(1 / (PLAYER.height / 2.2));
     }
   }
 

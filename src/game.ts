@@ -47,6 +47,7 @@ export class Game {
   private spawnTimer = 4;
   private nearby: import('@/enemies/enemy').Enemy[] = [];
   private spawning = false;
+  private doorState: 'closed' | 'answered' = 'closed';
   /** Nothing hostile happens until the player has clicked in once. */
   playing = false;
 
@@ -137,8 +138,26 @@ export class Game {
     this.spawning = false;
   }
 
+  /** The door does not open in this slice: it flares, the objective changes, and the dead pour out of it. */
+  private answerDoor(): void {
+    this.doorState = 'answered';
+    const dp = this.world.doorPoint;
+    this.vfx.lights.flash(dp.add(new Vector3(0, 4, 2)), this.player.staffLight.diffuse, 80, 1.2, 18);
+    this.vfx.burst('arcaneImpact', dp.add(new Vector3(0, 3, 2)), 80);
+    this.cam.shake(0.5, 0.6);
+    this.hud.toast('THE DOOR IS SEALED', 'FROM WITHIN · THE DEAD ANSWER INSTEAD', 3.5);
+    this.hud.setObjective('The cathedral opens in a later build. Hold the threshold.');
+    this.spawnTimer = 8;
+    void (async () => {
+      for (let i = 0; i < 12; i++) {
+        const at = new Vector3(dp.x + (Math.random() - 0.5) * 5, dp.y, dp.z + 1 + Math.random() * 1.5);
+        await this.enemies.spawn(i % 5 === 4 ? 'wraith' : 'ghoul', at, i === 11);
+      }
+    })();
+  }
+
   private teleport(where: string): void {
-    const p = where === 'door' ? new Vector3(0, 6.7, 30) : this.world.playerStart.clone();
+    const p = where === 'door' ? this.world.doorPoint.add(new Vector3(0, 0.1, -3)) : this.world.playerStart.clone();
     this.player.collider.position.copyFrom(p); this.player.position.copyFrom(p);
   }
 
@@ -164,6 +183,12 @@ export class Game {
     this.pickups.update(dt, this.player);
     this.vfx.update(dt);
     this.world.update(this.loop.time);
+
+    // the cathedral door: sealed for this slice, but trying it answers with a pack from within
+    const dp = this.world.doorPoint;
+    const nearDoor = !this.player.dead && Math.abs(this.player.position.y - dp.y) < 1.5 && Math.hypot(this.player.position.x - dp.x, this.player.position.z - dp.z) < 4.5;
+    this.hud.prompt(nearDoor && this.doorState === 'closed' ? 'PRESS E · OPEN THE DOOR' : null);
+    if (nearDoor && this.doorState === 'closed' && this.input.wasPressed('KeyE')) this.answerDoor();
 
     // combat blend for the camera: pull back and widen as the pack closes in
     const near = this.enemies.countNear(this.player.position, 14);
