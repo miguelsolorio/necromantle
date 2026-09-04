@@ -1,0 +1,1027 @@
+<title>Necromantle Style Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    /* board (the review page) */
+    --board: #0e0c12;
+    --board-2: #15121b;
+    --line: #2b2533;
+    --ink: #cfc6b4;
+    --ink-dim: #8e8577;
+    --gilt: #d9b56a;
+    /* game palette */
+    --void: #0b0a10;
+    --stone: #2a2430;
+    --stone-2: #3a3340;
+    --bone: #cdc3ae;
+    --arcane: #8b5cf6;
+    --arcane-2: #37d2f0;
+    --fire: #ff7a1a;
+    --crimson: #c8283a;
+    --health: #b3121f;
+    --legend: #ff9a1e;
+    --r-common: #e8e4da;
+    --r-magic: #5b8def;
+    --r-rare: #f0d24a;
+    --r-legend: #ff8f1f;
+    --enemy-hp: #d62828;
+    --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+    --font-body: "Crimson Pro", "Iowan Old Style", Georgia, serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; background: var(--board); color: var(--ink);
+    font-family: var(--font-body); font-size: 17px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--gilt); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px 120px; }
+
+  /* ---------- board chrome ---------- */
+  .masthead { padding: 64px 0 40px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end; }
+  .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(44px, 7vw, 84px); letter-spacing: .06em; line-height: 1; margin: 12px 0 10px; color: var(--bone);
+       text-shadow: 0 0 40px rgba(139,92,246,.25); }
+  h1 em { font-style: normal; color: var(--gilt); }
+  .masthead p { max-width: 60ch; margin: 0; font-size: 19px; color: var(--ink); }
+  .meta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-dim); display: grid; gap: 6px; text-align: right; }
+  .meta b { color: var(--ink); font-weight: 500; }
+
+  section { padding-top: 72px; }
+  .sec-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 8px; }
+  .sec-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 26px; letter-spacing: .08em; color: var(--bone); margin: 0; text-wrap: balance; }
+  .sec-head .num { font-family: var(--font-mono); font-size: 12px; color: var(--gilt); letter-spacing: .12em; }
+  .lede { max-width: 66ch; color: var(--ink); margin: 0 0 28px; }
+  .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px 28px; margin-top: 18px; }
+  .notes div { font-size: 15.5px; line-height: 1.45; }
+  .notes b { display: block; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--gilt); margin-bottom: 4px; font-weight: 500; }
+  .frame { margin-top: 44px; }
+  .frame-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .frame-head h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: .1em; margin: 0; color: var(--bone); }
+  .frame-head h3 span { color: var(--gilt); margin-right: 12px; }
+  .frame-head .cam { font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); }
+
+  /* ---------- 16:9 viewport ---------- */
+  .viewport {
+    position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border-radius: 4px;
+    background: var(--void); container-type: inline-size; isolation: isolate;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px #221c2a;
+    font-family: var(--font-display); color: var(--bone);
+  }
+  .viewport > * { position: absolute; }
+  .layer { inset: 0; }
+  .sky { background: radial-gradient(60% 50% at 78% 22%, rgba(190,205,235,.28), transparent 60%),
+                     linear-gradient(180deg, #070912 0%, #0e1224 40%, #1a1f36 52%, #1a1a26 55%); }
+  .moon { width: 9cqw; height: 9cqw; border-radius: 50%; left: 74%; top: 12%;
+          background: radial-gradient(circle at 40% 40%, #f2f0e6, #c9cbd6 70%, #9ea3b6);
+          box-shadow: 0 0 5cqw 2cqw rgba(200,210,240,.35), 0 0 16cqw 6cqw rgba(160,175,220,.15); }
+  .fog { left: -10%; right: -10%; top: 38%; height: 26%; filter: blur(2.2cqw);
+         background: linear-gradient(180deg, transparent, rgba(120,130,170,.28) 45%, rgba(90,95,130,.22) 70%, transparent); }
+  .ground { top: 54%; bottom: 0; left: 0; right: 0;
+            background: radial-gradient(60% 40% at 50% 100%, #3a3340, transparent 70%),
+                        linear-gradient(180deg, #171821 0%, #22212a 30%, #2d2a33 100%); }
+  .ground::after { content: ""; position: absolute; inset: 0; opacity: .55;
+    background: repeating-radial-gradient(ellipse 12cqw 3cqw at 50% 120%, transparent 0 3cqw, rgba(0,0,0,.28) 3cqw 3.4cqw); }
+  .warm { border-radius: 50%; filter: blur(2cqw); background: radial-gradient(circle, rgba(255,150,60,.55), rgba(255,120,40,.18) 45%, transparent 70%); pointer-events: none; }
+  .arch { inset: 0; width: 100%; height: 100%; }
+  .vig { inset: 0; background: radial-gradient(ellipse at 50% 55%, transparent 55%, rgba(0,0,0,.55) 100%); pointer-events: none; }
+
+  /* silhouettes */
+  .ent { transform-origin: 50% 100%; filter: drop-shadow(0 .6cqw .6cqw rgba(0,0,0,.6)); }
+  .ent svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .player { fill: #1c1826; }
+  .player .rim { fill: none; stroke: #a58bff; stroke-width: 3; opacity: .8; }
+  .enemy { fill: #0d0b12; }
+  .enemy .rim { fill: none; stroke: #6b2a2a; stroke-width: 2; opacity: .7; }
+  .elite .rim { stroke: #ffb347; stroke-width: 3; opacity: 1; }
+  .hpbar { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; height: 12%; max-height: 8px; min-height: 3px; background: #1a0508; border: 1px solid #000; }
+  .hpbar i { display: block; height: 100%; background: linear-gradient(180deg, #ff4d4d, var(--enemy-hp)); width: var(--hp, 100%); }
+  .plate { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 1.15cqw; letter-spacing: .06em; color: #ffcf7a; text-shadow: 0 0 .5cqw #000, 0 0 .2cqw #000; text-align: center; line-height: 1.15; }
+  .plate small { display: block; font-size: .8em; color: #ff8f5a; letter-spacing: .04em; }
+  .aura { position: absolute; border-radius: 50%; filter: blur(1cqw); background: radial-gradient(circle, rgba(255,140,40,.55), rgba(255,100,20,.15) 55%, transparent 70%); }
+
+  /* HUD */
+  .hud-orb { width: 12cqw; height: 12cqw; border-radius: 50%; bottom: 1.2cqw; overflow: hidden;
+    background: #120a0f; box-shadow: inset 0 0 2cqw #000, 0 0 0 .55cqw #1f1922, 0 0 0 .75cqw #4a3b2a, 0 0 0 .95cqw #17121a, 0 1cqw 2cqw rgba(0,0,0,.7); }
+  .hud-orb .fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--v, 70%); transition: height .4s; }
+  .hud-orb.health .fill { background: radial-gradient(circle at 35% 25%, #ff5b5b, #b3121f 45%, #4a0810 100%); }
+  .hud-orb.energy .fill { background: radial-gradient(circle at 40% 25%, #9ef2ff, #37d2f0 35%, #4a2fb8 75%, #1a0f4a 100%); }
+  .hud-orb .fill::before { content: ""; position: absolute; left: -20%; right: -20%; top: -6%; height: 12%; border-radius: 50%; background: rgba(255,255,255,.25); filter: blur(.3cqw); animation: slosh 3.4s ease-in-out infinite; }
+  .hud-orb .gloss { position: absolute; inset: 8% 14% 45% 14%; border-radius: 50%; background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.35), transparent 65%); }
+  .hud-orb .val { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.5cqw; font-weight: 700; color: #fff; text-shadow: 0 0 .4cqw #000, 0 .1cqw .2cqw #000; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+  .hud-orb.health { left: 24cqw; }
+  .hud-orb.energy { right: 24cqw; }
+  @keyframes slosh { 0%,100% { transform: translateX(-3%) rotate(-2deg);} 50% { transform: translateX(3%) rotate(2deg);} }
+
+  .skillbar { left: 50%; transform: translateX(-50%); bottom: 1.6cqw; display: flex; gap: .45cqw; padding: .7cqw .9cqw .95cqw; border-radius: .3cqw;
+    background: linear-gradient(180deg, #221b26, #130f16); box-shadow: 0 0 0 .18cqw #4a3b2a, 0 0 0 .32cqw #0d0a10, 0 .8cqw 1.6cqw rgba(0,0,0,.7); }
+  .slot { position: relative; width: 4.6cqw; height: 4.6cqw; border-radius: .25cqw; background: #0a0810; box-shadow: inset 0 0 0 .12cqw #2d2433, inset 0 0 1cqw #000; overflow: hidden; }
+  .slot svg { position: absolute; inset: 12%; width: 76%; height: 76%; }
+  .slot .key { position: absolute; left: 0; right: 0; bottom: -.05cqw; text-align: center; font-size: .95cqw; font-weight: 700; color: #d9b56a; text-shadow: 0 0 .3cqw #000; letter-spacing: .02em; }
+  .slot.cd::after { content: attr(data-cd); position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.6cqw; font-weight: 700; color: #fff; text-shadow: 0 0 .4cqw #000;
+    background: conic-gradient(rgba(0,0,0,.72) var(--sweep, 40%), transparent 0); }
+  .slot.noenergy { filter: saturate(.2) brightness(.55); box-shadow: inset 0 0 0 .12cqw #1f3a4a, inset 0 0 1cqw #000; }
+  .slot.locked { filter: grayscale(1) brightness(.35); }
+  .slot.ready { box-shadow: inset 0 0 0 .12cqw #7a6440, inset 0 0 1cqw #000, 0 0 .6cqw rgba(255,180,80,.35); }
+  .slot.divider { width: .3cqw; background: #4a3b2a; box-shadow: none; border-radius: 0; margin: 0 .3cqw; }
+  .xpbar { left: 50%; transform: translateX(-50%); bottom: .55cqw; width: 34cqw; height: .5cqw; background: #0a0810; box-shadow: 0 0 0 .1cqw #3a2f22; }
+  .xpbar i { display: block; height: 100%; width: var(--xp, 40%); background: linear-gradient(90deg, #8a6a2a, #ffd27a); box-shadow: 0 0 .5cqw rgba(255,210,120,.6); }
+  .lvl { position: absolute; left: -2.6cqw; top: -1.1cqw; width: 2.2cqw; height: 2.2cqw; display: grid; place-items: center; font-size: 1.1cqw; font-weight: 700; color: #ffe2a8; background: #1a1420; border-radius: 50%; box-shadow: 0 0 0 .14cqw #6a5430, 0 0 .6cqw rgba(255,200,100,.35); }
+
+  .areaname { right: 2cqw; top: 1.6cqw; text-align: right; font-size: 1.5cqw; letter-spacing: .18em; color: #e9dcc0; text-shadow: 0 0 .6cqw #000; }
+  .areaname small { display: block; font-size: .65em; letter-spacing: .12em; color: #a3987f; margin-top: .3cqw; }
+  .objective { right: 2cqw; top: 8cqw; text-align: right; font-size: 1.15cqw; letter-spacing: .08em; color: #d9b56a; text-shadow: 0 0 .5cqw #000; }
+  .objective span { display: block; font-family: var(--font-body); font-size: 1.25cqw; letter-spacing: 0; color: #d6cbb3; margin-top: .3cqw; }
+  .reticle { width: 1.2cqw; height: 1.2cqw; border-radius: 50%; border: .12cqw solid rgba(255,255,255,.6); box-shadow: 0 0 .4cqw rgba(0,0,0,.8); }
+  .reticle::after { content: ""; position: absolute; inset: 35%; border-radius: 50%; background: rgba(255,255,255,.9); }
+  .softlock { width: 4.4cqw; height: 4.4cqw; border-radius: 50%; border: .14cqw solid rgba(160,130,255,.85); box-shadow: 0 0 .8cqw rgba(139,92,246,.6), inset 0 0 .8cqw rgba(139,92,246,.35); transform: translate(-50%,-50%); animation: lock 1.6s ease-in-out infinite; }
+  @keyframes lock { 50% { transform: translate(-50%,-50%) scale(1.06); } }
+
+  .dmg { font-weight: 700; font-size: 1.7cqw; color: #fff; text-shadow: 0 0 .35cqw #000, 0 .12cqw 0 #000, 0 0 .9cqw rgba(255,255,255,.25); letter-spacing: .02em; font-variant-numeric: tabular-nums; animation: rise 1.4s ease-out infinite; }
+  .dmg.crit { font-size: 2.6cqw; color: #ffd24a; text-shadow: 0 0 .4cqw #000, 0 .16cqw 0 #6b3a00, 0 0 1.2cqw rgba(255,180,40,.5); }
+  .dmg.burn { color: #ff9a4a; }
+  .dmg.frost { color: #9cf1ff; }
+  @keyframes rise { 0% { transform: translateY(.6cqw); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-2.2cqw); opacity: 0; } }
+
+  .globe { width: 2.4cqw; height: 2.4cqw; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ff9a9a, #e0202c 45%, #6b0810); box-shadow: 0 0 1.4cqw rgba(255,60,70,.75), 0 0 3cqw rgba(255,40,50,.35); animation: bob 1.8s ease-in-out infinite; }
+  .globe::after { content: ""; position: absolute; left: 50%; bottom: -1.2cqw; width: 4cqw; height: 1.4cqw; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(255,50,60,.5), transparent 70%); filter: blur(.3cqw); }
+  @keyframes bob { 50% { transform: translateY(-.5cqw); } }
+
+  .bolt { height: .5cqw; border-radius: 1cqw; background: linear-gradient(90deg, transparent, #b89bff 40%, #e8f7ff); box-shadow: 0 0 .8cqw #8b5cf6, 0 0 2cqw rgba(139,92,246,.6); transform-origin: right center; }
+  .bolt::after { content: ""; position: absolute; right: -.7cqw; top: 50%; width: 1.5cqw; height: 1.5cqw; transform: translateY(-50%); border-radius: 50%; background: radial-gradient(circle, #fff, #b7e9ff 35%, rgba(139,92,246,0) 70%); }
+  .impact { border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.9), rgba(160,200,255,.6) 25%, rgba(139,92,246,.35) 45%, transparent 70%); filter: blur(.15cqw); animation: pop 1s ease-out infinite; }
+  @keyframes pop { 0% { transform: scale(.3); opacity: 1;} 100% { transform: scale(1.3); opacity: 0;} }
+  .orb { border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffffff, #9cf1ff 20%, #8b5cf6 55%, rgba(60,20,120,0) 72%); box-shadow: 0 0 2cqw rgba(139,92,246,.9), 0 0 6cqw rgba(139,92,246,.45); }
+  .orb::before { content: ""; position: absolute; right: 60%; top: 30%; height: 40%; width: 220%; border-radius: 50%; background: linear-gradient(90deg, transparent, rgba(139,92,246,.55) 60%, rgba(55,210,240,.8)); filter: blur(.4cqw); }
+  .nova { border-radius: 50%; border: .5cqw solid rgba(255,150,60,.85); box-shadow: 0 0 1.5cqw #ff7a1a, inset 0 0 2cqw rgba(255,120,30,.55), 0 0 4cqw rgba(255,90,20,.35); background: radial-gradient(circle, rgba(255,120,40,.35), transparent 60%); transform: translate(-50%,-50%) scaleY(.42); animation: novaExp 1.6s ease-out infinite; }
+  @keyframes novaExp { 0% { transform: translate(-50%,-50%) scaleY(.42) scale(.2); opacity: 1;} 100% { transform: translate(-50%,-50%) scaleY(.42) scale(1.15); opacity: 0;} }
+  .scorch { border-radius: 50%; transform: translate(-50%,-50%) scaleY(.42); background: radial-gradient(circle, rgba(0,0,0,.6), rgba(255,90,20,.35) 40%, transparent 70%); }
+  .strike { width: .5cqw; background: linear-gradient(180deg, transparent, #d8f4ff 30%, #8b5cf6); box-shadow: 0 0 1cqw #37d2f0, 0 0 3cqw rgba(139,92,246,.7); transform-origin: bottom center; animation: flick .5s steps(2) infinite; }
+  @keyframes flick { 50% { opacity: .35; } }
+  .loot { position: absolute; transform: translate(-50%, 0); text-align: center; }
+  .loot .beam { position: absolute; left: 50%; bottom: 0; width: 1cqw; height: 9cqw; transform: translateX(-50%); background: linear-gradient(180deg, transparent, var(--c)); filter: blur(.25cqw); opacity: .75; }
+  .loot .item { position: absolute; left: 50%; bottom: .3cqw; width: 1.4cqw; height: 1.4cqw; transform: translateX(-50%) rotate(45deg); background: var(--c); box-shadow: 0 0 1cqw var(--c); }
+  .loot .lbl { position: absolute; left: 50%; bottom: 2.3cqw; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-body); font-weight: 600; font-size: 1.15cqw; color: #0b0a10; background: var(--c); padding: .12cqw .6cqw; border-radius: .15cqw; box-shadow: 0 .2cqw .6cqw rgba(0,0,0,.6); }
+  .loot.legend .beam { width: 2cqw; height: 22cqw; opacity: .9; }
+  .loot.legend .lbl { font-size: 1.35cqw; }
+  .levelup { left: 50%; top: 22%; transform: translateX(-50%); text-align: center; font-size: 3cqw; letter-spacing: .3em; color: #ffe2a8; text-shadow: 0 0 1cqw rgba(255,200,100,.8), 0 0 3cqw rgba(255,160,40,.5), 0 .2cqw .3cqw #000; animation: pulseGold 2.4s ease-in-out infinite; }
+  .levelup small { display: block; font-size: .4em; letter-spacing: .2em; color: #d9b56a; margin-top: .6cqw; }
+  .levelup small b { color: #fff; font-weight: 600; }
+  @keyframes pulseGold { 50% { text-shadow: 0 0 1.6cqw rgba(255,200,100,1), 0 0 5cqw rgba(255,160,40,.7), 0 .2cqw .3cqw #000; } }
+  .bossbar { left: 50%; top: 2cqw; transform: translateX(-50%); width: 44cqw; text-align: center; }
+  .bossbar .name { font-size: 1.5cqw; letter-spacing: .22em; color: #ffd6a8; text-shadow: 0 0 .6cqw #000, 0 0 1.4cqw rgba(200,40,58,.6); }
+  .bossbar .bar { margin-top: .5cqw; height: 1.2cqw; background: #14060a; box-shadow: 0 0 0 .12cqw #4a3b2a, 0 0 0 .26cqw #0d0a10; padding: .15cqw; }
+  .bossbar .bar i { display: block; height: 100%; width: 62%; background: linear-gradient(180deg, #ff5b5b, #8f0b18); box-shadow: 0 0 .8cqw rgba(255,60,60,.5); }
+  .chat { left: 1.6cqw; bottom: 14cqw; font-family: var(--font-body); font-size: 1.15cqw; color: #c9bfae; text-shadow: 0 0 .4cqw #000; line-height: 1.35; max-width: 30cqw; }
+  .chat b { color: #d9b56a; font-weight: 600; }
+  .camnote { inset: 0; pointer-events: none; opacity: .0; transition: opacity .25s; }
+  .viewport:hover .camnote { opacity: 1; }
+  .camnote .third { position: absolute; border: 0 dashed rgba(255,255,255,.28); }
+  .camnote .lbl { position: absolute; font-family: var(--font-mono); font-size: 1cqw; letter-spacing: .06em; color: #fff; background: rgba(0,0,0,.7); padding: .2cqw .5cqw; border-radius: .2cqw; }
+  .hint { position: absolute; right: 1.2cqw; bottom: 1cqw; font-family: var(--font-mono); font-size: .95cqw; color: rgba(255,255,255,.45); letter-spacing: .06em; }
+  .title-logo { left: 50%; top: 24%; transform: translateX(-50%); text-align: center; }
+  .title-logo h4 { margin: 0; font-size: 9cqw; font-weight: 900; letter-spacing: .12em; line-height: 1; color: #e8dcc0;
+    background: linear-gradient(180deg, #fff3d6 0%, #d9b56a 45%, #8a5a20 60%, #ffd98a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 .4cqw .2cqw rgba(0,0,0,.9)) drop-shadow(0 0 2.5cqw rgba(139,92,246,.35)); }
+  .title-logo p { margin: 1cqw 0 0; font-size: 1.4cqw; letter-spacing: .5em; color: #b7a98a; }
+  .press { left: 50%; top: 70%; transform: translateX(-50%); font-size: 2cqw; letter-spacing: .45em; color: #d9b56a; text-shadow: 0 0 1cqw rgba(255,200,100,.35); animation: breathe 2.6s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .55; } }
+  .menu { left: 8cqw; top: 40%; display: grid; gap: .8cqw; }
+  .menu div { width: 20cqw; padding: .8cqw 0; text-align: center; font-size: 1.35cqw; letter-spacing: .25em; color: #d6cbb3; background: linear-gradient(180deg, #221b26, #120e15); box-shadow: 0 0 0 .12cqw #4a3b2a, 0 0 0 .24cqw #0d0a10; }
+  .menu div.primary { color: #ffe2a8; background: linear-gradient(180deg, #5a1a22, #2a0c10); box-shadow: 0 0 0 .12cqw #8a5a30, 0 0 0 .24cqw #0d0a10, 0 0 1.2cqw rgba(200,40,58,.35); }
+
+  /* ---------- inventory ---------- */
+  .panel { left: 50%; top: 50%; transform: translate(-50%,-50%); width: 82cqw; height: 78cqh; display: grid; grid-template-columns: 34cqw 1fr; gap: 1.2cqw; padding: 1.2cqw;
+    background: linear-gradient(180deg, #1a151d, #0f0c12); box-shadow: 0 0 0 .18cqw #4a3b2a, 0 0 0 .34cqw #0d0a10, 0 0 0 .44cqw #2a2230, 0 2cqw 5cqw rgba(0,0,0,.85); }
+  .panel::before { content: "INVENTORY"; position: absolute; left: 50%; top: -1.3cqw; transform: translateX(-50%); padding: .35cqw 2.4cqw; font-size: 1.3cqw; letter-spacing: .3em; color: #ffe2a8; background: linear-gradient(180deg, #4a1a22, #22090d); box-shadow: 0 0 0 .12cqw #8a5a30, 0 0 0 .24cqw #0d0a10; }
+  .paperdoll { position: relative; background: radial-gradient(ellipse at 50% 80%, rgba(139,92,246,.18), transparent 60%), #0a0810; box-shadow: inset 0 0 0 .1cqw #2a2230; }
+  .paperdoll .stand { position: absolute; left: 50%; bottom: 6%; width: 18cqw; height: 4cqw; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(90,60,200,.55), rgba(55,210,240,.15) 50%, transparent 72%); filter: blur(.3cqw); }
+  .paperdoll .ent { position: absolute; left: 50%; bottom: 12%; width: 10cqw; height: 20cqw; transform: translateX(-50%); }
+  .eq { position: absolute; width: 4.4cqw; height: 4.4cqw; background: #0d0b12; box-shadow: inset 0 0 0 .12cqw var(--rc, #2d2433), inset 0 0 1cqw #000; display: grid; place-items: center; }
+  .eq svg { width: 62%; height: 62%; }
+  .eq .tag { position: absolute; left: 0; right: 0; bottom: -1.5cqw; text-align: center; font-family: var(--font-mono); font-size: .75cqw; color: #7d7466; letter-spacing: .1em; }
+  .stats { position: absolute; left: 1cqw; right: 1cqw; bottom: 1cqw; font-family: var(--font-body); font-size: 1.05cqw; display: grid; grid-template-columns: 1fr 1fr; gap: .1cqw 1.4cqw; color: #bfb39c; }
+  .stats span { display: flex; justify-content: space-between; border-bottom: 1px solid #221c28; padding: .12cqw 0; }
+  .stats span b { color: #ffe2a8; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .grid { position: relative; display: grid; grid-template-columns: repeat(10, 1fr); gap: .3cqw; align-content: start; background: #0a0810; padding: .6cqw; box-shadow: inset 0 0 0 .1cqw #2a2230; }
+  .cell { aspect-ratio: 1; background: #120f16; box-shadow: inset 0 0 0 .08cqw #201a26; position: relative; }
+  .cell.i { background: radial-gradient(circle at 50% 40%, #241d2c, #0d0b12 70%); box-shadow: inset 0 0 0 .12cqw var(--rc), inset 0 0 .8cqw rgba(0,0,0,.8); }
+  .cell.i::after { content: ""; position: absolute; inset: 24%; background: var(--rc); opacity: .85; clip-path: polygon(50% 0, 100% 40%, 75% 100%, 25% 100%, 0 40%); }
+  .cell.i.w2 { grid-row: span 2; aspect-ratio: auto; }
+  .cell.hover { outline: .16cqw solid #ffe2a8; outline-offset: .1cqw; }
+  .tooltip { position: absolute; width: 22cqw; padding: 1cqw 1.1cqw 1.1cqw; font-family: var(--font-body); font-size: 1.05cqw; line-height: 1.35; color: #cfc6b4;
+    background: linear-gradient(180deg, #141019, #0b0910); box-shadow: 0 0 0 .12cqw var(--rc), 0 0 0 .26cqw #0d0a10, 0 1.2cqw 3cqw rgba(0,0,0,.85); z-index: 3; }
+  .tooltip h5 { margin: 0; font-family: var(--font-display); font-size: 1.35cqw; letter-spacing: .06em; color: var(--rc); font-weight: 700; }
+  .tooltip .kind { font-family: var(--font-mono); font-size: .8cqw; letter-spacing: .12em; text-transform: uppercase; color: #8e8577; margin: .2cqw 0 .6cqw; }
+  .tooltip .big { font-family: var(--font-display); font-size: 1.9cqw; color: #fff; font-weight: 700; line-height: 1.1; }
+  .tooltip .big small { display: block; font-family: var(--font-body); font-size: .5em; color: #9a9080; font-weight: 400; letter-spacing: 0; }
+  .tooltip ul { list-style: none; margin: .6cqw 0 0; padding: .6cqw 0 0; border-top: 1px solid #2a2230; }
+  .tooltip li { display: flex; justify-content: space-between; gap: 1cqw; color: #7fa0ff; }
+  .tooltip li.pas { color: #ff9a4a; font-style: italic; }
+  .tooltip li .d { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .tooltip li .d.up { color: #6fe08a; } .tooltip li .d.dn { color: #ff6b6b; } .tooltip li .d.eq { color: #7d7466; }
+  .tooltip .foot { margin-top: .7cqw; font-family: var(--font-mono); font-size: .78cqw; color: #7d7466; letter-spacing: .08em; }
+
+  /* ---------- component sheets ---------- */
+  .sheet { background: var(--board-2); border: 1px solid var(--line); border-radius: 4px; padding: 28px; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .sw { display: grid; gap: 8px; }
+  .sw i { display: block; height: 64px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+  .sw b { font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .sw span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); }
+  .type-spec { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 28px; }
+  .type-spec .t1 { font-family: var(--font-display); font-size: 40px; font-weight: 700; letter-spacing: .1em; color: var(--bone); line-height: 1.1; }
+  .type-spec .t2 { font-family: var(--font-display); font-size: 18px; font-weight: 600; letter-spacing: .18em; color: var(--gilt); margin-top: 8px; }
+  .type-spec .t3 { font-family: var(--font-body); font-size: 19px; color: var(--ink); margin-top: 10px; max-width: 42ch; }
+  .type-spec .t4 { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-dim); margin-top: 10px; letter-spacing: .04em; }
+  .role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+
+  .hudsheet { display: grid; grid-template-columns: 1fr; gap: 28px; }
+  .hudrow { position: relative; container-type: inline-size; height: 120px; background: linear-gradient(180deg, #17141e, #0f0d13); border-radius: 4px; }
+  .hudrow > * { position: absolute; }
+  .hudrow .skillbar { bottom: 1cqw; }
+  .hudrow .hud-orb { bottom: .8cqw; width: 9cqw; height: 9cqw; }
+  .hudrow .hud-orb.health { left: 22cqw; } .hudrow .hud-orb.energy { right: 22cqw; }
+  .states { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .state { container-type: inline-size; display: grid; place-items: center; gap: 10px; padding: 16px 10px 12px; background: #0f0d13; border-radius: 4px; }
+  .state .slot { position: relative; width: 22cqw; height: 22cqw; }
+  .state .slot .key { font-size: 4.4cqw; } .state .slot.cd::after { font-size: 7cqw; }
+  .state span { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim); text-align: center; letter-spacing: .04em; }
+
+  .lineup { position: relative; container-type: inline-size; height: 300px; background: linear-gradient(180deg, #100e15 0%, #1b1822 70%, #262230 100%); border-radius: 4px; overflow: hidden; }
+  .lineup .ent { position: absolute; bottom: 20%; }
+  .lineup .cap { position: absolute; bottom: 6%; transform: translateX(-50%); text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); letter-spacing: .04em; white-space: nowrap; }
+  .lineup .cap small { display: block; color: var(--ink-dim); font-size: 10.5px; }
+  .lineup .h { position: absolute; left: 0; right: 0; bottom: 20%; border-top: 1px dashed rgba(255,255,255,.12); }
+  .lineup .h.top { bottom: calc(20% + 120px); }
+  .lineup .h .lbl { position: absolute; right: 12px; top: -18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); }
+
+  .vfx { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .vcard { background: #0f0d13; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .vcard .stage { position: relative; height: 170px; container-type: inline-size; overflow: hidden; background: radial-gradient(ellipse at 50% 100%, #2a2532, #0c0a10 70%); }
+  .vcard .stage > * { position: absolute; }
+  .vcard .body { padding: 14px 16px 16px; }
+  .vcard h4 { margin: 0; font-family: var(--font-display); font-size: 15px; letter-spacing: .12em; color: var(--bone); font-weight: 600; }
+  .vcard .kind { font-family: var(--font-mono); font-size: 11px; color: var(--gilt); letter-spacing: .1em; text-transform: uppercase; margin: 4px 0 8px; }
+  .vcard p { margin: 0; font-size: 15px; color: var(--ink); line-height: 1.4; }
+  .vcard p b { color: var(--ink); font-weight: 600; }
+  .stage .floor { left: 50%; bottom: 8%; width: 60cqw; height: 16cqw; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.6), transparent 70%); }
+  .stage .bolt { width: 30cqw; height: 1.6cqw; left: 20cqw; top: 46%; animation: shoot 1.2s linear infinite; }
+  @keyframes shoot { 0% { transform: translateX(-10cqw); opacity: 0; } 20% { opacity: 1;} 80% { opacity: 1;} 100% { transform: translateX(40cqw); opacity: 0;} }
+  .stage .orb { width: 16cqw; height: 16cqw; left: 40cqw; top: 30%; animation: drift 2.4s linear infinite; }
+  @keyframes drift { 0% { transform: translateX(-24cqw);} 100% { transform: translateX(24cqw);} }
+  .stage .nova { left: 50%; top: 62%; width: 60cqw; height: 60cqw; border-width: 1.5cqw; }
+  .stage .scorch { left: 50%; top: 62%; width: 50cqw; height: 50cqw; }
+  .frost { border-radius: 50%; transform: translate(-50%,-50%) scaleY(.42); background: radial-gradient(circle, rgba(200,245,255,.55), rgba(80,190,230,.35) 45%, rgba(40,120,200,.1) 65%, transparent 72%); box-shadow: 0 0 3cqw rgba(120,220,255,.45); border: .3cqw solid rgba(180,240,255,.6); }
+  .frost i { position: absolute; bottom: 45%; width: 2.5cqw; height: 9cqw; background: linear-gradient(180deg, #fff, #9ce7ff 40%, rgba(80,180,240,.2)); clip-path: polygon(50% 0, 100% 100%, 0 100%); transform: scaleY(2.4) rotate(var(--r, 0deg)); opacity: .9; }
+  .stage .frost { left: 50%; top: 66%; width: 62cqw; height: 62cqw; }
+  .rift-trail { left: 20%; top: 30%; width: 60%; height: 40%; }
+  .rift-trail .ghost { position: absolute; bottom: 0; width: 14cqw; height: 34cqw; opacity: var(--o); left: var(--x); }
+  .rift-trail .ghost svg { width: 100%; height: 100%; fill: rgba(139,92,246,.35); filter: drop-shadow(0 0 1cqw #37d2f0); }
+  .rift-trail .ghost.solid svg { fill: #1c1826; filter: drop-shadow(0 0 1.2cqw #8b5cf6); }
+  .rift-line { left: 24%; right: 24%; top: 52%; height: .8cqw; background: linear-gradient(90deg, transparent, #37d2f0, #b89bff, transparent); filter: blur(.3cqw); }
+  .stage .strike { bottom: 20%; height: 70%; }
+  .stage .cat-glow { left: 50%; bottom: 8%; width: 90cqw; height: 24cqw; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(139,92,246,.7), rgba(55,210,240,.25) 45%, transparent 70%); filter: blur(1cqw); animation: flick .5s steps(2) infinite; }
+
+  .rarity { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .rcard { position: relative; container-type: inline-size; height: 210px; border-radius: 4px; overflow: hidden; background: radial-gradient(ellipse at 50% 100%, #2a2532, #0c0a10 70%); }
+  .rcard .loot { left: 50%; bottom: 22%; }
+  .rcard .cap { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim); letter-spacing: .06em; }
+  .rcard .cap b { display: block; color: var(--c); font-weight: 500; font-size: 12.5px; }
+
+  .debug { font-family: var(--font-mono); font-size: 12px; color: #c9c2b4; background: rgba(8,7,12,.92); border: 1px solid #3a3342; border-radius: 4px; width: 320px; padding: 10px 12px; }
+  .debug h6 { margin: 0 0 8px; font-size: 11px; letter-spacing: .14em; color: var(--gilt); font-weight: 500; display: flex; justify-content: space-between; }
+  .debug h6 span { color: #6fe08a; }
+  .debug .row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 10px; padding: 4px 0; border-top: 1px solid #1f1a26; }
+  .debug .row input[type=range] { width: 100%; accent-color: var(--arcane); }
+  .debug .row .tog { justify-self: end; width: 34px; height: 18px; border-radius: 10px; background: #2a2433; position: relative; }
+  .debug .row .tog.on { background: #5b3fc4; } .debug .row .tog::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #ddd; } .debug .row .tog.on::after { left: 18px; }
+  .debug .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .debug .btns span { padding: 4px 8px; background: #1a1522; border: 1px solid #2f2839; border-radius: 3px; color: #d6cbb3; }
+  .debug .val { color: #fff; text-align: right; font-variant-numeric: tabular-nums; }
+  .debugwrap { display: grid; grid-template-columns: 320px 1fr; gap: 28px; align-items: start; }
+
+  .principles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 40px; }
+  .principles div { font-size: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .principles b { font-family: var(--font-display); font-weight: 600; letter-spacing: .06em; color: var(--bone); font-size: 14px; display: block; margin-bottom: 4px; }
+  .foot { margin-top: 80px; border-top: 1px solid var(--line); padding-top: 24px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); line-height: 1.7; }
+  @media (max-width: 900px) { .notes, .swatches, .states, .vfx, .rarity, .principles, .type-spec, .debugwrap { grid-template-columns: 1fr 1fr; } .masthead { grid-template-columns: 1fr; } .meta { text-align: left; } }
+  @media (max-width: 600px) { .notes, .swatches, .states, .vfx, .rarity, .principles, .type-spec, .debugwrap { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- player, back view, cloak + staff -->
+    <symbol id="sil-player" viewBox="0 0 100 200">
+      <path class="rim" d="M50 8 l14 8 v14 l-14 8 -14 -8 v-14z"/>
+      <path d="M50 8 l14 8 v14 l-14 8 -14 -8 v-14z"/>
+      <path d="M30 40 h40 l6 22 l-4 8 l14 120 h-72 l14 -120 l-4 -8z"/>
+      <path class="rim" d="M30 40 h40 l6 22 l-4 8 l14 120"/>
+      <path d="M22 60 l-10 60 l8 4 l14 -58z"/>
+      <path d="M78 60 l10 60 l-8 4 l-14 -58z"/>
+      <rect x="86" y="20" width="4" height="170" />
+      <circle cx="88" cy="16" r="9" fill="#37d2f0" style="filter:drop-shadow(0 0 6px #37d2f0)"/>
+      <circle cx="88" cy="16" r="4" fill="#fff"/>
+    </symbol>
+    <symbol id="sil-ghoul" viewBox="0 0 100 200">
+      <path class="rim" d="M40 70 q-6 -30 18 -34 q26 6 12 40 l-6 6 q22 30 6 110 h-40 q-14 -70 6 -112 z"/>
+      <path d="M40 70 q-6 -30 18 -34 q26 6 12 40 l-6 6 q22 30 6 110 h-40 q-14 -70 6 -112 z"/>
+      <path d="M32 78 l-30 70 l8 6 l32 -62z"/>
+      <path d="M76 78 l26 74 l-8 6 l-30 -66z"/>
+    </symbol>
+    <symbol id="sil-knight" viewBox="0 0 100 200">
+      <path class="rim" d="M35 20 h30 v26 h-30z M20 46 h60 l10 40 l-8 110 h-64 l-8 -110z"/>
+      <path d="M35 20 h30 v26 h-30z M20 46 h60 l10 40 l-8 110 h-64 l-8 -110z"/>
+      <path d="M2 60 h24 v70 l-12 14 l-12 -14z"/>
+      <rect x="84" y="10" width="6" height="150"/>
+    </symbol>
+    <symbol id="sil-cultist" viewBox="0 0 100 200">
+      <path class="rim" d="M50 10 q18 8 14 34 l-14 10 -14 -10 q-4 -26 14 -34z M36 54 h28 l6 30 l16 114 h-72 l16 -114z"/>
+      <path d="M50 10 q18 8 14 34 l-14 10 -14 -10 q-4 -26 14 -34z M36 54 h28 l6 30 l16 114 h-72 l16 -114z"/>
+      <rect x="10" y="30" width="4" height="150"/>
+      <circle cx="12" cy="26" r="7" fill="#7ed957" style="filter:drop-shadow(0 0 6px #7ed957)"/>
+    </symbol>
+    <symbol id="sil-wraith" viewBox="0 0 100 200">
+      <path class="rim" d="M50 6 q22 10 18 40 l-18 12 -18 -12 q-4 -30 18 -40z M28 58 h44 l8 40 l-6 30 l10 30 l-14 -6 l-6 30 l-12 -18 l-10 20 l-6 -34 l-16 10 l10 -32 l-8 -30z"/>
+      <path d="M50 6 q22 10 18 40 l-18 12 -18 -12 q-4 -30 18 -40z M28 58 h44 l8 40 l-6 30 l10 30 l-14 -6 l-6 30 l-12 -18 l-10 20 l-6 -34 l-16 10 l10 -32 l-8 -30z"/>
+      <circle cx="42" cy="30" r="4" fill="#9cf1ff"/><circle cx="58" cy="30" r="4" fill="#9cf1ff"/>
+    </symbol>
+    <symbol id="sil-brute" viewBox="0 0 140 200">
+      <path class="rim" d="M60 30 h30 v20 h-30z M20 50 h110 l14 60 l-10 90 h-118 l-10 -90z"/>
+      <path d="M60 30 h30 v20 h-30z M20 50 h110 l14 60 l-10 90 h-118 l-10 -90z"/>
+      <path d="M0 70 l20 -10 l20 90 l-16 6z"/>
+      <path d="M140 70 l-20 -10 l-20 90 l16 6z"/>
+      <path d="M118 0 h20 l6 60 h-32z"/>
+    </symbol>
+    <symbol id="sil-necro" viewBox="0 0 100 200">
+      <path class="rim" d="M42 4 l8 -4 l8 4 l6 26 l-14 12 l-14 -12z M34 44 h32 l8 40 l14 116 h-76 l14 -116z"/>
+      <path d="M42 4 l8 -4 l8 4 l6 26 l-14 12 l-14 -12z M34 44 h32 l8 40 l14 116 h-76 l14 -116z"/>
+      <rect x="88" y="0" width="4" height="180"/>
+      <path d="M78 0 l12 -14 l12 14 l-12 8z" fill="#b14dff" style="filter:drop-shadow(0 0 6px #b14dff)"/>
+    </symbol>
+    <symbol id="sil-boss" viewBox="0 0 240 240">
+      <path d="M100 50 h40 v40 h-40z M70 90 h100 l20 60 l-10 90 h-120 l-10 -90z"/>
+      <path d="M0 40 l70 60 l-10 80 l-30 -30 l-20 -60z"/>
+      <path d="M240 40 l-70 60 l10 80 l30 -30 l20 -60z"/>
+      <path d="M100 50 l-30 -50 l40 40z M140 50 l30 -50 l-40 40z"/>
+      <circle cx="112" cy="70" r="5" fill="#ff5a3c"/><circle cx="128" cy="70" r="5" fill="#ff5a3c"/>
+    </symbol>
+    <!-- ability glyphs -->
+    <symbol id="g-bolt" viewBox="0 0 40 40"><path d="M6 34 L34 6" stroke="#b89bff" stroke-width="5" stroke-linecap="round"/><circle cx="32" cy="8" r="6" fill="#e8f7ff"/></symbol>
+    <symbol id="g-orb" viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="#8b5cf6"/><circle cx="16" cy="16" r="6" fill="#dff6ff"/></symbol>
+    <symbol id="g-nova" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#ff7a1a" stroke-width="4"/><circle cx="20" cy="20" r="6" fill="#ffd27a"/></symbol>
+    <symbol id="g-frost" viewBox="0 0 40 40"><path d="M20 4v32M4 20h32M9 9l22 22M31 9L9 31" stroke="#9cf1ff" stroke-width="3.5" stroke-linecap="round"/></symbol>
+    <symbol id="g-rift" viewBox="0 0 40 40"><path d="M6 20 L20 6 L20 14 L34 20 L20 26 L20 34 Z" fill="#37d2f0"/><path d="M6 20 L14 20" stroke="#b89bff" stroke-width="4"/></symbol>
+    <symbol id="g-cat" viewBox="0 0 40 40"><path d="M22 2 L10 22 h9 L14 38 L30 16 h-9 L26 2z" fill="#dff6ff" stroke="#8b5cf6" stroke-width="2"/></symbol>
+    <symbol id="g-potion" viewBox="0 0 40 40"><path d="M15 4h10v8l7 10v12a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V22l7-10z" fill="#c8283a"/><rect x="14" y="2" width="12" height="5" fill="#d9b56a"/></symbol>
+    <symbol id="g-gear" viewBox="0 0 40 40"><path d="M20 4l4 6h8l2 8-6 4 2 8-8 2-4-6h-8l-2-8 6-4-2-8z" fill="#8e8577"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">Style board · pre-production · for review before build</div>
+      <h1>Necro<em>mantle</em></h1>
+      <p>An original third-person gothic action RPG. Diablo-style rhythm, hordes, and loot, seen from a GTA/RDR-style camera. Working title. Every frame below is a paint-over of the intended composition; HUD, inventory, and loot components are real CSS meant to carry straight into the game.</p>
+    </div>
+    <div class="meta">
+      <div><b>Camera</b> over-the-shoulder · 6.5–9 m · FOV 60–68°</div>
+      <div><b>Class</b> Arcane Sorcerer (one class, made excellent)</div>
+      <div><b>Stack</b> Babylon.js 9 · WebGPU → WebGL2 · Vite · TS</div>
+      <div><b>Target</b> 60 fps · 1920×1080 · 20–30 enemies</div>
+      <div><b>Hover any frame</b> to see camera rules</div>
+    </div>
+  </header>
+
+  <!-- ================= PALETTE & TYPE ================= -->
+  <section>
+    <div class="sec-head"><span class="num">A</span><h2>Palette &amp; type</h2></div>
+    <p class="lede">Dark fantasy, not grayscale. The world sits in cool desaturated stone; everything that matters in play (magic, fire, blood, loot) owns a saturated hue. Gold is reserved for the interface and legendary moments.</p>
+    <div class="sheet">
+      <div class="role">World</div>
+      <div class="swatches">
+        <div class="sw"><i style="background:#0b0a10"></i><b>Void</b><span>#0B0A10 · shadow floor</span></div>
+        <div class="sw"><i style="background:#2a2430"></i><b>Stone</b><span>#2A2430 · walls</span></div>
+        <div class="sw"><i style="background:#3a3340"></i><b>Stone light</b><span>#3A3340 · lit faces</span></div>
+        <div class="sw"><i style="background:#1a1f36"></i><b>Night sky</b><span>#1A1F36 · horizon</span></div>
+        <div class="sw"><i style="background:#cdc3ae"></i><b>Bone</b><span>#CDC3AE · UI text</span></div>
+        <div class="sw"><i style="background:#d9b56a"></i><b>Gilt</b><span>#D9B56A · UI accent</span></div>
+      </div>
+      <div class="role" style="margin-top:24px">Gameplay-critical</div>
+      <div class="swatches">
+        <div class="sw"><i style="background:#8b5cf6"></i><b>Arcane</b><span>#8B5CF6 · player magic</span></div>
+        <div class="sw"><i style="background:#37d2f0"></i><b>Arcane core</b><span>#37D2F0 · hot centers</span></div>
+        <div class="sw"><i style="background:#ff7a1a"></i><b>Fire</b><span>#FF7A1A · nova, burn</span></div>
+        <div class="sw"><i style="background:#b3121f"></i><b>Health</b><span>#B3121F · orb, globes</span></div>
+        <div class="sw"><i style="background:#d62828"></i><b>Enemy HP</b><span>#D62828 · bars only</span></div>
+        <div class="sw"><i style="background:#ff9a1e"></i><b>Legendary</b><span>#FF9A1E · beams, elites</span></div>
+      </div>
+      <div class="type-spec">
+        <div>
+          <div class="role">Display &amp; HUD numerals · Cinzel</div>
+          <div class="t1">CRYPT OF THE HOLLOW KING</div>
+          <div class="t2">LEVEL 7 · ARCANE SORCERER</div>
+          <div class="t4">Carved Roman capitals. Tracking +8% on titles, +18% on labels. Never below 12 px on screen.</div>
+        </div>
+        <div>
+          <div class="role">Body, tooltips, dialogue · Crimson Pro</div>
+          <div class="t3">The gate has not opened since the plague year. Whatever the sexton buried beneath the cathedral, he buried in a hurry.</div>
+          <div class="t4">Utility: IBM Plex Mono for debug panels, slot tags, and dev overlays only. Never in the player-facing HUD.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STORYBOARD ================= -->
+  <section>
+    <div class="sec-head"><span class="num">B</span><h2>Storyboard</h2></div>
+    <p class="lede">Seven moments in the order a new player meets them. Frames are numbered because the sequence is the tension curve: quiet, ambush, swarm, payoff, management, boss.</p>
+
+    <!-- 1 TITLE -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>01</span>TITLE</h3><div class="cam">static · logo over the ridge · cathedral is the only landmark</div></div>
+      <div class="viewport" id="f1">
+        <div class="layer sky"></div>
+        <div class="moon" style="left:70%;top:14%"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+          <defs><linearGradient id="ridge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1d30"/><stop offset="1" stop-color="#0a0b14"/></linearGradient></defs>
+          <path d="M0 620 L180 560 L320 590 L480 500 L620 540 L760 470 L900 520 L1040 460 L1200 500 L1400 430 L1600 480 L1600 900 L0 900Z" fill="url(#ridge)"/>
+          <path d="M1040 460 l12 -60 l8 -160 l10 -90 l10 90 l8 160 l12 60z" fill="#0c0d18"/>
+          <path d="M1000 470 l10 -110 l8 -50 l8 50 l10 110z M1100 470 l10 -110 l8 -50 l8 50 l10 110z" fill="#0c0d18"/>
+          <path d="M0 720 L200 690 L420 720 L600 680 L800 700 L1000 670 L1250 700 L1600 660 L1600 900 L0 900Z" fill="#07080f"/>
+          <path d="M120 700 q40 -120 60 -40 q30 -80 50 10 z M1320 690 q30 -90 50 -30 q20 -50 40 20z" fill="#07080f"/>
+          <circle cx="1068" cy="440" r="6" fill="#ffb64a" opacity=".9"/><circle cx="1068" cy="440" r="22" fill="#ffb64a" opacity=".15"/>
+        </svg>
+        <div class="fog" style="top:52%"></div>
+        <div class="title-logo"><h4>NECROMANTLE</h4><p>AN ARCANE SORCERER'S DESCENT</p></div>
+        <div class="press">PRESS ANY KEY</div>
+        <div class="layer vig"></div>
+        <div class="hint">frame 01 · title</div>
+      </div>
+      <div class="notes">
+        <div><b>Composition</b>Logo occupies the upper third; the cathedral is a small warm light on the horizon so the player has a destination before they have a controller.</div>
+        <div><b>Type</b>Gold-gradient Cinzel with a violet halo. The single flourish on the page; menus below it are flat carved plates.</div>
+        <div><b>Motion</b>Fog drifts, the prompt breathes. Nothing else moves. Idle state should feel cold, not dead.</div>
+      </div>
+    </div>
+
+    <!-- 2 VILLAGE EXPLORATION -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>02</span>HOLLOWMERE AT NIGHT · EXPLORATION CAMERA</h3><div class="cam">distance 6.5 m · pitch 18° · FOV 60° · player 30% of frame height</div></div>
+      <div class="viewport" id="f2">
+        <div class="layer sky"></div>
+        <div class="moon"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="bld" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1922"/><stop offset="1" stop-color="#0d0b11"/></linearGradient>
+            <linearGradient id="bldR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0d0b11"/><stop offset="1" stop-color="#2a2331"/></linearGradient>
+          </defs>
+          <!-- distant cathedral -->
+          <path d="M1180 486 l16 -110 l10 -220 l12 -80 l12 80 l10 220 l16 110z" fill="#0f1020"/>
+          <path d="M1130 486 l12 -140 l10 -50 l10 50 l12 140z M1270 486 l12 -140 l10 -50 l10 50 l12 140z" fill="#0f1020"/>
+          <rect x="1120" y="440" width="220" height="60" fill="#0f1020"/>
+          <!-- left house, big -->
+          <path d="M-40 500 L120 330 L300 500 L300 900 L-40 900Z" fill="url(#bld)"/>
+          <path d="M300 500 L360 470 L360 900 L300 900Z" fill="url(#bldR)"/>
+          <rect x="170" y="560" width="70" height="90" fill="#ffb347" opacity=".85"/>
+          <rect x="60" y="600" width="50" height="70" fill="#ffb347" opacity=".55"/>
+          <!-- right house -->
+          <path d="M1000 520 L1130 380 L1290 520 L1290 900 L1000 900Z" fill="#131017"/>
+          <path d="M960 520 L1000 520 L1000 900 L960 900Z" fill="#1c1822"/>
+          <rect x="1090" y="600" width="60" height="80" fill="#ffb347" opacity=".75"/>
+          <!-- well, cart, fence -->
+          <path d="M560 640 h120 v70 h-120z M540 640 l60 -60 h40 l60 60z" fill="#100d14"/>
+          <path d="M760 700 h150 l20 -50 h-120z" fill="#120f16"/><circle cx="790" cy="720" r="22" fill="#0d0b11"/><circle cx="890" cy="720" r="22" fill="#0d0b11"/>
+          <path d="M330 720 h600 v12 h-600z M340 690 v60 M400 690 v60 M460 690 v60 M520 690 v60" stroke="#0d0b11" stroke-width="10" fill="#0d0b11"/>
+          <!-- lantern post -->
+          <rect x="705" y="430" width="8" height="280" fill="#0a0810"/><rect x="690" y="420" width="38" height="46" fill="#0a0810"/><rect x="698" y="428" width="22" height="30" fill="#ffc46a"/>
+          <!-- npc silhouette -->
+          <path d="M1060 730 q-10 -40 12 -40 q22 0 12 40 l12 80 h-48z" fill="#0d0b11"/>
+        </svg>
+        <div class="fog" style="top:44%"></div>
+        <div class="layer ground"></div>
+        <div class="warm" style="left:37%;top:56%;width:24cqw;height:12cqw"></div>
+        <div class="warm" style="left:3%;top:64%;width:18cqw;height:10cqw;opacity:.7"></div>
+        <div class="warm" style="left:62%;top:66%;width:16cqw;height:9cqw;opacity:.6"></div>
+        <div class="ent player" style="left:30%;bottom:9%;width:11cqw;height:30cqw;transform:translateX(-50%)"><svg><use href="#sil-player"/></svg></div>
+        <div class="areaname">HOLLOWMERE<small>NIGHT · SAFE</small></div>
+        <div class="objective">THE SEXTON'S KEY<span>Speak with Maren at the forge</span></div>
+        <div class="chat"><b>Maren:</b> You'll want a sturdier staff before you go up that road. The dead don't care how clever you are.</div>
+        <div class="reticle" style="left:calc(50% - .6cqw);top:calc(46% - .6cqw)"></div>
+        <div class="hud-orb health" style="--v:88%"><div class="fill"></div><div class="gloss"></div><div class="val">412</div></div>
+        <div class="hud-orb energy" style="--v:100%"><div class="fill"></div><div class="gloss"></div><div class="val">100</div></div>
+        <div class="skillbar">
+          <div class="slot ready"><svg><use href="#g-bolt"/></svg><div class="key">LMB</div></div>
+          <div class="slot ready"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div>
+          <div class="slot ready"><svg><use href="#g-rift"/></svg><div class="key">1</div></div>
+          <div class="slot ready"><svg><use href="#g-nova"/></svg><div class="key">2</div></div>
+          <div class="slot locked"><svg><use href="#g-frost"/></svg><div class="key">3</div></div>
+          <div class="slot locked"><svg><use href="#g-cat"/></svg><div class="key">4</div></div>
+          <div class="slot divider"></div>
+          <div class="slot ready"><svg><use href="#g-potion"/></svg><div class="key">Q</div></div>
+        </div>
+        <div class="xpbar" style="--xp:38%"><i></i><div class="lvl">4</div></div>
+        <div class="layer vig"></div>
+        <div class="camnote">
+          <div class="third" style="left:33.3%;top:0;bottom:0;border-left-width:1px"></div>
+          <div class="third" style="left:66.6%;top:0;bottom:0;border-left-width:1px"></div>
+          <div class="third" style="top:33.3%;left:0;right:0;border-top-width:1px"></div>
+          <div class="third" style="top:66.6%;left:0;right:0;border-top-width:1px"></div>
+          <div class="lbl" style="left:31%;top:58%">player on left third · shoulder offset 0.9 m</div>
+          <div class="lbl" style="left:50%;top:40%;transform:translateX(-50%)">aim point · slightly above horizon</div>
+          <div class="lbl" style="right:2%;bottom:16%">right ⅔ of frame = readable world</div>
+        </div>
+        <div class="hint">frame 02 · exploration</div>
+      </div>
+      <div class="notes">
+        <div><b>Scale</b>Houses are two stories tall against a ~1.9 m player and the well is chest-height on a kneeling giant. Nothing in Hollowmere is built for humans.</div>
+        <div><b>Light</b>Cool moon key from upper right, warm sodium-orange windows and one lantern pool on the road. Fog band sits at the horizon so the cathedral reads as far.</div>
+        <div><b>HUD at rest</b>Both orbs full, four abilities unlocked, two greyed. Objective and area name live top-right in gilt Cinzel; dialogue bottom-left in Crimson Pro.</div>
+      </div>
+    </div>
+
+    <!-- 3 FIRST AMBUSH -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>03</span>THE ROAD TO THE CATHEDRAL · FIRST AMBUSH</h3><div class="cam">distance 7.5 m · pitch 24° · FOV 64° · 8 ghouls · soft-lock on nearest</div></div>
+      <div class="viewport" id="f3">
+        <div class="layer sky" style="background:radial-gradient(60% 50% at 78% 22%, rgba(190,205,235,.2), transparent 60%), linear-gradient(180deg,#05070f 0%,#0b0f1e 40%,#151a30 52%,#1a1a26 55%)"></div>
+        <div class="moon" style="left:80%;top:8%;width:7cqw;height:7cqw"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+          <!-- dead trees -->
+          <path d="M120 720 l20 -260 l-60 -90 l70 60 l10 -120 l30 90 l50 -70 l-40 110 l20 60 l-30 220z" fill="#08080d"/>
+          <path d="M1420 700 l16 -220 l-50 -60 l58 40 l12 -140 l24 100 l60 -60 l-50 100 l10 60 l-30 180z" fill="#08080d"/>
+          <!-- ruined shrine -->
+          <path d="M700 480 h180 v120 h-180z M690 470 l90 -70 l90 70z" fill="#0f0d14"/>
+          <rect x="720" y="520" width="20" height="80" fill="#050409"/><rect x="840" y="520" width="20" height="80" fill="#050409"/>
+          <!-- gravestones -->
+          <path d="M300 660 q0 -40 30 -40 q30 0 30 40 v40 h-60z M420 690 q0 -30 22 -30 q22 0 22 30 v30 h-44z M1150 650 h50 v70 h-50z M1240 670 q0 -30 25 -30 q25 0 25 30 v40 h-50z" fill="#0d0b11"/>
+          <!-- stone wall -->
+          <path d="M-20 640 h520 v40 h-520z M1080 640 h540 v40 h-540z" fill="#0f0d14"/>
+        </svg>
+        <div class="fog" style="top:46%"></div>
+        <div class="layer ground" style="background:radial-gradient(60% 40% at 50% 100%, #2c2a2e, transparent 70%), linear-gradient(180deg,#14151c 0%,#1d1c22 30%,#292630 100%)"></div>
+        <div class="warm" style="left:38%;top:44%;width:14cqw;height:8cqw;opacity:.5;background:radial-gradient(circle, rgba(120,220,120,.35), transparent 70%)"></div>
+        <div class="crowd" data-crowd="ambush"></div>
+        <div class="ent player" style="left:31%;bottom:9%;width:9.5cqw;height:26cqw;transform:translateX(-50%)"><svg><use href="#sil-player"/></svg></div>
+        <div class="bolt" style="left:36%;top:52%;width:15cqw;transform:rotate(-14deg)"></div>
+        <div class="impact" style="left:57%;top:41%;width:5cqw;height:5cqw"></div>
+        <div class="softlock" style="left:60%;top:44%"></div>
+        <div class="dmg" style="left:58%;top:36%">218</div>
+        <div class="dmg" style="left:66%;top:47%;animation-delay:.6s">184</div>
+        <div class="reticle" style="left:calc(50% - .6cqw);top:calc(44% - .6cqw)"></div>
+        <div class="areaname">SEXTON'S ROAD<small>WILDERNESS</small></div>
+        <div class="hud-orb health" style="--v:76%"><div class="fill"></div><div class="gloss"></div><div class="val">356</div></div>
+        <div class="hud-orb energy" style="--v:46%"><div class="fill"></div><div class="gloss"></div><div class="val">46</div></div>
+        <div class="skillbar">
+          <div class="slot ready"><svg><use href="#g-bolt"/></svg><div class="key">LMB</div></div>
+          <div class="slot noenergy"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div>
+          <div class="slot ready"><svg><use href="#g-rift"/></svg><div class="key">1</div></div>
+          <div class="slot cd" data-cd="6" style="--sweep:55%"><svg><use href="#g-nova"/></svg><div class="key">2</div></div>
+          <div class="slot locked"><svg><use href="#g-frost"/></svg><div class="key">3</div></div>
+          <div class="slot locked"><svg><use href="#g-cat"/></svg><div class="key">4</div></div>
+          <div class="slot divider"></div>
+          <div class="slot ready"><svg><use href="#g-potion"/></svg><div class="key">Q</div></div>
+        </div>
+        <div class="xpbar" style="--xp:52%"><i></i><div class="lvl">4</div></div>
+        <div class="layer vig"></div>
+        <div class="camnote">
+          <div class="lbl" style="left:56%;top:30%">soft-lock ring: nearest to reticle, within 25°</div>
+          <div class="lbl" style="left:31%;top:62%;transform:translateX(-50%)">player shrinks to 26% as camera pulls to 7.5 m</div>
+          <div class="lbl" style="right:2%;bottom:16%">bolt curves ≤ 8° toward locked target</div>
+        </div>
+        <div class="hint">frame 03 · ambush</div>
+      </div>
+      <div class="notes">
+        <div><b>Enemy readability</b>Ghouls are near-black with a faint rust rim so they separate from the mid-value ground. Red bars only appear once damaged.</div>
+        <div><b>Bolt</b>A violet streak with a white-cyan head, larger than a bullet, smaller than the player's hand. Impact is a quick blue-white pop with a ground decal.</div>
+        <div><b>Energy language</b>Astral Orb is desaturated and blue-tinted at 46 energy: not a cooldown, a "can't afford" state. The player learns the generate-then-spend rhythm from the bar alone.</div>
+      </div>
+    </div>
+
+    <!-- 4 HEAVY COMBAT -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>04</span>CATHEDRAL NAVE · HEAVY COMBAT</h3><div class="cam">distance 9 m · pitch 30° · FOV 68° · 24 enemies + elite · Flame Nova just fired</div></div>
+      <div class="viewport" id="f4">
+        <div class="layer" style="background:linear-gradient(180deg,#07060b 0%,#0e0b14 45%,#14101a 55%)"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="col" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0a0810"/><stop offset=".5" stop-color="#2a2331"/><stop offset="1" stop-color="#0a0810"/></linearGradient>
+            <linearGradient id="shaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(150,170,230,.35)"/><stop offset="1" stop-color="rgba(150,170,230,0)"/></linearGradient>
+            <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b3fc4"/><stop offset=".5" stop-color="#c8283a"/><stop offset="1" stop-color="#37d2f0"/></linearGradient>
+          </defs>
+          <!-- far rose window + altar -->
+          <path d="M700 60 q100 -60 200 0 v380 h-200z" fill="url(#glass)" opacity=".55"/>
+          <path d="M700 60 q100 -60 200 0 v380 h-200z" fill="none" stroke="#06050a" stroke-width="14"/>
+          <path d="M800 40 v400 M700 250 h200 M720 140 h160 M720 360 h160" stroke="#06050a" stroke-width="10"/>
+          <!-- light shafts -->
+          <path d="M760 70 L560 900 L1040 900 L840 70z" fill="url(#shaft)"/>
+          <!-- columns, huge, receding -->
+          <rect x="-40" y="-100" width="170" height="1000" fill="url(#col)"/>
+          <rect x="1470" y="-100" width="170" height="1000" fill="url(#col)"/>
+          <rect x="250" y="20" width="110" height="720" fill="url(#col)"/>
+          <rect x="1240" y="20" width="110" height="720" fill="url(#col)"/>
+          <rect x="440" y="120" width="70" height="560" fill="url(#col)"/>
+          <rect x="1090" y="120" width="70" height="560" fill="url(#col)"/>
+          <rect x="560" y="200" width="45" height="440" fill="url(#col)"/>
+          <rect x="995" y="200" width="45" height="440" fill="url(#col)"/>
+          <!-- arches -->
+          <path d="M250 20 q110 -140 260 0 M440 120 q80 -100 165 0 M1240 20 q-110 -140 -260 0 M1090 120 q-80 -100 -165 0" stroke="#1a1520" stroke-width="26" fill="none"/>
+          <!-- banners -->
+          <path d="M380 60 h60 v260 l-30 40 l-30 -40z M1160 60 h60 v260 l-30 40 l-30 -40z" fill="#3a0f16"/>
+          <!-- candle clusters -->
+          <g fill="#ffc46a"><circle cx="300" cy="640" r="6"/><circle cx="318" cy="646" r="5"/><circle cx="286" cy="650" r="5"/><circle cx="1300" cy="640" r="6"/><circle cx="1282" cy="646" r="5"/><circle cx="1316" cy="650" r="5"/></g>
+          <!-- pews / rubble -->
+          <path d="M380 760 h240 v30 h-240z M980 760 h240 v30 h-240z" fill="#0d0b11"/>
+          <path d="M600 800 l40 -30 l60 10 l20 40z M900 820 l50 -40 l40 30z" fill="#0d0b11"/>
+        </svg>
+        <div class="layer ground" style="top:58%;background:radial-gradient(50% 40% at 50% 100%, #2c2632, transparent 70%), linear-gradient(180deg,#0f0c14 0%,#1a151f 30%,#241e2a 100%)"></div>
+        <div class="warm" style="left:12%;top:66%;width:16cqw;height:8cqw;opacity:.7"></div>
+        <div class="warm" style="left:74%;top:66%;width:16cqw;height:8cqw;opacity:.7"></div>
+        <div class="warm" style="left:34%;top:62%;width:32cqw;height:16cqw;opacity:.6;background:radial-gradient(circle, rgba(139,92,246,.45), rgba(55,210,240,.12) 45%, transparent 70%)"></div>
+        <div class="scorch" style="left:46%;top:79%;width:26cqw;height:26cqw"></div>
+        <div class="nova" style="left:46%;top:79%;width:34cqw;height:34cqw"></div>
+        <div class="crowd" data-crowd="nave"></div>
+        <div class="ent player" style="left:31%;bottom:10%;width:8cqw;height:22cqw;transform:translateX(-50%)"><svg><use href="#sil-player"/></svg></div>
+        <div class="orb" style="left:44%;top:40%;width:7cqw;height:7cqw"></div>
+        <div class="globe" style="left:22%;top:72%"></div>
+        <div class="globe" style="left:69%;top:80%;animation-delay:.7s"></div>
+        <div class="dmg crit" style="left:47%;top:44%">1,406</div>
+        <div class="dmg burn" style="left:40%;top:60%;animation-delay:.3s">312</div>
+        <div class="dmg burn" style="left:55%;top:62%;animation-delay:.5s">298</div>
+        <div class="dmg burn" style="left:61%;top:56%;animation-delay:.8s">305</div>
+        <div class="dmg" style="left:33%;top:52%;animation-delay:1s">241</div>
+        <div class="reticle" style="left:calc(50% - .6cqw);top:calc(42% - .6cqw)"></div>
+        <div class="areaname">THE NAVE<small>CATHEDRAL OF ST. VESSEL</small></div>
+        <div class="objective">SILENCE THE CHOIR<span>Reach the crypt stair · 24 remaining</span></div>
+        <div class="hud-orb health" style="--v:41%"><div class="fill"></div><div class="gloss"></div><div class="val">192</div></div>
+        <div class="hud-orb energy" style="--v:12%"><div class="fill"></div><div class="gloss"></div><div class="val">12</div></div>
+        <div class="skillbar">
+          <div class="slot ready"><svg><use href="#g-bolt"/></svg><div class="key">LMB</div></div>
+          <div class="slot noenergy"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div>
+          <div class="slot cd" data-cd="2" style="--sweep:30%"><svg><use href="#g-rift"/></svg><div class="key">1</div></div>
+          <div class="slot cd" data-cd="9" style="--sweep:85%"><svg><use href="#g-nova"/></svg><div class="key">2</div></div>
+          <div class="slot ready"><svg><use href="#g-frost"/></svg><div class="key">3</div></div>
+          <div class="slot cd" data-cd="41" style="--sweep:70%"><svg><use href="#g-cat"/></svg><div class="key">4</div></div>
+          <div class="slot divider"></div>
+          <div class="slot ready"><svg><use href="#g-potion"/></svg><div class="key">Q</div></div>
+        </div>
+        <div class="xpbar" style="--xp:81%"><i></i><div class="lvl">7</div></div>
+        <div class="layer vig" style="background:radial-gradient(ellipse at 50% 55%, transparent 50%, rgba(0,0,0,.7) 100%)"></div>
+        <div class="camnote">
+          <div class="lbl" style="left:31%;top:64%;transform:translateX(-50%)">combat: 9 m, 30° pitch, FOV 68°, player 22% tall</div>
+          <div class="lbl" style="left:64%;top:26%">elite: gold rim + nameplate + affix line</div>
+          <div class="lbl" style="left:46%;top:86%;transform:translateX(-50%)">nova ring: flattened ellipse in perspective, scorch decal stays 6 s</div>
+        </div>
+        <div class="hint">frame 04 · heavy combat</div>
+      </div>
+      <div class="notes">
+        <div><b>Density</b>Two dozen enemies fit because the camera climbs to 30° and widens to 68°. The ring shape is the encounter: enemies fill slots around the player, never a queue.</div>
+        <div><b>Lighting response</b>The nave is cool blue from the rose window; the nova floods the floor and every nearby silhouette orange for half a second. Spells are the brightest lights in the room.</div>
+        <div><b>Number density</b>Crits are gold and 1.5× larger. When more than six hits land in a frame, only the largest three draw numbers; the rest become hit flashes.</div>
+      </div>
+    </div>
+
+    <!-- 5 AFTERMATH -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>05</span>AFTERMATH · LOOT BURST &amp; LEVEL UP</h3><div class="cam">distance 7.5 m · camera drifts back in as enemy count hits zero · legendary event</div></div>
+      <div class="viewport" id="f5">
+        <div class="layer" style="background:linear-gradient(180deg,#07060b 0%,#0e0b14 45%,#14101a 55%)"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+          <rect x="-40" y="-100" width="170" height="1000" fill="url(#col)"/>
+          <rect x="1470" y="-100" width="170" height="1000" fill="url(#col)"/>
+          <rect x="250" y="20" width="110" height="720" fill="url(#col)"/>
+          <rect x="1240" y="20" width="110" height="720" fill="url(#col)"/>
+          <rect x="440" y="120" width="70" height="560" fill="url(#col)"/>
+          <rect x="1090" y="120" width="70" height="560" fill="url(#col)"/>
+          <path d="M760 70 L560 900 L1040 900 L840 70z" fill="url(#shaft)"/>
+          <g fill="#ffc46a"><circle cx="300" cy="640" r="6"/><circle cx="318" cy="646" r="5"/><circle cx="1300" cy="640" r="6"/></g>
+          <!-- corpses -->
+          <g fill="#0a0810"><ellipse cx="520" cy="760" rx="70" ry="14"/><ellipse cx="700" cy="800" rx="80" ry="16"/><ellipse cx="980" cy="770" rx="70" ry="14"/><ellipse cx="1120" cy="820" rx="90" ry="16"/><ellipse cx="860" cy="720" rx="60" ry="12"/><ellipse cx="640" cy="690" rx="50" ry="11"/></g>
+        </svg>
+        <div class="layer ground" style="top:58%;background:radial-gradient(50% 40% at 50% 100%, #2c2632, transparent 70%), linear-gradient(180deg,#0f0c14 0%,#1a151f 30%,#241e2a 100%)"></div>
+        <div class="scorch" style="left:50%;top:80%;width:30cqw;height:30cqw;opacity:.6"></div>
+        <div class="warm" style="left:40%;top:50%;width:22cqw;height:22cqw;background:radial-gradient(circle, rgba(255,160,40,.5), rgba(255,120,20,.15) 45%, transparent 70%)"></div>
+        <div class="ent player" style="left:31%;bottom:10%;width:9cqw;height:25cqw;transform:translateX(-50%)"><svg><use href="#sil-player"/></svg></div>
+        <div class="loot legend" style="--c:#ff8f1f;left:51%;bottom:24%"><div class="beam"></div><div class="item"></div><div class="lbl">Starfall Circlet</div></div>
+        <div class="loot" style="--c:#f0d24a;left:44%;bottom:18%"><div class="beam"></div><div class="item"></div><div class="lbl">Sexton's Gloves</div></div>
+        <div class="loot" style="--c:#5b8def;left:60%;bottom:20%"><div class="beam"></div><div class="item"></div><div class="lbl">Ring of Embers</div></div>
+        <div class="loot" style="--c:#5b8def;left:66%;bottom:14%"><div class="beam"></div><div class="item"></div><div class="lbl">Wanderer's Boots</div></div>
+        <div class="loot" style="--c:#e8e4da;left:38%;bottom:12%"><div class="beam" style="height:3cqw"></div><div class="item"></div><div class="lbl">Cracked Cowl</div></div>
+        <div class="globe" style="left:72%;top:74%"></div>
+        <div class="levelup">LEVEL 8<small>NEW PASSIVE SLOT · <b>FROZEN HEART</b> AVAILABLE</small></div>
+        <div class="areaname">THE NAVE<small>CATHEDRAL OF ST. VESSEL</small></div>
+        <div class="hud-orb health" style="--v:100%"><div class="fill"></div><div class="gloss"></div><div class="val">468</div></div>
+        <div class="hud-orb energy" style="--v:100%"><div class="fill"></div><div class="gloss"></div><div class="val">100</div></div>
+        <div class="skillbar">
+          <div class="slot ready"><svg><use href="#g-bolt"/></svg><div class="key">LMB</div></div>
+          <div class="slot ready"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div>
+          <div class="slot ready"><svg><use href="#g-rift"/></svg><div class="key">1</div></div>
+          <div class="slot ready"><svg><use href="#g-nova"/></svg><div class="key">2</div></div>
+          <div class="slot ready"><svg><use href="#g-frost"/></svg><div class="key">3</div></div>
+          <div class="slot cd" data-cd="28" style="--sweep:50%"><svg><use href="#g-cat"/></svg><div class="key">4</div></div>
+          <div class="slot divider"></div>
+          <div class="slot ready"><svg><use href="#g-potion"/></svg><div class="key">Q</div></div>
+        </div>
+        <div class="xpbar" style="--xp:4%"><i></i><div class="lvl">8</div></div>
+        <div class="layer vig"></div>
+        <div class="hint">frame 05 · aftermath</div>
+      </div>
+      <div class="notes">
+        <div><b>Loot burst</b>Items launch upward, bounce, and settle. Beams are rarity-colored; only Rare and above get a label without hovering. Legendary beam is twice as tall and hums.</div>
+        <div><b>Level up</b>Orbs refill, a gold flash lights the floor, and a banner names what changed. It should interrupt nothing; the player can keep walking.</div>
+        <div><b>Legendary as a rule change</b>Starfall Circlet splits Astral Orb into three after it pierces four enemies. The label says the name; the tooltip says the rule.</div>
+      </div>
+    </div>
+
+    <!-- 6 INVENTORY -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>06</span>INVENTORY · COMPARE &amp; EQUIP</h3><div class="cam">world dims to 30% · paper doll left · 10×6 grid right · hover compares against equipped</div></div>
+      <div class="viewport" id="f6">
+        <div class="layer" style="background:linear-gradient(180deg,#07060b 0%,#0e0b14 45%,#14101a 55%)"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" style="opacity:.35">
+          <rect x="250" y="20" width="110" height="720" fill="url(#col)"/><rect x="1240" y="20" width="110" height="720" fill="url(#col)"/>
+          <path d="M760 70 L560 900 L1040 900 L840 70z" fill="url(#shaft)"/>
+        </svg>
+        <div class="layer ground" style="top:58%;opacity:.4"></div>
+        <div class="panel">
+          <div class="paperdoll">
+            <div class="stand"></div>
+            <div class="ent player"><svg><use href="#sil-player"/></svg></div>
+            <div class="eq" style="--rc:#f0d24a;left:1.2cqw;top:1.2cqw"><svg><use href="#g-gear"/></svg><div class="tag">HEAD</div></div>
+            <div class="eq" style="--rc:#5b8def;left:1.2cqw;top:7.6cqw"><svg><use href="#g-gear"/></svg><div class="tag">CHEST</div></div>
+            <div class="eq" style="--rc:#e8e4da;left:1.2cqw;top:14cqw"><svg><use href="#g-gear"/></svg><div class="tag">GLOVES</div></div>
+            <div class="eq" style="--rc:#5b8def;left:1.2cqw;top:20.4cqw"><svg><use href="#g-gear"/></svg><div class="tag">BOOTS</div></div>
+            <div class="eq" style="--rc:#ff8f1f;right:1.2cqw;top:1.2cqw"><svg><use href="#g-gear"/></svg><div class="tag">STAFF</div></div>
+            <div class="eq" style="--rc:#f0d24a;right:1.2cqw;top:7.6cqw"><svg><use href="#g-gear"/></svg><div class="tag">AMULET</div></div>
+            <div class="eq" style="--rc:#5b8def;right:1.2cqw;top:14cqw"><svg><use href="#g-gear"/></svg><div class="tag">RING</div></div>
+            <div class="eq" style="--rc:#2d2433;right:1.2cqw;top:20.4cqw"><div class="tag">RING</div></div>
+            <div class="stats">
+              <span>Vitality <b>146</b></span><span>Power <b>212</b></span>
+              <span>Intelligence <b>388</b></span><span>Armor <b>1,204</b></span>
+              <span>Crit chance <b>18.5%</b></span><span>Crit damage <b>+210%</b></span>
+              <span>Attack speed <b>1.32</b></span><span>Damage <b>4,118</b></span>
+            </div>
+          </div>
+          <div class="grid" data-grid>
+            <div class="tooltip" style="--rc:#f0d24a;right:1cqw;top:6cqw">
+              <h5>Choirmaster's Cowl</h5>
+              <div class="kind">Rare · Head · Item level 9</div>
+              <div class="big">184<small>Armor</small></div>
+              <ul>
+                <li><span>+38 Intelligence</span><span class="d up">▲ 12</span></li>
+                <li><span>+4.5% Critical Hit Chance</span><span class="d up">▲ 1.5%</span></li>
+                <li><span>+61 Vitality</span><span class="d dn">▼ 19</span></li>
+                <li><span>+12% Arcane damage</span><span class="d eq">new</span></li>
+                <li class="pas"><span>Regenerates 4 Arcane Energy when you Rift Step</span><span></span></li>
+              </ul>
+              <div class="foot">RMB EQUIP · SHIFT+CLICK DROP · COMPARED TO: SEXTON'S HOOD</div>
+            </div>
+          </div>
+        </div>
+        <div class="hint">frame 06 · inventory</div>
+      </div>
+      <div class="notes">
+        <div><b>Frame language</b>Carved plates, a bronze double-border, and a red header tab. No painted ornament; the texture comes from lighting the player preview on a violet stand.</div>
+        <div><b>Comparison</b>Deltas are the whole point of the tooltip: green up, red down, grey new. The affix list uses blue for stats and orange italics for behavior-changing properties.</div>
+        <div><b>Grid</b>Items are rarity-framed squares; two-tall for weapons. Occupied cells glow inward so an empty grid still reads as a carved tray.</div>
+      </div>
+    </div>
+
+    <!-- 7 BOSS -->
+    <div class="frame">
+      <div class="frame-head"><h3><span>07</span>THE HOLLOW KING · BOSS CHAMBER</h3><div class="cam">distance 9.5 m · boss bar top center · summoned adds keep the ARPG rhythm · Cataclysm active</div></div>
+      <div class="viewport" id="f7">
+        <div class="layer" style="background:linear-gradient(180deg,#040308 0%,#0b0812 45%,#120b18 55%)"></div>
+        <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+          <defs><radialGradient id="pit" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#5b3fc4" stop-opacity=".6"/><stop offset="1" stop-color="#5b3fc4" stop-opacity="0"/></radialGradient></defs>
+          <!-- repeating crypt arches -->
+          <g fill="none" stroke="#161020" stroke-width="30">
+            <path d="M100 900 v-500 q100 -180 200 0 v500"/><path d="M420 900 v-540 q100 -200 200 0 v540"/><path d="M780 900 v-560 q110 -220 220 0 v560"/><path d="M1180 900 v-540 q100 -200 200 0 v540"/><path d="M1480 900 v-500 q60 -120 120 0"/>
+          </g>
+          <!-- sarcophagi -->
+          <g fill="#0b0810"><rect x="140" y="720" width="180" height="60"/><rect x="1280" y="720" width="180" height="60"/><rect x="150" y="700" width="160" height="30"/><rect x="1290" y="700" width="160" height="30"/></g>
+          <!-- roots -->
+          <path d="M0 200 q120 80 80 240 q-40 120 60 220" stroke="#0a0810" stroke-width="18" fill="none"/>
+          <path d="M1600 240 q-140 60 -100 220 q30 120 -60 200" stroke="#0a0810" stroke-width="18" fill="none"/>
+          <ellipse cx="800" cy="760" rx="420" ry="110" fill="url(#pit)"/>
+          <!-- throne -->
+          <path d="M700 300 h200 v320 h-200z M680 280 l40 -80 l40 80 M840 280 l40 -80 l40 80" fill="#0b0810"/>
+        </svg>
+        <div class="layer ground" style="top:58%;background:radial-gradient(50% 40% at 50% 100%, #2a2232, transparent 70%), linear-gradient(180deg,#0d0a12 0%,#17111e 30%,#1f1826 100%)"></div>
+        <div class="cat-glow" style="position:absolute;left:52%;bottom:14%;width:60cqw;height:18cqw;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse, rgba(139,92,246,.7), rgba(55,210,240,.25) 45%, transparent 70%);filter:blur(1cqw);animation:flick .5s steps(2) infinite"></div>
+        <div class="strike" style="left:47%;bottom:26%;height:60%"></div>
+        <div class="strike" style="left:58%;bottom:22%;height:52%;animation-delay:.2s"></div>
+        <div class="strike" style="left:66%;bottom:30%;height:48%;animation-delay:.35s"></div>
+        <div class="strike" style="left:40%;bottom:20%;height:44%;animation-delay:.1s"></div>
+        <div class="crowd" data-crowd="boss"></div>
+        <div class="ent enemy elite" style="left:53%;bottom:31%;width:19cqw;height:19cqw;transform:translateX(-50%)"><svg><use href="#sil-boss"/></svg>
+          <div class="aura" style="left:-15%;top:-10%;width:130%;height:120%;background:radial-gradient(circle, rgba(200,40,58,.5), rgba(139,92,246,.2) 50%, transparent 70%)"></div></div>
+        <div class="ent player" style="left:30%;bottom:9%;width:8cqw;height:22cqw;transform:translateX(-50%)"><svg><use href="#sil-player"/></svg></div>
+        <div class="dmg crit" style="left:52%;top:30%">2,912</div>
+        <div class="dmg" style="left:60%;top:48%;animation-delay:.4s">640</div>
+        <div class="dmg" style="left:44%;top:55%;animation-delay:.7s">655</div>
+        <div class="dmg frost" style="left:66%;top:60%;animation-delay:.9s">418</div>
+        <div class="reticle" style="left:calc(50% - .6cqw);top:calc(40% - .6cqw)"></div>
+        <div class="bossbar"><div class="name">THE HOLLOW KING</div><div class="bar"><i></i></div></div>
+        <div class="areaname">THE OSSUARY<small>CRYPT · DEPTH III</small></div>
+        <div class="hud-orb health" style="--v:58%"><div class="fill"></div><div class="gloss"></div><div class="val">271</div></div>
+        <div class="hud-orb energy" style="--v:30%"><div class="fill"></div><div class="gloss"></div><div class="val">30</div></div>
+        <div class="skillbar">
+          <div class="slot ready"><svg><use href="#g-bolt"/></svg><div class="key">LMB</div></div>
+          <div class="slot noenergy"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div>
+          <div class="slot ready"><svg><use href="#g-rift"/></svg><div class="key">1</div></div>
+          <div class="slot cd" data-cd="4" style="--sweep:40%"><svg><use href="#g-nova"/></svg><div class="key">2</div></div>
+          <div class="slot cd" data-cd="7" style="--sweep:60%"><svg><use href="#g-frost"/></svg><div class="key">3</div></div>
+          <div class="slot cd" data-cd="58" style="--sweep:96%"><svg><use href="#g-cat"/></svg><div class="key">4</div></div>
+          <div class="slot divider"></div>
+          <div class="slot cd" data-cd="12" style="--sweep:40%"><svg><use href="#g-potion"/></svg><div class="key">Q</div></div>
+        </div>
+        <div class="xpbar" style="--xp:66%"><i></i><div class="lvl">9</div></div>
+        <div class="layer vig" style="background:radial-gradient(ellipse at 50% 55%, transparent 45%, rgba(0,0,0,.75) 100%)"></div>
+        <div class="hint">frame 07 · boss</div>
+      </div>
+      <div class="notes">
+        <div><b>Boss readability</b>The Hollow King is the only winged silhouette in the game and the only enemy with a crimson-violet aura. Its bar lives top-center; adds keep their small red bars.</div>
+        <div><b>Cataclysm</b>Repeated cyan-violet strikes, each with a ground flash and shockwave, and the whole room's light turns arcane for the duration. Screen shake is directional and capped.</div>
+        <div><b>Rhythm holds</b>Even in the boss fight the player is generating on adds and spending on the King. Summons are the mechanic that keeps this from becoming a duel.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HUD COMPONENTS ================= -->
+  <section>
+    <div class="sec-head"><span class="num">C</span><h2>HUD components &amp; states</h2></div>
+    <p class="lede">Built as CSS now so they can be lifted into the game unchanged. Orbs are liquid, not gauges; the skill bar is a single carved plate; cooldown, cost, and lock are three visibly different states.</p>
+    <div class="sheet hudsheet">
+      <div class="hudrow">
+        <div class="hud-orb health" style="--v:72%"><div class="fill"></div><div class="gloss"></div><div class="val">336</div></div>
+        <div class="skillbar">
+          <div class="slot ready"><svg><use href="#g-bolt"/></svg><div class="key">LMB</div></div>
+          <div class="slot ready"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div>
+          <div class="slot ready"><svg><use href="#g-rift"/></svg><div class="key">1</div></div>
+          <div class="slot cd" data-cd="5" style="--sweep:45%"><svg><use href="#g-nova"/></svg><div class="key">2</div></div>
+          <div class="slot ready"><svg><use href="#g-frost"/></svg><div class="key">3</div></div>
+          <div class="slot ready"><svg><use href="#g-cat"/></svg><div class="key">4</div></div>
+          <div class="slot divider"></div>
+          <div class="slot ready"><svg><use href="#g-potion"/></svg><div class="key">Q</div></div>
+        </div>
+        <div class="xpbar" style="--xp:61%;bottom:.3cqw"><i></i><div class="lvl">6</div></div>
+        <div class="hud-orb energy" style="--v:55%"><div class="fill"></div><div class="gloss"></div><div class="val">55</div></div>
+      </div>
+      <div class="states">
+        <div class="state"><div class="slot ready"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div><span>Ready<br>warm inner rim</span></div>
+        <div class="state"><div class="slot cd" data-cd="6" style="--sweep:55%"><svg><use href="#g-nova"/></svg><div class="key">2</div></div><span>Cooldown<br>clockwise sweep + seconds</span></div>
+        <div class="state"><div class="slot noenergy"><svg><use href="#g-orb"/></svg><div class="key">RMB</div></div><span>Not enough energy<br>desaturated, blue rim</span></div>
+        <div class="state"><div class="slot locked"><svg><use href="#g-cat"/></svg><div class="key">4</div></div><span>Locked<br>unlocks at level 10</span></div>
+        <div class="state"><div class="slot cd" data-cd="1" style="--sweep:8%;box-shadow:inset 0 0 0 .12cqw #ffd27a, 0 0 1.2cqw rgba(255,200,100,.6)"><svg><use href="#g-rift"/></svg><div class="key">1</div></div><span>Ready flash<br>gold pulse for 300 ms</span></div>
+      </div>
+      <div class="principles">
+        <div><b>Floating numbers</b>White 22 px Cinzel with a hard black shadow; crits gold at 34 px. Burn ticks orange, chill cyan. Numbers rise 1.4 s and fade; at most three per frame per target cluster.</div>
+        <div><b>Health globes</b>A red glass sphere with a floor glow and a bob. They are the only red thing on the ground, so they read through any crowd.</div>
+        <div><b>Enemy bars</b>Thin, hard-edged, red on near-black. Hidden at full health. Elites add a nameplate in gilt with the affix beneath in ember orange.</div>
+        <div><b>Boss bar</b>Top center, name in tracked capitals over a bronze-framed bar. Phase markers are notches, not segments.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ENEMY LINEUP ================= -->
+  <section>
+    <div class="sec-head"><span class="num">D</span><h2>Enemy silhouette language</h2></div>
+    <p class="lede">Each archetype must be identifiable from shape alone at nine meters. The lineup is to scale against the 1.9 m Sorcerer.</p>
+    <div class="sheet">
+      <div class="lineup">
+        <div class="h"></div><div class="h top"><span class="lbl">≈ 1.9 m</span></div>
+        <div class="ent player" style="left:6%;width:6.4cqw;height:14cqw"><svg><use href="#sil-player"/></svg></div>
+        <div class="cap" style="left:9.2%">Sorcerer<small>player · violet rim</small></div>
+        <div class="ent enemy" style="left:19%;width:5.6cqw;height:11.5cqw"><svg><use href="#sil-ghoul"/></svg></div>
+        <div class="cap" style="left:21.8%">Ghoul<small>swarm · hunched, long arms</small></div>
+        <div class="ent enemy" style="left:31%;width:6.6cqw;height:14.5cqw"><svg><use href="#sil-knight"/></svg></div>
+        <div class="cap" style="left:34.3%">Fallen Knight<small>durable · wide, shield</small></div>
+        <div class="ent enemy" style="left:44%;width:5.6cqw;height:14cqw"><svg><use href="#sil-cultist"/></svg></div>
+        <div class="cap" style="left:46.8%">Cultist<small>ranged · thin, green staff</small></div>
+        <div class="ent enemy" style="left:56%;width:5.6cqw;height:13cqw;bottom:26%"><svg><use href="#sil-wraith"/></svg></div>
+        <div class="cap" style="left:58.8%">Wraith<small>mobile · floats, torn hem</small></div>
+        <div class="ent enemy elite" style="left:67%;width:11cqw;height:18cqw"><svg><use href="#sil-brute"/></svg></div>
+        <div class="cap" style="left:72.5%">Brute<small>elite · massive, club</small></div>
+        <div class="ent enemy" style="left:84%;width:5.8cqw;height:15.5cqw"><svg><use href="#sil-necro"/></svg></div>
+        <div class="cap" style="left:86.9%">Necromancer<small>support · tall, horned staff</small></div>
+      </div>
+      <div class="principles" style="margin-top:20px">
+        <div><b>Value rule</b>Enemies are always darker and less saturated than the player and the ground. Their only color is the rim: rust for common, gold for elite, violet-red for boss.</div>
+        <div><b>Elite treatment</b>Gold rim, 1.3× scale, floor aura in the affix's color, nameplate. A pack of ghouls led by an elite Brute must read as a shape before it reads as a count.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ABILITY VFX ================= -->
+  <section>
+    <div class="sec-head"><span class="num">E</span><h2>Ability shape language</h2></div>
+    <p class="lede">Six abilities, six shapes. No two are a glowing sphere. Every one is split into anticipation, travel, impact, and aftermath in the effect library.</p>
+    <div class="vfx">
+      <div class="vcard"><div class="stage"><div class="floor"></div><div class="bolt"></div></div><div class="body"><h4>ARCANE BOLT</h4><div class="kind">Generator · LMB · +6 energy on hit</div><p><b>Streak.</b> Fast violet lance with a white-cyan head, minor splash. Fired every 0.35 s; slight homing. The sound is a short snap, never a whoosh.</p></div></div>
+      <div class="vcard"><div class="stage"><div class="floor"></div><div class="orb"></div></div><div class="body"><h4>ASTRAL ORB</h4><div class="kind">Spender · RMB · 40 energy</div><p><b>Sphere with a comet tail.</b> Player-head sized, slow, pierces, lights the floor as it passes, detonates at range. Starfall Circlet splits it into three.</p></div></div>
+      <div class="vcard"><div class="stage"><div class="floor"></div><div class="scorch"></div><div class="nova"></div></div><div class="body"><h4>FLAME NOVA</h4><div class="kind">Cooldown 10 s · 2 · knockback + burn</div><p><b>Ring.</b> An expanding orange ring with embers and a scorch decal that lingers. Everything inside 4 m is thrown outward. The panic button.</p></div></div>
+      <div class="vcard"><div class="stage"><div class="floor"></div><div class="frost" style="left:50%;top:66%;width:62cqw;height:62cqw"><i style="left:30%;--r:-12deg"></i><i style="left:48%;--r:4deg"></i><i style="left:62%;--r:14deg"></i></div></div><div class="body"><h4>FROST FIELD</h4><div class="kind">Cooldown 14 s · 3 · ground target</div><p><b>Disc with crystals.</b> A pale cyan floor plate with rising shards; edge is a clear rim so the radius is never a guess. Chill, then freeze weaker enemies.</p></div></div>
+      <div class="vcard"><div class="stage"><div class="floor"></div><div class="rift-line"></div><div class="rift-trail"><div class="ghost" style="--x:0;--o:.25"><svg><use href="#sil-player"/></svg></div><div class="ghost" style="--x:22%;--o:.45"><svg><use href="#sil-player"/></svg></div><div class="ghost" style="--x:44%;--o:.7"><svg><use href="#sil-player"/></svg></div><div class="ghost solid" style="--x:66%;--o:1"><svg><use href="#sil-player"/></svg></div></div></div><div class="body"><h4>RIFT STEP</h4><div class="kind">Cooldown 6 s · 1 · 8 m · 0.3 s invulnerable</div><p><b>After-image line.</b> Instant. Three fading violet ghosts along a cyan thread. No wind-up, no landing recovery. Boots of the Fold add a charge.</p></div></div>
+      <div class="vcard"><div class="stage"><div class="floor"></div><div class="cat-glow"></div><div class="strike" style="left:30%"></div><div class="strike" style="left:50%;animation-delay:.2s;height:78%"></div><div class="strike" style="left:70%;animation-delay:.1s;height:62%"></div></div><div class="body"><h4>CATACLYSM</h4><div class="kind">Cooldown 60 s · 4 · unlock at 10</div><p><b>Column strikes.</b> A storm of cyan-violet pillars over 6 s with shockwaves and knockback. The room's lighting turns arcane for the duration. Camera pulls back and shakes on each strike.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ================= LOOT ================= -->
+  <section>
+    <div class="sec-head"><span class="num">F</span><h2>Loot &amp; rarity</h2></div>
+    <p class="lede">Four tiers, one convention: the beam, the frame, the label, and the tooltip title all share the tier color. Legendary gets sound and scale on top.</p>
+    <div class="rarity">
+      <div class="rcard" style="--c:#e8e4da"><div class="loot" style="--c:#e8e4da"><div class="beam" style="height:5cqw;opacity:.5"></div><div class="item"></div><div class="lbl">Cracked Cowl</div></div><div class="cap"><b>Common</b>bone white · no beam past 1 m · label on hover</div></div>
+      <div class="rcard" style="--c:#5b8def"><div class="loot" style="--c:#5b8def"><div class="beam" style="height:12cqw"></div><div class="item"></div><div class="lbl">Ring of Embers</div></div><div class="cap"><b>Magic</b>steel blue · 1–2 affixes · short beam</div></div>
+      <div class="rcard" style="--c:#f0d24a"><div class="loot" style="--c:#f0d24a"><div class="beam" style="height:20cqw"></div><div class="item"></div><div class="lbl">Sexton's Gloves</div></div><div class="cap"><b>Rare</b>gold yellow · 3–5 affixes · labeled without hover</div></div>
+      <div class="rcard" style="--c:#ff8f1f"><div class="loot legend" style="--c:#ff8f1f"><div class="beam" style="height:34cqw"></div><div class="item" style="width:2cqw;height:2cqw"></div><div class="lbl">Starfall Circlet</div></div><div class="cap"><b>Legendary</b>ember orange · rule-changing power · chime + floor flash</div></div>
+    </div>
+  </section>
+
+  <!-- ================= DEBUG ================= -->
+  <section>
+    <div class="sec-head"><span class="num">G</span><h2>Developer panel</h2></div>
+    <p class="lede">Utility face, no ornament, always one keypress away. This is the tool we use to line screenshots up against the references.</p>
+    <div class="sheet debugwrap">
+      <div class="debug">
+        <h6>NECROMANTLE · DEV <span>61 fps · 22 enemies · webgpu</span></h6>
+        <div class="row"><span>God mode</span><div class="tog on"></div></div>
+        <div class="row"><span>Infinite energy</span><div class="tog"></div></div>
+        <div class="row"><span>Freeze AI</span><div class="tog"></div></div>
+        <div class="row"><span>Hide HUD</span><div class="tog"></div></div>
+        <div class="row"><span>Camera distance</span><input type="range" min="4" max="14" value="9"></div>
+        <div class="row"><span>FOV</span><span class="val">68°</span></div>
+        <div class="row"><span>Particle density</span><input type="range" min="0" max="100" value="100"></div>
+        <div class="row"><span>Cooldown ×</span><span class="val">1.0</span></div>
+        <div class="row"><span>Player level</span><span class="val">7</span></div>
+        <div class="btns"><span>+10 ghouls</span><span>+ elite</span><span>+ loot</span><span>force legendary</span><span>tp village</span><span>tp nave</span><span>tp crypt</span><span>screenshot</span></div>
+      </div>
+      <div class="principles" style="grid-template-columns:1fr">
+        <div><b>Screenshot mode</b>Hides HUD, freezes AI, locks camera distance and FOV to a preset, and saves a 1920×1080 PNG named by location. Every gap-analysis comparison starts here.</div>
+        <div><b>Why it's in the style board</b>Because a game only looks like its references if we can measure it against them quickly. The panel is part of the pipeline, not a leftover.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    Paint-overs use CSS gradients and SVG silhouettes to lock composition, value structure, color roles and HUD placement. They are not renders. Real geometry will be lit with a cool moon key, warm local lights, fog, bloom below the threshold of white blobs, and no depth of field in play.<br>
+    Working names (the village Hollowmere, St. Vessel, the Hollow King, Maren, Starfall Circlet) are original placeholders and can change.
+  </div>
+</div>
+
+<script>
+  // Crowd painter: places enemy silhouettes with depth-based scale. Data only; no libraries.
+  (function () {
+    var T = { g: 'sil-ghoul', k: 'sil-knight', c: 'sil-cultist', w: 'sil-wraith', b: 'sil-brute', n: 'sil-necro' };
+    var crowds = {
+      ambush: [
+        [58,49,.55,'g',.7],[64,52,.6,'g',1],[70,50,.55,'g',1],[74,56,.68,'g',1],[52,60,.75,'g',.45],[66,64,.85,'g',1],[78,66,.9,'g',1],[46,68,.95,'g',1]
+      ],
+      nave: [
+        [40,46,.42,'g',1],[46,45,.4,'c',1],[54,44,.4,'g',1],[60,46,.42,'g',.6],[66,45,.4,'c',1],[36,52,.5,'g',1],[72,52,.52,'g',1],[50,49,.46,'w',1],[58,50,.48,'g',.3],
+        [30,60,.62,'g',1],[40,62,.64,'k',.8],[62,60,.62,'g',1],[74,61,.64,'g',1],[80,58,.6,'w',1],[46,58,.6,'g',.2],[56,57,.58,'g',.5],
+        [24,72,.8,'g',1],[38,76,.86,'g',.5],[52,78,.9,'k',.7],[64,74,.84,'g',1],[74,72,.8,'g',1],[84,70,.78,'c',1],
+        [66,66,1.1,'b',.8,'Blazing Warden','Scorched ground'],[20,52,.55,'n',1]
+      ],
+      boss: [
+        [36,50,.5,'w',1],[70,50,.5,'w',1],[28,60,.6,'g',1],[76,62,.62,'g',1],[42,68,.78,'g',.6],[64,72,.82,'g',1],[22,74,.85,'k',1],[82,74,.86,'g',.5],[48,58,.62,'g',1]
+      ]
+    };
+    // Inventory grid: 10×6 tray with a plausible mid-game bag. Index → rarity; 'S' = two-tall staff.
+    var R = { c: '#e8e4da', m: '#5b8def', r: '#f0d24a', l: '#ff8f1f' };
+    var bag = { 0: 'r', 1: 'm', 2: 'c', 4: 'm', 5: 'm', 7: 'c', 8: 'r', 10: 'S', 11: 'c', 12: 'm', 14: 'c', 16: 'm', 18: 'r', 22: 'c', 23: 'm', 25: 'm', 27: 'l', 31: 'c', 33: 'm', 36: 'c', 40: 'm', 44: 'c', 47: 'r' };
+    document.querySelectorAll('[data-grid]').forEach(function (grid) {
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < 60; i++) {
+        var cell = document.createElement('div');
+        var k = bag[i];
+        cell.className = 'cell' + (k ? ' i' : '') + (k === 'S' ? ' w2' : '') + (i === 8 ? ' hover' : '');
+        if (k) cell.style.setProperty('--rc', R[k === 'S' ? 'r' : k]);
+        frag.appendChild(cell);
+      }
+      grid.insertBefore(frag, grid.firstChild);
+    });
+    document.querySelectorAll('[data-crowd]').forEach(function (host) {
+      var list = crowds[host.getAttribute('data-crowd')] || [];
+      list.forEach(function (e) {
+        var x = e[0], y = e[1], s = e[2], t = e[3], hp = e[4], name = e[5], affix = e[6];
+        var el = document.createElement('div');
+        el.className = 'ent enemy' + (name ? ' elite' : '');
+        var w = (t === 'b' ? 9 : 5.2) * s, h = (t === 'b' ? 13 : 12) * s;
+        el.style.cssText = 'left:' + x + '%;top:' + y + '%;width:' + w + 'cqw;height:' + h + 'cqw;transform:translate(-50%,-100%);z-index:' + Math.round(y);
+        var html = '<svg><use href="#' + T[t] + '"/></svg>';
+        if (name) html += '<div class="aura" style="left:-30%;bottom:-10%;width:160%;height:50%"></div>';
+        if (hp < 1) html += '<div class="hpbar" style="top:-14%;--hp:' + Math.round(hp * 100) + '%"><i></i></div>';
+        if (name) html += '<div class="plate" style="top:-38%">' + name + '<small>' + affix + '</small></div>';
+        el.innerHTML = html;
+        host.appendChild(el);
+      });
+    });
+  })();
+</script>
