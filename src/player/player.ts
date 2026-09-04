@@ -52,6 +52,7 @@ export class Player {
     this.collider.ellipsoid = new Vector3(PLAYER.radius, PLAYER.height / 2, PLAYER.radius);
     this.collider.ellipsoidOffset = new Vector3(0, PLAYER.height / 2, 0);
     this.collider.checkCollisions = true;
+    this.collider.collisionGroup = 4; this.collider.collisionMask = 1 | 2;
     this.staffLight = new PointLight('player.staffLight', new Vector3(0, 1.8, 0), scene);
     this.staffLight.diffuse = PALETTE.arcane.clone();
     this.staffLight.specular = PALETTE.arcaneCore.scale(0.3);
@@ -84,18 +85,18 @@ export class Player {
       const staff = await loader.instanceStatic(PLAYER.weapon, 'sorcerer.staff', { castShadow: false, receiveShadow: false });
       for (const m of staff.getChildMeshes()) { m.checkCollisions = false; m.isPickable = false; m.metadata = { character: true }; rig.addCaster(m); }
       const tip = new TransformNode("sorcerer.staffTip", this.scene);
-      tip.parent = staff; tip.position.set(0, 1.7, 0);
+      tip.parent = staff; tip.position.set(0, -1.75, 0);
       if (this.handNode) {
         staff.parent = this.handNode; staff.position.set(0, 0, 0); staff.scaling.setAll(1.15);
-        // KayKit hand slot: local +Y runs along the forearm; a 90° roll about Z stands the staff upright (verified at runtime)
-        staff.rotation.set(0, 0, Math.PI / 2);
+        // KayKit hand slot: local +Y runs along the forearm and the staff head sits at local -Y; a -90° roll about Z stands it upright
+        staff.rotation.set(0, 0, -Math.PI / 2);
       }
       this.staffTipNode = tip;
       // arcane crystal at the tip
       const crystal = MeshBuilder.CreateSphere('sorcerer.crystal', { diameter: 0.22, segments: 8 }, this.scene);
       const cm = new PBRMaterial('sorcerer.crystalMat', this.scene);
       cm.emissiveColor = PALETTE.arcaneCore.clone(); cm.albedoColor = Color3.Black(); cm.metallic = 0; cm.roughness = 0.3;
-      crystal.material = cm; crystal.parent = tip; crystal.isPickable = false;
+      crystal.material = cm; crystal.parent = tip; crystal.isPickable = false; rig.addGlow(crystal);
     }
   }
 
@@ -171,7 +172,7 @@ export class Player {
   teleport(delta: Vector3): Vector3 {
     const steps = 6;
     const seg = delta.scale(1 / steps);
-    for (let i = 0; i < steps; i++) this.collider.moveWithCollisions(seg);
+    for (let i = 0; i < steps; i++) { this.collider.computeWorldMatrix(true); this.collider.moveWithCollisions(seg); }
     this.root.position.copyFrom(this.collider.position);
     return this.root.position.clone();
   }
@@ -213,6 +214,8 @@ export class Player {
     else { this.grounded = false; this.vy -= PLAYER.gravity * dt; }
 
     this.tmp.set(this.velocity.x * dt, this.vy * dt, this.velocity.z * dt);
+    // Babylon caches world matrices per render id; several fixed steps per frame would otherwise collide from a stale position
+    this.collider.computeWorldMatrix(true);
     this.collider.moveWithCollisions(this.tmp);
     if (this.grounded && groundY !== null) this.collider.position.y = damp(this.collider.position.y, groundY, 30, dt);
     if (this.collider.position.y < -20) this.collider.position.y = 5;

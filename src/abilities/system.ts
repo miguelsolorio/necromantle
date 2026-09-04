@@ -113,7 +113,7 @@ export class AbilitySystem {
       },
       onExpire: (pos) => {
         vfx.orbExplode(pos, 3.2); cam.shake(0.18, 0.25);
-        enemies.damageArea(pos, 3.2, () => this.roll(def, 0.8).amount, { knockback: 7, element: 'arcane' });
+        enemies.damageArea(pos, 3.2, () => this.roll(def, 0.8).amount, { knockback: 11, element: "arcane" });
       },
     });
   }

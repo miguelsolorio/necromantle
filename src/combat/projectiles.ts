@@ -31,9 +31,9 @@ export class Projectiles {
   private tmp2 = new Vector3();
   private nearby: Enemy[] = [];
 
-  constructor(private scene: Scene, private vfx: Vfx) {
+  constructor(private scene: Scene, private vfx: Vfx, private rig?: { addGlow(m: Mesh): void }) {
     const mk = (name: string, c: Color3) => { const m = new StandardMaterial(`proj.${name}`, scene); m.emissiveColor = c; m.diffuseColor = Color3.Black(); m.specularColor = Color3.Black(); m.disableLighting = true; return m; };
-    this.mats = { bolt: mk('bolt', PALETTE.arcaneWhite), orb: mk('orb', PALETTE.arcaneCore), shard: mk('shard', new Color3(0.6, 1, 0.5)) };
+    this.mats = { bolt: mk("bolt", PALETTE.arcaneWhite), orb: mk("orb", new Color3(0.45, 0.75, 1.0)), shard: mk("shard", new Color3(0.6, 1, 0.5)) };
   }
 
   private build(visual: Visual): Projectile {
@@ -41,9 +41,9 @@ export class Projectiles {
     if (visual === 'bolt') {
       mesh = MeshBuilder.CreateSphere('proj.bolt', { diameter: 0.34, segments: 6 }, this.scene);
       mesh.scaling.set(1, 1, 2.6);
-      trail = new TrailMesh('proj.boltTrail', mesh, this.scene, 0.16, 14, true);
-      const tm = this.mats.bolt.clone('proj.boltTrailMat'); tm.emissiveColor = PALETTE.arcane.clone(); tm.alpha = 0.7; trail.material = tm;
-    } else if (visual === 'orb') {
+      trail = new TrailMesh("proj.boltTrail", mesh, this.scene, 0.22, 26, true);
+      const tm = this.mats.bolt.clone('proj.boltTrailMat'); tm.emissiveColor = PALETTE.arcane.clone(); tm.alpha = 0.85; trail.material = tm;
+    } else if (visual === "orb") {
       mesh = MeshBuilder.CreateSphere('proj.orb', { diameter: 1.7, segments: 12 }, this.scene);
       trail = new TrailMesh('proj.orbTrail', mesh, this.scene, 0.7, 40, true);
       const tm = this.mats.orb.clone('proj.orbTrailMat'); tm.emissiveColor = PALETTE.arcane.clone(); tm.alpha = 0.55; trail.material = tm;
@@ -55,7 +55,8 @@ export class Projectiles {
     }
     mesh.material = this.mats[visual];
     mesh.isPickable = false;
-    if (trail) { trail.isPickable = false; }
+    this.rig?.addGlow(mesh);
+    if (trail) { trail.isPickable = false; this.rig?.addGlow(trail); }
     return { team: 'player', pos: new Vector3(), dir: new Vector3(), speed: 0, radius: 0.3, range: 10, visual, mesh, trail, light, travelled: 0, hitSet: new Set(), alive: false, vel: new Vector3(), tick: 0 };
   }
 

@@ -59,3 +59,12 @@ Logical ids resolve through `assets/registry.ts` to files under `public/assets/`
 ## Performance plan
 
 Pool projectiles, numbers, decals, lights and enemies. Profile with the engine instrumentation panel before optimizing. Targets: 60 fps at 1080p with 20–30 enemies on a modern discrete GPU (this machine: M1 Pro).
+
+## Engine gotchas found in Milestone 1–3
+
+- **Collision moves inside a fixed-step loop.** `TransformNode.computeWorldMatrix()` early-outs when the scene render id has not changed, so a second `moveWithCollisions` in the same frame reads a stale absolute position and passes through geometry. Every kinematic mover calls `collider.computeWorldMatrix(true)` before `moveWithCollisions`.
+- **Kit geometry is not a collider.** The glTF root's mirrored scale flips triangle winding, and mesh-accurate collision against ~200 instanced pieces is slow. Gameplay collision uses invisible box colliders generated per placement from measured kit bounds (`KIT_BOUNDS` in `world/benchmark.ts`); the visual meshes stay pickable for camera obstruction and aiming.
+- **Walkable height is analytic.** `World.surfaces` (axis-aligned slabs and z-ramps) answers `groundY` without raycasts; the raycast is only a fallback.
+- **WebGPU lights.** At most 8 lights per mesh. World lights use `renderPriority` 50, spell lights 60–80, sun/sky 95–100, so spells win when the budget is exceeded.
+- **Hidden tab.** `requestAnimationFrame` stops when the tab is hidden; `GameLoop` falls back to a throttled timer that runs full engine frames so automated tests and off-screen captures keep working.
+- **Materials-library gradient shader** rendered black on WebGPU; the sky is a procedural gradient texture on a `StandardMaterial` instead.

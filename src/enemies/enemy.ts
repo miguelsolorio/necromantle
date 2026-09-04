@@ -39,6 +39,7 @@ export class Enemy {
     this.root = new TransformNode('enemy', scene);
     this.collider = MeshBuilder.CreateCapsule('enemy.collider', { radius: 0.4, height: 1.8, subdivisions: 1, tessellation: 6 }, scene);
     this.collider.isVisible = false; this.collider.isPickable = false; this.collider.checkCollisions = true;
+    this.collider.collisionGroup = 2; this.collider.collisionMask = 1;
     this.collider.ellipsoid = new Vector3(0.4, 0.9, 0.4); this.collider.ellipsoidOffset = new Vector3(0, 0.9, 0);
   }
 
@@ -58,7 +59,7 @@ export class Enemy {
     this.radius = def.radius * (elite ? 1.3 : 1); this.height = def.height * (elite ? 1.3 : 1);
     this.collider.ellipsoid.set(this.radius, this.height / 2, this.radius); this.collider.ellipsoidOffset.set(0, this.height / 2, 0);
     if (this.model) this.model.scaling.setAll((def.height / 2.17) * (elite ? 1.3 : 1));
-    this.hpMax = Math.round(def.hp * (elite ? 3.2 : 1)); this.hp = this.hpMax;
+    this.hpMax = Math.round(def.hp * (elite ? 4.5 : 1)); this.hp = this.hpMax;
     this.root.position.copyFrom(pos); this.collider.position.copyFrom(pos);
     this.yaw = rand(0, Math.PI * 2);
     this.velocity.setAll(0); this.knock.setAll(0);
@@ -127,6 +128,7 @@ export class Enemy {
     this.knock.scaleInPlace(Math.exp(-6 * dt));
     if (this.knock.lengthSquared() < 0.01) this.knock.setAll(0);
     this.tmp.set((this.velocity.x + this.knock.x + push.x) * dt, 0, (this.velocity.z + this.knock.z + push.z) * dt);
+    this.collider.computeWorldMatrix(true); // see Player.update: per-render-id matrix cache
     this.collider.moveWithCollisions(this.tmp);
     if (groundY !== null) this.collider.position.y = damp(this.collider.position.y, groundY, 20, dt);
     this.root.position.copyFrom(this.collider.position);
@@ -141,11 +143,16 @@ export class Enemy {
       else this.animator.play(this.def.anims.idle);
     }
     this.animator.update(dt);
-    // hit flash via overlay
+    // hit flash: brief emissive pulse on the (per-enemy) body materials
     if (this.flash > 0) {
       this.flash -= dt;
-      const on = this.flash > 0;
-      for (const m of this.meshes) { m.renderOverlay = on; if (on) { m.overlayColor = new Color3(0.9, 0.85, 1); m.overlayAlpha = 0.32; } }
+      const k = Math.max(0, this.flash / 0.07);
+      for (const m of this.meshes) {
+        const mat = m.material as PBRMaterial | null;
+        if (!mat || !(mat instanceof PBRMaterial) || /eyes/i.test(m.name)) continue;
+        const base = (mat.metadata?.baseEmissive as Color3 | undefined) ?? Color3.Black();
+        mat.emissiveColor.set(base.r + 0.55 * k, base.g + 0.45 * k, base.b + 0.75 * k);
+      }
     }
     if (!this.alive) {
       this.deathTimer += dt;

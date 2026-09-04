@@ -1,4 +1,5 @@
-import { Color3, PBRMaterial, Scene, Vector3 } from '@babylonjs/core';
+import { Color3, Mesh, MeshBuilder, PBRMaterial, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
+import { Textures } from "@/rendering/textures";
 import type { AssetLoader } from '@/assets/loader';
 import { ENEMIES, type EnemyDef, type EnemyId } from '@/content/enemies';
 import type { EventBus } from '@/core/events';
@@ -29,6 +30,7 @@ export class EnemyManager {
   private near: Enemy[] = [];
   private frame = 0;
   private modelsReady = new Set<EnemyId>();
+  private blobSrc: Mesh | null = null;
 
   constructor(private scene: Scene, private loader: AssetLoader, private rig: RenderRig, private bus: EventBus, private vfx: Vfx, private projectiles: Projectiles, private world: World) {}
 
@@ -50,7 +52,10 @@ export class EnemyManager {
       const inst = await this.loader.instanceCharacter(def.model, `${id}.${this.nextId}`);
       e.bindModel(inst, def);
       this.tintModel(e, def);
-      for (const m of inst.meshes) this.rig.addCaster(m);
+      // blob shadow instead of a cascaded caster: 24 skinned casters cost ~400 draw calls per frame
+      for (const m of inst.meshes) { if (/eyes/i.test(m.name)) this.rig.addGlow(m); }
+      const blob = this.blobSource().createInstance(`blob.${this.nextId}`);
+      blob.parent = e.root; blob.position.y = 0.05; blob.isPickable = false; blob.scaling.setAll(def.radius * 5.5);
       this.pool.push(e);
     }
     e.spawn(def, pos, elite, this.nextId++);
@@ -58,6 +63,16 @@ export class EnemyManager {
     e.slot = this.pool.indexOf(e);
     if (elite) this.styleElite(e, true); else this.styleElite(e, false);
     return e;
+  }
+
+  private blobSource(): Mesh {
+    if (this.blobSrc) return this.blobSrc;
+    const m = new StandardMaterial("blobMat", this.scene);
+    m.diffuseColor = Color3.Black(); m.specularColor = Color3.Black(); m.opacityTexture = Textures.softDot(this.scene); m.alpha = 0.75; m.disableLighting = true; m.backFaceCulling = false;
+    const src = MeshBuilder.CreatePlane("blobSrc", { size: 1 }, this.scene);
+    src.rotation.x = Math.PI / 2; src.material = m; src.isPickable = false; src.position.y = -500;
+    this.blobSrc = src;
+    return src;
   }
 
   /** Enemies read darker and less saturated than the world (rule R-07); eyes glow in the archetype colour. */
@@ -79,7 +94,8 @@ export class EnemyManager {
       const mat = m.material;
       if (!(mat instanceof PBRMaterial)) continue;
       if (/eyes/i.test(m.name) || /glow/i.test(mat.name)) { mat.emissiveColor = elite ? Color3.FromHexString('#FFB347') : Color3.FromHexString(e.def.eye); continue; }
-      mat.emissiveColor = elite ? new Color3(0.25, 0.12, 0.02) : Color3.Black();
+      const base = elite ? new Color3(0.25, 0.12, 0.02) : Color3.Black();
+      mat.emissiveColor = base.clone(); mat.metadata = { ...(mat.metadata ?? {}), baseEmissive: base };
     }
   }
 

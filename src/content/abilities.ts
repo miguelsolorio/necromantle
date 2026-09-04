@@ -35,7 +35,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   orb: {
     id: 'orb', name: 'Astral Orb', slot: 1, keyLabel: 'RMB', kind: 'spender', unlockLevel: 2,
     cost: 40, cooldown: 0.4, castInterval: 0.5, range: 22, radius: 0.9, speed: 10,
-    damage: { base: 150, element: 'arcane' }, energyOnHit: 0, knockback: 4, homing: 0.05,
+    damage: { base: 150, element: 'arcane' }, energyOnHit: 0, knockback: 6, homing: 0.05,
     anim: 'Spellcast_Long', animLock: 0.25,
     description: 'A slow, enormous orb that pierces everything and detonates at range.',
   },
@@ -49,7 +49,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   nova: {
     id: 'nova', name: 'Flame Nova', slot: 3, keyLabel: '2', kind: 'cooldown', unlockLevel: 4,
     cost: 0, cooldown: 10, castInterval: 0, range: 0, radius: 4.2, speed: 0,
-    damage: { base: 120, element: 'fire' }, energyOnHit: 0, knockback: 9, homing: 0,
+    damage: { base: 120, element: 'fire' }, energyOnHit: 0, knockback: 15, homing: 0,
     anim: 'Spellcast_Raise', animLock: 0.3,
     description: 'Radial burst of fire. Throws enemies back and sets them burning.',
   },

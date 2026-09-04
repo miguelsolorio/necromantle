@@ -44,19 +44,19 @@ export class Vfx {
     this.ringMat.emissiveColor = PALETTE.fire.clone(); this.ringMat.disableLighting = true; this.ringMat.backFaceCulling = false;
     this.ringMat.alphaMode = 1; // add
     this.ringSrc = MeshBuilder.CreatePlane('vfx.ringSrc', { size: 1 }, scene);
-    this.ringSrc.rotation.x = Math.PI / 2; this.ringSrc.material = this.ringMat; this.ringSrc.isVisible = false; this.ringSrc.isPickable = false;
+    this.ringSrc.rotation.x = Math.PI / 2; this.ringSrc.material = this.ringMat; this.ringSrc.isVisible = false; this.ringSrc.isPickable = false; this.ringSrc.position.y = -500;
 
     this.decalMat = new StandardMaterial('vfx.decal', scene);
     this.decalMat.diffuseTexture = Textures.scorch(scene); this.decalMat.opacityTexture = Textures.scorch(scene);
     this.decalMat.emissiveColor = new Color3(0.1, 0.025, 0.006); this.decalMat.diffuseColor = Color3.Black(); this.decalMat.alpha = 0.85;
     this.decalMat.disableLighting = true; this.decalMat.backFaceCulling = false;
     this.decalSrc = MeshBuilder.CreatePlane('vfx.decalSrc', { size: 1 }, scene);
-    this.decalSrc.rotation.x = Math.PI / 2; this.decalSrc.material = this.decalMat; this.decalSrc.isVisible = false; this.decalSrc.isPickable = false;
+    this.decalSrc.rotation.x = Math.PI / 2; this.decalSrc.material = this.decalMat; this.decalSrc.isVisible = false; this.decalSrc.isPickable = false; this.decalSrc.position.y = -500;
 
     this.ghostMat = new StandardMaterial('vfx.ghost', scene);
-    this.ghostMat.emissiveColor = PALETTE.arcane.clone(); this.ghostMat.diffuseColor = Color3.Black(); this.ghostMat.alpha = 0.5; this.ghostMat.disableLighting = true;
-    this.ghostSrc = MeshBuilder.CreateCapsule('vfx.ghostSrc', { radius: 0.4, height: 1.8, tessellation: 8, subdivisions: 1 }, scene);
-    this.ghostSrc.material = this.ghostMat; this.ghostSrc.isVisible = false; this.ghostSrc.isPickable = false;
+    this.ghostMat.emissiveColor = PALETTE.arcane.scale(0.7); this.ghostMat.diffuseColor = Color3.Black(); this.ghostMat.alpha = 0.28; this.ghostMat.disableLighting = true; this.ghostMat.alphaMode = 1;
+    this.ghostSrc = MeshBuilder.CreateCapsule("vfx.ghostSrc", { radius: 0.32, height: 1.7, tessellation: 8, subdivisions: 1 }, scene);
+    this.ghostSrc.material = this.ghostMat; this.ghostSrc.isVisible = false; this.ghostSrc.isPickable = false; this.ghostSrc.position.y = -500;
   }
 
   private mkBurst(name: string, tex: Texture, o: { c1: Color3; c2: Color3; size: [number, number]; life: [number, number]; power: [number, number]; gravity: number; cap: number; blend?: number; alpha?: number }): void {
@@ -98,9 +98,9 @@ export class Vfx {
   // ------------------------------------------------------------------ composed effects
 
   boltImpact(pos: Vector3, dir?: Vector3): void {
-    this.burst('arcaneImpact', pos, 6);
-    this.burst('arcaneSpark', pos, 10, dir ? dir.scale(-1) : undefined, 0.8);
-    this.lights.flash(pos, PALETTE.arcane, 9, 0.16, 5);
+    this.burst("arcaneImpact", pos, 10);
+    this.burst("arcaneSpark", pos, 16, dir ? dir.scale(-1) : undefined, 0.9);
+    this.lights.flash(pos, PALETTE.arcane, 14, 0.18, 6);
   }
   hitSpark(pos: Vector3, element: Element): void {
     if (element === 'fire') this.burst('ember', pos, 8); else this.burst('arcaneSpark', pos, 6);
@@ -122,11 +122,11 @@ export class Vfx {
     d.position.y = Math.max(d.position.y, 0.1);
   }
   rift(from: Vector3, to: Vector3): void {
-    const n = 4;
+    const n = 3;
     for (let i = 0; i < n; i++) {
-      const t = i / (n - 1);
+      const t = (i + 0.5) / n;
       const p = Vector3.Lerp(from, to, t).addInPlaceFromFloats(0, 0.95, 0);
-      const g = this.spawnTimed(this.ghostSrc, 'ghost', p, 1, 1.05, 0.28 + t * 0.12);
+      const g = this.spawnTimed(this.ghostSrc, "ghost", p, 1, 1.05, 0.22 + t * 0.1);
       g.scaling.setAll(1);
       this.burst('rift', p, 6);
     }

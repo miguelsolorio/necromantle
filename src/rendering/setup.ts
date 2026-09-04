@@ -1,4 +1,4 @@
-import { AbstractMesh, CascadedShadowGenerator, Color3, Color4, DefaultRenderingPipeline, DirectionalLight, GlowLayer, HemisphericLight, ImageProcessingConfiguration, MeshBuilder, Scene, SSAO2RenderingPipeline, StandardMaterial, TargetCamera, Vector3 } from '@babylonjs/core';
+import { AbstractMesh, CascadedShadowGenerator, Color3, Color4, DefaultRenderingPipeline, DirectionalLight, GlowLayer, HemisphericLight, ImageProcessingConfiguration, InstancedMesh, Mesh, MeshBuilder, Scene, SSAO2RenderingPipeline, StandardMaterial, TargetCamera, Vector3 } from '@babylonjs/core';
 import { PALETTE } from "@/content/palette";
 import { Textures } from "./textures";
 import type { Backend } from '@/core/engine';
@@ -11,6 +11,7 @@ export interface RenderRig {
   glow: GlowLayer;
   ssao: SSAO2RenderingPipeline | null;
   addCaster(mesh: AbstractMesh): void;
+  addGlow(mesh: AbstractMesh): void;
   setFov(deg: number): void;
 }
 
@@ -40,8 +41,8 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
   hemi.intensity = 0.8;
   hemi.renderPriority = 95;
 
-  const shadows = new CascadedShadowGenerator(2048, moon);
-  shadows.numCascades = 3;
+  const shadows = new CascadedShadowGenerator(1536, moon);
+  shadows.numCascades = 2;
   shadows.lambda = 0.85;
   shadows.shadowMaxZ = 70;
   shadows.stabilizeCascades = true;
@@ -75,8 +76,10 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
   moonDisc.isPickable = false;
   moonDisc.infiniteDistance = true;
 
-  const glow = new GlowLayer('glow', scene, { blurKernelSize: 48, mainTextureSamples: 1 });
+  // Glow only renders meshes registered through addGlow(); a full emissive pass over the scene costs ~200 draws.
+  const glow = new GlowLayer("glow", scene, { blurKernelSize: 48, mainTextureSamples: 1, mainTextureRatio: 0.5 });
   glow.intensity = 0.7;
+  glow.addIncludedOnlyMesh(moonDisc);
 
   const pipeline = new DefaultRenderingPipeline('pp', true, scene, [camera]);
   pipeline.samples = 4;
@@ -110,6 +113,7 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
   return {
     moon, hemi, shadows, pipeline, glow, ssao,
     addCaster: (mesh) => shadows.addShadowCaster(mesh, true),
+    addGlow: (mesh) => { if (mesh instanceof Mesh) glow.addIncludedOnlyMesh(mesh); else if (mesh instanceof InstancedMesh) glow.addIncludedOnlyMesh(mesh.sourceMesh); },
     setFov: (deg) => { camera.fov = (deg * Math.PI) / 180; },
   };
 }

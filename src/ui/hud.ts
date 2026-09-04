@@ -20,6 +20,8 @@ export class Hud {
   private barPool: HTMLElement[] = [];
   private proj = { x: 0, y: 0, z: 0, visible: false };
   private toastT = 0;
+  private hurtT = 0;
+  private hurtVig: HTMLElement;
   hidden = false;
 
   constructor(private cam: ThirdPersonCamera) {
@@ -30,6 +32,7 @@ export class Hud {
       <div class="reticle"></div><div class="softlock"></div>
       <div class="lockhint">CLICK TO PLAY<small>WASD move · mouse aim · LMB bolt · RMB orb · 1 rift step · 2 flame nova · shift sprint · Q potion · F1 dev panel</small></div>
       <div class="toast"></div>
+      <div class="hurtvig"></div>
       <div class="dead">YOU HAVE FALLEN<small>PRESS R TO RISE AGAIN</small></div>
       <div class="hud-orb health"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
       <div class="hud-orb energy"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
@@ -39,7 +42,7 @@ export class Hud {
     this.hpFill = q('.hud-orb.health .fill'); this.hpVal = q('.hud-orb.health .val');
     this.enFill = q('.hud-orb.energy .fill'); this.enVal = q('.hud-orb.energy .val');
     this.xp = q('.xpbar i'); this.lvl = q('.xpbar .lvl');
-    this.area = q('[data-area]'); this.objective = q('[data-obj]'); this.lock = q('.softlock'); this.lockhint = q('.lockhint'); this.toastEl = q('.toast'); this.deadEl = q('.dead');
+    this.area = q('[data-area]'); this.objective = q('[data-obj]'); this.lock = q('.softlock'); this.lockhint = q('.lockhint'); this.toastEl = q(".toast"); this.deadEl = q(".dead"); this.hurtVig = q(".hurtvig");
     const bar = q('.skillbar');
     for (const id of ['bolt', 'orb', 'rift', 'nova', 'frost', 'cataclysm']) {
       const el = document.createElement('div'); el.className = 'slot'; el.innerHTML = `${ICONS[id]}<div class="cdv" style="display:none"></div><div class="key"></div>`;
@@ -55,7 +58,8 @@ export class Hud {
   setHidden(h: boolean): void { this.hidden = h; this.root.classList.toggle('hidden', h); }
   setArea(name: string, sub: string): void { this.area.textContent = name; (this.root.querySelector('[data-sub]') as HTMLElement).textContent = sub; }
   setObjective(text: string): void { this.objective.textContent = text; }
-  toast(title: string, sub = '', dur = 2.6): void { this.toastEl.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`; this.toastEl.classList.add('on'); this.toastT = dur; }
+  hurt(): void { this.hurtT = 0.35; this.hurtVig.classList.add("on"); }
+  toast(title: string, sub = "", dur = 2.6): void { this.toastEl.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`; this.toastEl.classList.add('on'); this.toastT = dur; }
 
   number(pos: Vector3, text: string, kind: 'normal' | 'crit' | 'fire' | 'frost' | 'heal' = 'normal'): void {
     this.cam.project(pos, this.proj);
@@ -98,6 +102,8 @@ export class Hud {
     this.deadEl.classList.toggle('on', player.dead);
     // numbers
     for (const n of this.nums) { if (!n.busy) continue; n.t += dt; if (n.t > 1.15) { n.busy = false; n.el.classList.remove('on'); n.el.textContent = ''; } }
+    if (this.hurtT > 0) { this.hurtT -= dt; if (this.hurtT <= 0) this.hurtVig.classList.remove("on"); }
+    this.hurtVig.classList.toggle("low", !player.dead && hpF < 0.3);
     // toast
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) this.toastEl.classList.remove('on'); }
     // enemy bars

@@ -94,3 +94,9 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; }
 .dbg .btns button:hover { background: #2a2235; }
 .dbg .stat { color: #8e8577; font-size: 11px; margin-top: 6px; line-height: 1.5; }
 .dbg .stat b { color: #fff; font-weight: 500; }
+
+/* damage vignette */
+.hurtvig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(180,10,20,.55) 100%); opacity: 0; transition: opacity .35s; }
+.hurtvig.on { opacity: 1; transition: opacity .05s; }
+.hurtvig.low { animation: lowhp 1.4s ease-in-out infinite; }
+@keyframes lowhp { 0%,100% { opacity: .25; } 50% { opacity: .6; } }

@@ -64,10 +64,10 @@ export class Game {
     this.vfx = new Vfx(this.scene);
     this.world = new BenchmarkScene(this.scene, this.loader, this.rig);
     this.player = new Player(this.scene, this.bus);
-    this.projectiles = new Projectiles(this.scene, this.vfx);
+    this.projectiles = new Projectiles(this.scene, this.vfx, this.rig);
     this.enemies = new EnemyManager(this.scene, this.loader, this.rig, this.bus, this.vfx, this.projectiles, this.world);
     this.targeting = new Targeting();
-    this.pickups = new Pickups(this.scene, this.vfx, this.bus);
+    this.pickups = new Pickups(this.scene, this.vfx, this.bus, this.rig);
     this.abilities = new AbilitySystem({ player: this.player, cam: this.cam, enemies: this.enemies, projectiles: this.projectiles, vfx: this.vfx, targeting: this.targeting, bus: this.bus, world: this.world });
     this.hud = new Hud(this.cam);
     this.dbg = new DebugPanel({
@@ -106,7 +106,7 @@ export class Game {
       const chance = (def?.globeChance ?? 0.12) * (elite ? 3 : 1);
       if (Math.random() < chance || this.player.hp < this.player.hpMax * 0.35 && Math.random() < 0.3) this.pickups.spawnGlobe(pos);
     });
-    this.bus.on('player:damaged', () => { const o = this.hud.root.querySelector('.hud-orb.health')!; o.classList.remove('hurt'); void (o as HTMLElement).offsetWidth; o.classList.add('hurt'); this.cam.shake(0.12, 0.15); });
+    this.bus.on("player:damaged", () => { this.hud.hurt(); const o = this.hud.root.querySelector(".hud-orb.health")!; o.classList.remove('hurt'); void (o as HTMLElement).offsetWidth; o.classList.add('hurt'); this.cam.shake(0.12, 0.15); });
     this.bus.on('player:levelup', ({ level }) => {
       this.vfx.levelUp(this.player.position);
       const unlock = ({ 2: 'ASTRAL ORB', 3: 'RIFT STEP', 4: 'FLAME NOVA', 5: 'PASSIVE SLOT', 6: 'FROST FIELD', 8: 'SECOND PASSIVE SLOT', 10: 'CATACLYSM' } as Record<number, string>)[level];
@@ -176,6 +176,7 @@ export class Game {
       if (this.spawnTimer <= 0) {
         this.wave++;
         this.spawnTimer = 6;
+        this.dbg.state.hpMult = +(1 + this.wave * 0.12).toFixed(2);
         const n = Math.min(24, 8 + this.wave * 3);
         this.spawnPack('ghoul', n);
         if (this.wave >= 2) this.spawnPack('cultist', Math.min(4, this.wave));

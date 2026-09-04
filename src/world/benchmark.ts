@@ -10,7 +10,16 @@ import { World } from './world';
 /** Architecture is exaggerated 1.5–2.5× (rule R-11). Kit walls are 4 m; the gate becomes 10 m. */
 export const KIT_SCALE = 1.5;
 
-interface Placement { id: KitId; x: number; z: number; y?: number; rot?: number; scale?: number; collide?: boolean; ground?: boolean }
+/** Local-space bounds (minX, minY, minZ, maxX, maxY, maxZ) for pieces that get rotated box colliders. Measured from the GLBs. */
+const KIT_BOUNDS: Partial<Record<KitId, [number, number, number, number, number, number]>> = {
+  'kit.wall': [-2, 0, -0.5, 2, 4, 0.5], 'kit.wall_arched': [-2, 0, -0.5, 2, 4, 0.5], 'kit.wall_archedwindow_open': [-2, 0, -0.5, 2, 4, 0.5], 'kit.wall_broken': [-2, 0, -0.5, 2, 4, 0.5],
+  'kit.wall_cracked': [-2, 0, -0.5, 2, 4, 0.5], 'kit.wall_window_open': [-2, 0, -0.5, 2, 4, 0.5], 'kit.wall_half': [-2, 0, -0.5, 2, 4, 0.5], 'kit.wall_Tsplit': [-2, 0, -0.5, 2, 4, 0.5],
+  'kit.wall_pillar': [-2, 0, -0.75, 2, 4, 0.75], 'kit.wall_corner': [-2, 0, -0.5, 0.5, 4, 2], 'kit.wall_endcap': [0, 0, -0.5, 1.07, 4, 0.5],
+  'kit.pillar': [-0.75, 0, -0.75, 0.75, 4, 0.75], 'kit.pillar_decorated': [-0.75, 0, -0.75, 0.75, 4, 0.75], 'kit.column': [-0.35, 0, -0.35, 0.35, 1.4, 0.35],
+  'kit.rubble_large': [-4.07, 0, -1.59, 4.06, 3.5, 1.6], 'kit.chest': [-0.85, 0, -0.6, 0.85, 0.8, 1.31], 'kit.barrel_large': [-0.9, 0, -0.9, 0.9, 2, 0.9],
+};
+
+interface Placement { id: KitId; x: number; z: number; y?: number; rot?: number; scale?: number; scaleV?: [number, number, number]; collide?: boolean; ground?: boolean; noCast?: boolean }
 
 /**
  * Milestone-1 benchmark: a walled courtyard below a raised cathedral door, two rows of giant pillars,
@@ -19,6 +28,8 @@ interface Placement { id: KitId; x: number; z: number; y?: number; rot?: number;
 export class BenchmarkScene extends World {
   readonly torches: PointLight[] = [];
   private flames: Mesh[] = [];
+  private colliderMat!: StandardMaterial;
+  colliderCount = 0;
   private flameMat!: StandardMaterial;
   private root: TransformNode;
 
@@ -27,6 +38,21 @@ export class BenchmarkScene extends World {
     this.root = new TransformNode('benchmark', scene);
     this.playerStart = new Vector3(0, 0, -12);
     this.playerYaw = 0;
+  }
+
+  /**
+   * Invisible box collider. Babylon's collider ignores submeshes without a material and the glTF root's mirrored
+   * scale flips kit winding, so gameplay collision uses plain boxes with a material instead of kit geometry.
+   */
+  addCollider(name: string, center: Vector3, size: Vector3, rotY = 0): Mesh {
+    if (!this.colliderMat) { this.colliderMat = new StandardMaterial("colliderMat", this.scene); this.colliderMat.alpha = 0; }
+    const box = MeshBuilder.CreateBox(name, { width: size.x, height: size.y, depth: size.z }, this.scene);
+    box.position.copyFrom(center); box.rotation.y = rotY;
+    box.material = this.colliderMat; box.isVisible = false; box.isPickable = false;
+    box.checkCollisions = true; box.collisionGroup = 1; box.metadata = { static: true, collide: true, collider: true };
+    box.parent = this.root; box.freezeWorldMatrix();
+    this.colliderCount++;
+    return box;
   }
 
   async build(): Promise<void> {
@@ -59,10 +85,16 @@ export class BenchmarkScene extends World {
     // ---- gate: two giant pillars framing the stair
     p.push({ id: 'kit.pillar', x: -T - 0.6, z: half + 1.4, scale: 2.6, collide: true });
     p.push({ id: 'kit.pillar', x: T + 0.6, z: half + 1.4, scale: 2.6, collide: true });
-    // stair up to the raised threshold (stairs_wide: 7 wide × 5.1 high × 4 deep at scale 1)
-    const stairS = 1.3;
-    p.push({ id: 'kit.stairs_wide', x: 0, z: half - 0.5, scale: stairS, rot: 0, collide: true, ground: true });
-    const topY = 5.1 * stairS, topZ = half - 0.5 + 4 * stairS;
+    // stair up to the raised threshold. Kit stairs are 52° steep, so they are squashed to a 28° ramp:
+    // visual mesh only; walking uses an analytic ramp surface and camera obstruction uses an invisible slab.
+    const stairScale: [number, number, number] = [1.3, 0.72, 1.7];
+    const stairZ0 = half - 0.5;
+    p.push({ id: "kit.stairs_wide", x: 0, z: stairZ0, scaleV: stairScale, rot: 0, collide: false, ground: false });
+    const topY = 5.1 * stairScale[1], topZ = stairZ0 + 4 * stairScale[2];
+    this.addSurface({ minX: -3.5 * stairScale[0], maxX: 3.5 * stairScale[0], minZ: stairZ0, maxZ: topZ, y0: 0, y1: topY });
+    this.addSurface({ minX: -T * 1.5, maxX: T * 1.5, minZ: topZ, maxZ: topZ + 2 * T, y0: topY, y1: topY });
+    this.addSurface({ minX: -half, maxX: half, minZ: -half, maxZ: half, y0: 0.075, y1: 0.075 });
+    this.addSurface({ minX: -200, maxX: 200, minZ: -200, maxZ: 200, y0: -0.06, y1: -0.06 });
     // threshold platform: foundation tiles
     for (let ix = -1; ix <= 1; ix++) for (let iz = 0; iz < 2; iz++) p.push({ id: 'kit.floor_tile_large', x: ix * T, z: topZ + T / 2 + iz * T, y: topY, ground: true, collide: true });
     // the cathedral door: an arched wall at 2.5× (10 m) flanked by wall pillars, on the platform
@@ -111,6 +143,14 @@ export class BenchmarkScene extends World {
 
     await Promise.all([...p, ...far].map((pl, i) => this.place(pl, i)));
 
+    // the cathedral door is sealed until the interior exists
+    this.addCollider("doorBlock", new Vector3(0, topY + 6, topZ + T * 2 - 0.4), new Vector3(12, 12, 1));
+    // invisible slab over the ramp (camera obstruction) and blockers so nobody walks under the platform
+    const slab = MeshBuilder.CreateBox("stairSlab", { width: 7 * stairScale[0], height: 0.3, depth: Math.hypot(topY, 4 * stairScale[2]) }, this.scene);
+    slab.position.set(0, topY / 2 - 0.15, stairZ0 + 2 * stairScale[2]); slab.rotation.x = -Math.atan2(topY, 4 * stairScale[2]);
+    slab.isVisible = false; slab.isPickable = true; slab.metadata = { static: true }; slab.parent = this.root;
+    this.addCollider("platformUnder", new Vector3(0, (topY - 0.6) / 2, topZ + T), new Vector3(T * 3, topY - 0.6, 2 * T));
+    for (const sx of [-1, 1]) this.addCollider(`stairRail${sx}`, new Vector3(sx * (3.5 * stairScale[0] + 0.3), (topY + 2) / 2, stairZ0 + 2 * stairScale[2]), new Vector3(0.6, topY + 2, 4 * stairScale[2] + 0.5));
     // ---- big ground plane under everything (painterly stone, mid-value: rule R-06)
     const ground = MeshBuilder.CreateGround('ground', { width: 400, height: 400, subdivisions: 2 }, this.scene);
     const gm = new PBRMaterial('groundMat', this.scene);
@@ -137,14 +177,14 @@ export class BenchmarkScene extends World {
       halo.material = this.flameMat; halo.billboardMode = Mesh.BILLBOARDMODE_ALL; halo.position.copyFrom(fp); halo.isPickable = false; halo.applyFog = false;
       const core = MeshBuilder.CreatePlane(`flameCore${this.flames.length}`, { size: 0.55 }, this.scene);
       core.material = flameCore; core.billboardMode = Mesh.BILLBOARDMODE_ALL; core.position.copyFrom(fp).addInPlaceFromFloats(0, 0.05, 0); core.isPickable = false; core.applyFog = false;
-      this.flames.push(halo, core);
+      this.flames.push(halo, core); this.rig.addGlow(halo); this.rig.addGlow(core);
     }
     // arcane glow inside the cathedral door
     const portal = MeshBuilder.CreatePlane("portal", { width: 7.5, height: 10 }, this.scene);
     const pm = new StandardMaterial("portalMat", this.scene);
     pm.emissiveColor = PALETTE.arcane.scale(0.9); pm.diffuseColor = Color3.Black(); pm.opacityTexture = Textures.softDot(this.scene); pm.disableLighting = true; pm.alphaMode = 1; pm.backFaceCulling = false;
     portal.material = pm; portal.position.set(0, topY + 4.5, topZ + T * 2 - 1.6); portal.isPickable = false;
-    portal.parent = this.root;
+    portal.parent = this.root; this.rig.addGlow(portal);
     // door glow behind the arch
     const doorGlow = this.addTorch(new Vector3(0, topY + 5, topZ + T * 2 - 3), 18, 22, PALETTE.arcane.scale(0.9));
     doorGlow.name = 'doorGlow';
@@ -174,17 +214,35 @@ export class BenchmarkScene extends World {
   }
 
   private async place(pl: Placement, i: number): Promise<void> {
-    const node = await this.loader.instanceStatic(pl.id, `${pl.id.slice(4)}#${i}`, { collide: pl.collide, ground: pl.ground, receiveShadow: true });
+    const node = await this.loader.instanceStatic(pl.id, `${pl.id.slice(4)}#${i}`, { collide: false, ground: pl.ground, receiveShadow: true });
     node.position.set(pl.x, pl.y ?? 0, pl.z);
     node.rotation.y = pl.rot ?? 0;
-    node.scaling.setAll(pl.scale ?? KIT_SCALE);
+    if (pl.scaleV) node.scaling.set(pl.scaleV[0], pl.scaleV[1], pl.scaleV[2]); else node.scaling.setAll(pl.scale ?? KIT_SCALE);
     node.parent = this.root;
     for (const m of node.getChildMeshes()) {
       const mat = m.material;
       if (mat instanceof PBRMaterial) { mat.metallic = 0; mat.roughness = 0.92; mat.specularIntensity = 0.25; mat.maxSimultaneousLights = 8; if (!mat.metadata?.tinted) { mat.metadata = { tinted: true }; const k = pl.ground ? 0.4 : 0.72; mat.albedoColor = new Color3(k * 0.96, k * 0.94, k); } }
-      if (pl.collide && !pl.ground) this.rig.addCaster(m);
-      if (pl.id.startsWith('kit.torch') && /fire|flame/i.test(m.name)) { /* flames stay emissive via material */ }
+      if (pl.collide && !pl.ground && /pillar|column|rubble|chest|barrel|crates|box|keg|trunk/.test(pl.id)) this.rig.addCaster(m);
+      if (/stairs/.test(pl.id)) this.rig.addCaster(m);
+      if (/torch|candle/.test(pl.id)) this.rig.addGlow(m);
       m.freezeWorldMatrix();
+    }
+    if (pl.collide && !pl.ground) {
+      const rot = pl.rot ?? 0;
+      const sc = pl.scaleV ?? [pl.scale ?? KIT_SCALE, pl.scale ?? KIT_SCALE, pl.scale ?? KIT_SCALE];
+      const local = KIT_BOUNDS[pl.id];
+      if (local) {
+        // rotate the local box with the piece so thin walls stay thin
+        const w = (local[3] - local[0]) * sc[0], h = (local[4] - local[1]) * sc[1], d = (local[5] - local[2]) * sc[2];
+        const cx = ((local[0] + local[3]) / 2) * sc[0], cy = ((local[1] + local[4]) / 2) * sc[1], cz = ((local[2] + local[5]) / 2) * sc[2];
+        const c = new Vector3(pl.x + cx * Math.cos(rot) + cz * Math.sin(rot), (pl.y ?? 0) + cy, pl.z - cx * Math.sin(rot) + cz * Math.cos(rot));
+        this.addCollider(`col.${pl.id.slice(4)}#${i}`, c, new Vector3(w, h, d), rot);
+      } else {
+        node.computeWorldMatrix(true);
+        const { min, max } = node.getHierarchyBoundingVectors(true);
+        const size = max.subtract(min);
+        if (Number.isFinite(size.x) && size.x > 0.2 && size.z > 0.2) this.addCollider(`col.${pl.id.slice(4)}#${i}`, min.add(max).scale(0.5), size);
+      }
     }
   }
 

@@ -11,7 +11,7 @@ export class Pickups {
   private globes: Globe[] = [];
   private mat: StandardMaterial;
   private haloMat: StandardMaterial;
-  constructor(private scene: Scene, private vfx: Vfx, private bus: EventBus) {
+  constructor(private scene: Scene, private vfx: Vfx, private bus: EventBus, private rig?: { addGlow(m: Mesh): void }) {
     this.mat = new StandardMaterial('globeMat', scene);
     this.mat.emissiveColor = PALETTE.healthBright.clone(); this.mat.diffuseColor = PALETTE.health.clone(); this.mat.specularColor = new Color3(1, 0.8, 0.8); this.mat.specularPower = 32;
     this.haloMat = new StandardMaterial('globeHalo', scene);
@@ -21,7 +21,7 @@ export class Pickups {
     let g = this.globes.find((x) => !x.alive);
     if (!g) {
       const mesh = MeshBuilder.CreateSphere('globe', { diameter: 0.7, segments: 10 }, this.scene);
-      mesh.material = this.mat; mesh.isPickable = false;
+      mesh.material = this.mat; mesh.isPickable = false; this.rig?.addGlow(mesh);
       const halo = MeshBuilder.CreateDisc('globeHalo', { radius: 0.9, tessellation: 20 }, this.scene);
       halo.rotation.x = Math.PI / 2; halo.material = this.haloMat; halo.isPickable = false;
       const light: PointLight | null = null;

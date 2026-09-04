@@ -39,3 +39,21 @@ Compared: `docs/screenshots/m1-*.png` (off-screen 1080p captures from the benchm
 2. Rim-light plugin for characters: violet rim on the player, rust/gold on enemies (4).
 3. Longer bolt trail and a brighter impact pop (15).
 4. Verify bloom and SSAO on-screen once the Browser pane is visible; tune thresholds.
+
+## Milestone 3 pass (combat sandbox: Orb, Nova, Rift Step, waves, elites)
+
+Captures: `m3-nova-fight.png`, `m3-orb-fight.png`, `m3-rift.png`, `m1-hero.png`, `m1-door-vista.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 16 | Nothing collided: the kit meshes' mirrored winding and Babylon's per-render-id world-matrix cache meant every fixed-step move passed through walls | — | blocker | fixed | Box colliders per placement, `computeWorldMatrix(true)` before every collision move (see technical-architecture.md gotchas) |
+| 17 | Stairs too steep to climb, players could walk under the platform and out through the open arch | R-11 | high | fixed | Stairs squashed to a 28° ramp with an analytic surface; under-platform and door blockers |
+| 18 | Hit flash rendered enemies solid white | R-24 | medium | fixed | Emissive pulse on the per-enemy body materials instead of the overlay |
+| 19 | Orb core blew out to white | R-18 | low | fixed | Core tinted cyan-blue, light 10 |
+| 20 | Rift Step ghosts were opaque purple capsules | R-23 | medium | fixed | Three additive ghosts at 28% alpha along the path, cyan flash at the landing |
+| 21 | Knockback barely moved the pack | R-24 | medium | mitigated | Nova 15 m/s, orb blast 11 m/s (≈2.5 m throw). A ragdoll-lite arc for lethal hits is still to do |
+| 22 | Render CPU 14 ms with 24 enemies in the hidden-tab harness (488 draws) | perf | high | open | Enemy shadows became blob decals (1453 → 488 draws). Remaining cost is per-draw submission plus 24 skinned rigs; next: merge enemy sub-meshes per archetype, VAT or instanced skinning, SSAO off by default on integrated GPUs. Needs an on-screen 60 fps check |
+| 23 | Ghouls still read tan under the moon | R-07 | low | open | A rim/fresnel material plugin would let the body go darker while keeping the silhouette edge |
+| 24 | Nova scorch decal now almost invisible | R-24 | low | open | Raise the ember rim a little; keep the dark centre |
+
+Feel check against the design's final sentence: with 18 ghouls, three cultists and an elite knight the loop reads as generate → surround → spend → scatter. Kill rate at level 2–3 is ~12 kills in 5 s once the pack closes, which is the "overwhelmed, then dominate" beat. Wave HP scales +12% per wave so it does not stay trivial.

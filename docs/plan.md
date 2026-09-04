@@ -66,6 +66,12 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 
 **Art-direction caveat, stated in the docs:** these packs are stylized low-poly with a flat gradient atlas. They are treated as *structural placeholders that already read well at distance*, not the visual target. Lighting, fog, scale exaggeration, post-processing, emissive VFX, ground decals, and a triplanar grime/AO overlay material carry the painterly look; `visual-gap-analysis.md` tracks what real authored assets must replace.
 
+## Status (2026-09-04)
+
+- Milestones 1–2 committed (`627530c`): benchmark courtyard, controller, camera, enemies, Arcane Bolt.
+- Milestone 3 committed: Astral Orb, Flame Nova, Rift Step, waves, elites, collision and performance fixes. See `visual-gap-analysis.md` for the open items.
+- Next: Milestone 4 (Frost Field, Cataclysm, status effects) once the on-screen 60 fps check is done.
+
 ## Gate before execution: style storyboard review
 
 `docs/storyboard.html` is a static style board (palette, type, seven framed moments, HUD states, enemy silhouettes, ability VFX shapes, loot rarity, dev panel). Nothing below starts until the user has reviewed it and asked for the build. Feedback on the board becomes the first entries of `docs/visual-gap-analysis.md`, and its HUD/inventory/loot CSS is lifted into `src/ui/` as-is.
