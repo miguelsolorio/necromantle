@@ -108,3 +108,25 @@ Order: 1 → 2 → 2b → 3 → 4 → 5, then 8 and 9, then 6 and 7. The Knight 
 - Melee against the over-the-shoulder camera hides enemies behind the player. Mitigation: combat distance pulls back to 9.5 m for melee classes and the soft target gets a subtle ground marker.
 - Four rigs share the animation clip names, but the attack clips differ per weapon (1H_Melee_Attack_Chop, 2H_Melee_Attack_Spin, and so on); the animation table per class is the place to reconcile them, and every clip is checked with the loader before the class is playable.
 - The pedestal scene adds a second render loop while the hub is loading; keep it to four instanced rigs and one light so the title stays at 60 fps.
+
+## Status (2026-09-05)
+
+Every step above is built and committed.
+
+| Step | Result |
+|---|---|
+| 1 Title screen | `ui/title.ts` over the live hub with a drifting camera; Continue, Choose a character, Settings, Credits. Audio unlocks on the first click there. |
+| 2 Save slots | `persistence/save.ts` V2: one slot per class, index record, legacy migration into the Sorcerer slot, size budget, quota toast, backups for unreadable records, export/import, delete with confirmation. Death returns to the level checkpoint and resets the waves. |
+| 2b Class select | `world/selectStage.ts`: four pedestals 90 m south of the square, rim-lit rigs, focused rig turns to the camera, ability cards preview their clip. Slot card shows level, area, play time. |
+| 3 Melee primitives | `EnemyManager.queryArc` and `queryLane`, lunge magnetism, `Player.dash` for fixed-distance leaps, slash arcs in `vfx.ts`, melee sounds. |
+| 4 Resources | `ClassDef.resource` rules (decay, per-kill, per-hit-taken, still-regen); the HUD orb recolours per class. |
+| 5 Sepulcher Knight | `abilities/knight.ts`: Cleave chain, Judgement, Shield Rush, Iron Ward (absorb + taunt), Grave Stomp, Bulwark (pull + root). |
+| 6 Grave Hunter | `abilities/hunter.ts`: Bolt Shot, Fan of Bolts, Vault, Caltrops (slow + bleed field), Mark (+30 %, globe on death), Rain of Bolts. |
+| 7 Pale Reaver | `abilities/reaver.ts`: Rend (bleed), Whirl (channelled), Leap, Frenzy (free at full Blood), Bleed Storm, Harvest. |
+| 8 Skills tab | Inventory gained an INVENTORY / SKILLS tab strip; the Skills view lists the six abilities with live damage after gear, costs, unlock levels and the level milestones. |
+| 9 Class-aware loot | Weapons and legendaries carry `classId`; per-class weapon names; a physical-damage affix for the three new classes; two legendaries per class (Iron Tide, Gravebind Gauntlets, Twin String, Thorn Crown, Red Harvest, Iron Lung). Off-class items show in the bag but cannot be equipped. |
+| 10 Captures | `docs/screenshots/select-<class>.png`, `m10-knight-*.png`, `m10-hunter-*.png`, `m10-reaver-*.png`, `m10-title.png`. |
+
+Harness: `?play=<classId>` skips the title and select; `?new=1` wipes every slot.
+
+Open tuning notes: the Knight's Fury fills fast against big packs (12 per hit taken); Rain of Bolts reuses the arcane ghost beam and reads violet; Mark spends its cooldown when no target is locked.

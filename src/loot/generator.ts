@@ -1,4 +1,5 @@
-import { AFFIX_POOL, BASE_NAMES, LEGENDARIES, PREFIXES, RARITY, SLOTS, SUFFIXES, type Item, type Rarity, type Slot } from '@/content/items';
+import { AFFIX_POOL, BASE_NAMES, LEGENDARIES, PREFIXES, RARITY, SLOTS, SUFFIXES, WEAPON_NAMES, type Item, type Rarity, type Slot } from '@/content/items';
+import type { ClassId } from '@/content/abilities';
 import { pick, rand } from '@/core/mathx';
 
 let nextUid = 1;
@@ -16,16 +17,18 @@ export function rollRarity(bonus = 0, forceLegendary = false): Rarity {
 }
 
 /** Roll one item. `ilvl` scales base and affix values (1–10 for the slice). */
-export function rollItem(ilvl: number, rarity: Rarity = rollRarity(), slot?: Slot): Item {
+/** Roll one item for a class: weapons and legendaries are class-bound; armour and jewellery are shared. */
+export function rollItem(ilvl: number, rarity: Rarity = rollRarity(), slot?: Slot, classId: ClassId = 'sorcerer'): Item {
   const t = Math.max(0, Math.min(1, (ilvl - 1) / 9));
-  const legendary = rarity === 'legendary' ? pick(LEGENDARIES.filter((l) => !slot || l.slot === slot)) ?? pick(LEGENDARIES) : null;
+  const ownLegs = LEGENDARIES.filter((l) => l.classId === classId);
+  const legendary = rarity === 'legendary' ? pick(ownLegs.filter((l) => !slot || l.slot === slot)) ?? pick(ownLegs) : null;
   const s: Slot = legendary ? legendary.slot : slot ?? pick(SLOTS);
   const base = s === 'weapon'
     ? { stat: 'spellDamage' as const, value: Math.round(20 + 40 * t + rand(-3, 3)) }
     : { stat: 'armor' as const, value: Math.round((s === 'chest' ? 40 : s === 'head' ? 26 : s === 'gloves' || s === 'boots' ? 18 : 6) * (1 + 2.2 * t) * rand(0.9, 1.1)) };
   const [minA, maxA] = RARITY[rarity].affixes;
   const count = Math.round(rand(minA, maxA));
-  const pool = AFFIX_POOL.filter((a) => !a.slots || a.slots.includes(s));
+  const pool = AFFIX_POOL.filter((a) => (!a.slots || a.slots.includes(s)) && (!a.classes || a.classes.includes(classId)));
   const affixes: Item['affixes'] = [];
   const used = new Set<string>();
   for (let i = 0; i < count && pool.length; i++) {
@@ -37,9 +40,10 @@ export function rollItem(ilvl: number, rarity: Rarity = rollRarity(), slot?: Slo
     v = a.round ? Math.round(v / a.round) * a.round : Math.round(v);
     affixes.push({ stat: a.stat, value: +v.toFixed(3) });
   }
-  const baseName = pick(BASE_NAMES[s]);
+  const baseName = s === 'weapon' ? pick(WEAPON_NAMES[classId]) : pick(BASE_NAMES[s]);
   const name = legendary ? legendary.name : rarity === 'common' ? baseName : rarity === 'magic' ? (Math.random() < 0.5 ? `${pick(PREFIXES)} ${baseName}` : `${baseName} ${pick(SUFFIXES)}`) : `${pick(PREFIXES)} ${baseName} ${pick(SUFFIXES)}`;
   const item: Item = { uid: nextUid++, name, slot: s, rarity, ilvl, base, affixes };
+  if (s === 'weapon' || legendary) item.classId = classId;
   if (legendary) item.power = { id: legendary.power, text: legendary.text };
   return item;
 }
@@ -56,7 +60,7 @@ export function itemScore(item: Item): number {
       case 'critChance': v += a.value * 400; break;
       case 'critDamage': v += a.value * 60; break;
       case 'attackSpeed': v += a.value * 150; break;
-      case 'arcaneDamage': case 'fireDamage': case 'frostDamage': v += a.value * 120; break;
+      case 'arcaneDamage': case 'fireDamage': case 'frostDamage': case 'physicalDamage': v += a.value * 120; break;
       case 'moveSpeed': v += a.value * 100; break;
       case 'energyRegen': v += a.value * 8; break;
       case 'energyOnHit': v += a.value * 6; break;

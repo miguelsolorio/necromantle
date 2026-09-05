@@ -15,7 +15,7 @@ export function reaverAbilities(h: AbilityHost): Partial<Record<AbilityId, Abili
     if (t && t.alive) { const len = Vector3.Distance(t.position, p.position); if (len > def.range && len < def.range + 2) p.shove(dir.scale(Math.min(1.4, len - def.range + 0.3)), 0.12); }
     return dir;
   };
-  const bleedDps = () => Math.round(9 * ctx.player.meleePower());
+  const bleedDps = () => Math.round(9 * ctx.player.meleePower() * (ctx.player.powers.has('redHarvest') ? 2 : 1));
 
   return {
     rend: (def) => {
@@ -52,7 +52,7 @@ export function reaverAbilities(h: AbilityHost): Partial<Record<AbilityId, Abili
       });
     },
     frenzy: (def) => {
-      const p = ctx.player; p.frenzyT = 6;
+      const p = ctx.player; p.frenzyT = p.powers.has('ironLung') ? 10 : 6;
       ctx.vfx.lights.flash(p.chest(), PALETTE.healthBright, 30, 0.4, 6); ctx.vfx.burst('gore', p.chest(), 16);
       audio.play('eliteDeath', p.position, { pitch: 1.5, gain: 0.5 });
       void def;

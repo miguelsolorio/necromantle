@@ -60,7 +60,9 @@ export class AbilitySystem {
   unlocked(id: AbilityId): boolean { return this.unlockAll || this.ctx.player.level >= ABILITIES[id].unlockLevel; }
 
   private maxCharges(id: AbilityId): number { return id === 'rift' && this.ctx.player.powers.has('fold') ? 2 : 1; }
-  private cooldownOf(def: AbilityDef): number { return def.cooldown * this.cdMult * (1 - this.ctx.player.bonus.cooldown) * (def.id === 'nova' && this.ctx.player.hasPassive('emberVeil') ? 0.65 : 1); }
+  private cooldownOf(def: AbilityDef): number { return def.cooldown * this.cdMult * (1 - this.ctx.player.bonus.cooldown) * (def.id === 'nova' && this.ctx.player.hasPassive('emberVeil') ? 0.65 : 1) * (def.id === 'frenzy' && this.ctx.player.powers.has('ironLung') ? 0.5 : 1); }
+  /** Red Harvest: a kill by bleed refunds Bleed Storm. */
+  onKill(bleeding: boolean): void { if (bleeding && this.ctx.player.powers.has('redHarvest')) this.cooldowns.bleedStorm = 0; }
 
   slots(): SlotState[] {
     return this.ctx.player.cls.abilities.map((id) => {

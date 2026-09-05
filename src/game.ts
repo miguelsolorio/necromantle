@@ -123,7 +123,7 @@ export class Game {
       levelUp: () => this.player.addXp(this.player.xpToNext() - this.player.xp),
       wipe: () => { Save.wipe(); location.search = `?new=1&play=${this.classId}`; },
       nextLevel: () => { if (!this.transitioning) { this.waveState = 'done'; void this.transition(); } },
-      loot: (legendary) => { for (let i = 0; i < (legendary ? 1 : 5); i++) this.drops.drop(rollItem(this.player.level + this.levelIndex * 2, legendary ? 'legendary' : undefined), this.player.position.add(new Vector3((Math.random() - 0.5) * 2, 0, 2 + Math.random()))); },
+      loot: (legendary) => { for (let i = 0; i < (legendary ? 1 : 5); i++) this.drops.drop(rollItem(this.player.level + this.levelIndex * 2, legendary ? 'legendary' : undefined, undefined, this.classId), this.player.position.add(new Vector3((Math.random() - 0.5) * 2, 0, 2 + Math.random()))); },
       volume: (bus, v) => audio.engine.setVolume(bus, v),
       getVolume: (bus) => audio.engine.getVolume(bus),
     }, this.input);
@@ -195,7 +195,7 @@ export class Game {
     this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
     this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
     await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith', 'brute', 'necromancer', 'hollow_king']);
-    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
+    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world); this.drops.classId = classId;
     this.wireEvents();
     this.abilities.onHitStop = (sec, scale) => this.loop.hitStop(sec, scale);
     this.cam.extraDistance = cls.melee ? 1.2 : 0;
@@ -212,8 +212,8 @@ export class Game {
       if (crit) { this.cam.shake(0.05, 0.1); this.loop.hitStop(0.05, 0.15); }
       if (!killed) audio.play(element === 'fire' && amount < 40 ? 'burnTick' : 'enemyHit', pos, { pitch: crit ? 0.8 : 0.9 + Math.random() * 0.25, gain: crit ? 1.2 : 0.8 });
     });
-    this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning, marked }) => {
-      this.player.addXp(xp); this.player.onKill();
+    this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning, marked, bleeding }) => {
+      this.player.addXp(xp); this.player.onKill(); this.abilities.onKill(!!bleeding);
       if (this.player.harvestT > 0) { this.player.heal(Math.round(this.player.hpMax * 0.08)); this.player.addEnergy(10); }
       if (marked) this.pickups.spawnGlobe(pos);
       this.stats.kills++; if (elite) this.stats.eliteKills++;
@@ -326,7 +326,7 @@ export class Game {
     audio.play('ready');
     if (!n.talked) {
       if (n.def.action === 'heal') { this.player.heal(this.player.hpMax); this.vfx.globePickup(this.player.chest()); audio.play('globe'); }
-      if (n.def.action === 'gift') this.drops.drop(rollItem(Math.min(10, this.player.level + 1), Math.random() < 0.2 ? 'rare' : 'magic'), n.def.pos.add(new Vector3(0, 0, -2.5)));
+      if (n.def.action === 'gift') this.drops.drop(rollItem(Math.min(10, this.player.level + 1), Math.random() < 0.2 ? 'rare' : 'magic', undefined, this.classId), n.def.pos.add(new Vector3(0, 0, -2.5)));
     }
     n.talked = true;
   }
@@ -471,7 +471,7 @@ export class Game {
           this.waveState = 'done';
           this.world.setPortalOpen(1);
           const boss = this.levelIndex === this.levels.length - 1;
-          if (boss) { this.hud.setBoss(null); this.hud.toast('THE HOLLOW KING IS DESTROYED', 'HOLLOWMERE SLEEPS · RETURN TO THE VILLAGE', 6); for (let i = 0; i < 2; i++) this.drops.drop(rollItem(10, 'legendary'), this.player.position.add(new Vector3((i - 0.5) * 2, 0, 3))); this.vfx.levelUp(this.player.position); audio.play('legendary'); this.cam.shake(0.4, 0.8); }
+          if (boss) { this.hud.setBoss(null); this.hud.toast('THE HOLLOW KING IS DESTROYED', 'HOLLOWMERE SLEEPS · RETURN TO THE VILLAGE', 6); for (let i = 0; i < 2; i++) this.drops.drop(rollItem(10, 'legendary', undefined, this.classId), this.player.position.add(new Vector3((i - 0.5) * 2, 0, 3))); this.vfx.levelUp(this.player.position); audio.play('legendary'); this.cam.shake(0.4, 0.8); }
           else { this.hud.toast('THE WAY IS OPEN', 'FIND THE GLOWING DOOR AND PRESS E', 3.5); audio.play('levelUp'); }
           this.hud.setObjective(boss ? 'The King is dust. The road home is open; the dead will gather again.' : `${this.world.exitLabel.charAt(0)}${this.world.exitLabel.slice(1).toLowerCase()} through the glowing door`);
           this.save();

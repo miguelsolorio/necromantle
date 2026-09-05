@@ -23,7 +23,7 @@ const MODEL_YAW_OFFSET = 0;
 export interface Stats { vitality: number; power: number; intelligence: number; armor: number; critChance: number; critDamage: number; attackSpeed: number }
 export type EquipKey = Slot | 'ring2';
 export const EQUIP_KEYS: EquipKey[] = ['weapon', 'head', 'chest', 'gloves', 'boots', 'amulet', 'ring', 'ring2'];
-export interface Bonus { arcane: number; fire: number; frost: number; moveSpeed: number; energyRegen: number; energyOnHit: number; cooldown: number }
+export interface Bonus { arcane: number; fire: number; frost: number; physical: number; moveSpeed: number; energyRegen: number; energyOnHit: number; cooldown: number }
 
 export class Player {
   readonly root: TransformNode;
@@ -48,7 +48,7 @@ export class Player {
   /** Chosen passives by slot (slots open at levels 5 and 8). */
   passives: (PassiveId | null)[] = [null, null];
   momentum = 0;   // Arcane Momentum timer
-  bonus: Bonus = { arcane: 0, fire: 0, frost: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
+  bonus: Bonus = { arcane: 0, fire: 0, frost: 0, physical: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
   weaponDamage = 20;
   hpMax = 0; hp = 0;
   energyMax = CLASSES.sorcerer.resource.max; energy = CLASSES.sorcerer.resource.start;
@@ -162,7 +162,7 @@ export class Player {
       armor: PLAYER.base.armor + PLAYER.perLevel.armor * l,
       critChance: PLAYER.base.critChance, critDamage: PLAYER.base.critDamage, attackSpeed: PLAYER.base.attackSpeed,
     };
-    const b: Bonus = { arcane: 0, fire: 0, frost: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
+    const b: Bonus = { arcane: 0, fire: 0, frost: 0, physical: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
     this.powers.clear();
     this.weaponDamage = 20;
     for (const key of EQUIP_KEYS) {
@@ -180,6 +180,7 @@ export class Player {
           case 'arcaneDamage': b.arcane += a.value; break;
           case 'fireDamage': b.fire += a.value; break;
           case 'frostDamage': b.frost += a.value; break;
+          case 'physicalDamage': b.physical += a.value; break;
           case 'moveSpeed': b.moveSpeed += a.value; break;
           case 'energyRegen': b.energyRegen += a.value; break;
           case 'energyOnHit': b.energyOnHit += a.value; break;
@@ -207,7 +208,7 @@ export class Player {
   get passiveNames(): string { return this.passives.filter(Boolean).map((p) => PASSIVES[p!].name).join(', '); }
 
   /** Damage multiplier for an element from gear. */
-  elementMult(el: Element): number { return 1 + (el === 'arcane' ? this.bonus.arcane : el === 'fire' ? this.bonus.fire : el === 'frost' ? this.bonus.frost : 0); }
+  elementMult(el: Element): number { return 1 + (el === 'arcane' ? this.bonus.arcane : el === 'fire' ? this.bonus.fire : el === 'frost' ? this.bonus.frost : this.bonus.physical); }
   /** Physical scaling for the melee and crossbow classes: weapon-led, power-led, a little from intelligence. */
   meleePower(): number { return (0.5 + this.weaponDamage / 40) * (1 + this.stats.power / 60 + this.stats.intelligence / 200); }
   /** Damage scaling for an element: physical and bleed use melee power, the rest spell power. */
@@ -218,7 +219,10 @@ export class Player {
   removeItem(uid: number): Item | null { const i = this.inventory.findIndex((x) => x.uid === uid); return i >= 0 ? this.inventory.splice(i, 1)[0] : null; }
 
   /** Equip from the bag; the replaced item goes back to the bag. Rings fill the first free ring slot. */
+  /** Weapons and legendaries are class-bound; anything else fits every hero. */
+  canEquip(item: Item): boolean { return !item.classId || item.classId === this.cls.id; }
   equip(item: Item): void {
+    if (!this.canEquip(item)) return;
     let key: EquipKey = item.slot;
     if (item.slot === 'ring') key = !this.equipment.ring ? 'ring' : !this.equipment.ring2 ? 'ring2' : 'ring';
     this.removeItem(item.uid);

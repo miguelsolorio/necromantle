@@ -47,3 +47,6 @@ If a registry id fails to load, the loader returns a magenta placeholder mesh of
 All sound is synthesized at runtime with the Web Audio API (`src/audio/`): the soundtrack (`music.ts`, a generative D-minor score with drone, plucked lute, choir pad, wind, and a war layer driven by combat intensity) and every effect (`sfx.ts`, keyed by `SfxName`). The context unlocks on the first click; `M` mutes; the dev panel has music and effects sliders, saved to `localStorage`.
 
 To replace a sound with a recorded asset, put the file under `public/assets/audio/` and map its `SfxName` to a buffer in `Sfx.play`; positional panning and distance attenuation in `audio/index.ts` apply either way.
+
+
+Class rigs (2026-09-05): `characters/knight.glb`, `hunter.glb` (Rogue_Hooded), `reaver.glb` (Barbarian) copied from the KayKit Adventurers pack; all share the Mage's clip names, so `ClassDef.anims` and `chain` pick per-weapon attack clips.

@@ -1,8 +1,11 @@
-import { RARITY, SLOT_LABEL, STAT_LABEL, type Item } from '@/content/items';
+import { RARITY, SLOT_LABEL, STAT_LABEL, WEAPON_LABEL, type Item } from '@/content/items';
+import { CLASSES } from '@/content/classes';
 import { itemScore } from '@/loot/generator';
 import { EQUIP_KEYS, type EquipKey, type Player } from '@/player/player';
 import { audio } from '@/audio';
-import { PASSIVES, PASSIVE_ORDER, passiveSlots } from '@/content/passives';
+import { IMPROVEMENTS, PASSIVES, PASSIVE_ORDER, passiveSlots } from '@/content/passives';
+import { ABILITIES } from '@/content/abilities';
+import { ICONS } from './icons';
 
 const SLOT_ICON: Record<string, string> = {
   weapon: '<svg viewBox="0 0 40 40"><path d="M12 34 L28 6" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="29" cy="7" r="5" fill="currentColor"/></svg>',
@@ -17,13 +20,16 @@ const SLOT_ICON: Record<string, string> = {
 /** Inventory screen from the storyboard: paper doll left, 10×4 bag right, hover compares with the equipped item. */
 export class InventoryUI {
   readonly el: HTMLElement;
+  private skills: HTMLElement; private tab: 'bag' | 'skills' = 'bag';
   private doll: HTMLElement; private grid: HTMLElement; private stats: HTMLElement; private tip: HTMLElement; private passives: HTMLElement;
   private pickSlot = 0;
   open = false;
   constructor(private player: Player, private onChange: () => void, private onToggle: (open: boolean) => void) {
     this.el = document.createElement('div'); this.el.className = 'inv';
-    this.el.innerHTML = `<div class="inv-panel"><div class="inv-title">INVENTORY</div><div class="inv-doll"><div class="inv-stand"></div><div class="inv-slots"></div><div class="inv-stats"></div></div><div class="inv-bag"><div class="inv-grid"></div><div class="inv-passives"></div><div class="inv-hint">LEFT CLICK EQUIP · RIGHT CLICK DROP · I OR ESC CLOSE</div></div><div class="inv-tip"></div></div>`;
+    this.el.innerHTML = `<div class="inv-panel"><div class="inv-title"><span class="tab on" data-tab="bag">INVENTORY</span><span class="tab" data-tab="skills">SKILLS</span></div><div class="inv-doll"><div class="inv-stand"></div><div class="inv-slots"></div><div class="inv-stats"></div></div><div class="inv-bag"><div class="inv-grid"></div><div class="inv-passives"></div><div class="inv-hint">LEFT CLICK EQUIP · RIGHT CLICK DROP · I OR ESC CLOSE</div></div><div class="inv-skills"></div><div class="inv-tip"></div></div>`;
     document.getElementById('hud')!.appendChild(this.el);
+    this.skills = this.el.querySelector('.inv-skills')!;
+    for (const t of this.el.querySelectorAll<HTMLElement>('.inv-title .tab')) t.onclick = () => { this.tab = t.dataset.tab as 'bag' | 'skills'; this.refresh(); };
     this.doll = this.el.querySelector('.inv-slots')!; this.grid = this.el.querySelector('.inv-grid')!; this.stats = this.el.querySelector('.inv-stats')!; this.tip = this.el.querySelector('.inv-tip')!; this.passives = this.el.querySelector('.inv-passives')!;
     this.el.addEventListener('contextmenu', (e) => e.preventDefault());
     this.el.addEventListener('mouseleave', () => this.hideTip());
@@ -35,6 +41,9 @@ export class InventoryUI {
 
   refresh(): void {
     const p = this.player;
+    for (const t of this.el.querySelectorAll<HTMLElement>('.inv-title .tab')) t.classList.toggle('on', t.dataset.tab === this.tab);
+    this.el.classList.toggle('skills-tab', this.tab === 'skills');
+    if (this.tab === 'skills') this.renderSkills();
     this.doll.innerHTML = '';
     const pos: Record<EquipKey, [string, string]> = { head: ['1.2', '1.2'], chest: ['1.2', '7.6'], gloves: ['1.2', '14'], boots: ['1.2', '20.4'], weapon: ['-', '1.2'], amulet: ['-', '7.6'], ring: ['-', '14'], ring2: ['-', '20.4'] };
     for (const key of EQUIP_KEYS) {
@@ -52,9 +61,10 @@ export class InventoryUI {
       const cell = document.createElement('div'); cell.className = 'cell' + (it ? ` i r-${it.rarity}` : '');
       if (it) {
         cell.innerHTML = SLOT_ICON[it.slot];
+        if (!p.canEquip(it)) cell.classList.add('locked');
         const equipped = it.slot === 'ring' ? p.equipment.ring : p.equipment[it.slot];
         cell.onmouseenter = (e) => this.showTip(it, e, equipped ?? null); cell.onmousemove = (e) => this.moveTip(e); cell.onmouseleave = () => this.hideTip();
-        cell.onclick = () => { p.equip(it); audio.play('pickup', undefined, { pitch: 1.2 }); this.hideTip(); this.refresh(); this.onChange(); };
+        cell.onclick = () => { if (!p.canEquip(it)) { audio.play('denied'); return; } p.equip(it); audio.play('pickup', undefined, { pitch: 1.2 }); this.hideTip(); this.refresh(); this.onChange(); };
         cell.oncontextmenu = (e) => { e.preventDefault(); p.removeItem(it.uid); audio.play('denied'); this.hideTip(); this.refresh(); this.onChange(); };
       }
       this.grid.appendChild(cell);
@@ -72,7 +82,21 @@ export class InventoryUI {
 
     const s = p.stats, b = p.bonus;
     const row = (k: string, v: string) => `<span>${k}<b>${v}</b></span>`;
-    this.stats.innerHTML = row('Vitality', `${s.vitality}`) + row('Power', `${s.power}`) + row('Intelligence', `${s.intelligence}`) + row('Armor', `${s.armor}`) + row('Crit chance', `${(s.critChance * 100).toFixed(1)}%`) + row('Crit damage', `+${Math.round(s.critDamage * 100)}%`) + row('Attack speed', s.attackSpeed.toFixed(2)) + row('Spell power', `${Math.round(p.spellPower() * 100)}%`) + row('Arcane / Fire / Frost', `+${Math.round(b.arcane * 100)} / ${Math.round(b.fire * 100)} / ${Math.round(b.frost * 100)}%`) + row('Cooldown', `${Math.round(b.cooldown * 100)}%`);
+    this.stats.innerHTML = row('Vitality', `${s.vitality}`) + row('Power', `${s.power}`) + row('Intelligence', `${s.intelligence}`) + row('Armor', `${s.armor}`) + row('Crit chance', `${(s.critChance * 100).toFixed(1)}%`) + row('Crit damage', `+${Math.round(s.critDamage * 100)}%`) + row('Attack speed', s.attackSpeed.toFixed(2)) + (p.cls.id === 'sorcerer' ? row('Spell power', `${Math.round(p.spellPower() * 100)}%`) + row('Arcane / Fire / Frost', `+${Math.round(b.arcane * 100)} / ${Math.round(b.fire * 100)} / ${Math.round(b.frost * 100)}%`) : row('Weapon power', `${Math.round(p.meleePower() * 100)}%`) + row('Physical damage', `+${Math.round(b.physical * 100)}%`)) + row('Cooldown', `${Math.round(b.cooldown * 100)}%`);
+  }
+
+  /** Skills tab: the six abilities with live numbers, unlocks, and the level improvements. */
+  private renderSkills(): void {
+    const p = this.player; const cls = p.cls;
+    const cards = cls.abilities.map((id) => {
+      const a = ABILITIES[id]; const locked = p.level < a.unlockLevel;
+      const dmg = a.damage.base > 0 ? Math.round(a.damage.base * p.powerFor(a.damage.element)) : 0;
+      const cost = a.channel ? `${a.cost} ${cls.resource.name} / ${a.castInterval}s` : a.cost > 0 ? `${a.cost} ${cls.resource.name}` : a.cooldown > 0 ? `${a.cooldown}s cooldown` : 'No cost';
+      const facts = [dmg ? `<b>${dmg}</b> ${a.damage.element}${a.arc ? ` · ${a.arc}° arc` : a.radius ? ` · ${a.radius} m` : ''}` : a.radius ? `${a.radius} m` : '', a.range ? `${a.range} m range` : '', a.energyOnHit ? `+${a.energyOnHit} ${cls.resource.name} on hit` : ''].filter(Boolean).join(' · ');
+      return `<div class="sk ${locked ? 'locked' : ''}"><div class="ico">${ICONS[id] ?? ICONS.generic}<span class="key">${a.keyLabel}</span></div><div class="body"><div class="head"><b>${a.name.toUpperCase()}</b><span>${a.kind}</span></div><div class="desc">${a.description}</div><div class="facts">${facts}</div><div class="cost">${cost}${locked ? ` · UNLOCKS AT LEVEL ${a.unlockLevel}` : ''}</div></div></div>`;
+    }).join('');
+    const imps = IMPROVEMENTS.filter((i) => cls.id === 'sorcerer' || i.level === 5 || i.level === 8).map((i) => `<div class="imp ${p.level >= i.level ? 'on' : ''}"><span>LEVEL ${i.level}</span><b>${i.title}</b><small>${i.text}</small></div>`).join('');
+    this.skills.innerHTML = `<div class="sk-head" style="--accent:${cls.accent}"><h4>${cls.name.toUpperCase()}</h4><span>${cls.resource.name} · ${cls.resource.desc}</span></div><div class="sk-list">${cards}</div><div class="sk-imps"><div class="pv-head">MILESTONES</div>${imps}</div>`;
   }
 
   private showTip(it: Item, e: MouseEvent, compare: Item | null): void {
@@ -86,7 +110,7 @@ export class InventoryUI {
     const baseDelta = compare ? it.base.value - compare.base.value : 0;
     const scoreDelta = compare ? itemScore(it) - itemScore(compare) : 0;
     this.tip.style.setProperty('--rc', c);
-    this.tip.innerHTML = `<h5>${it.name}</h5><div class="kind">${RARITY[it.rarity].label} · ${SLOT_LABEL[it.slot]} · Item level ${it.ilvl}</div><div class="big">${it.base.value}<small>${it.base.stat === 'spellDamage' ? 'Spell damage' : 'Armor'}${compare ? ` <i class="${baseDelta >= 0 ? 'up' : 'dn'}">${baseDelta >= 0 ? '▲' : '▼'} ${Math.abs(baseDelta)}</i>` : ''}</small></div><ul>${lines}${it.power ? `<li class="pas"><span>${it.power.text}</span></li>` : ''}</ul><div class="foot">${compare ? `COMPARED TO ${compare.name.toUpperCase()} · ${scoreDelta >= 0 ? '+' : ''}${scoreDelta} SCORE` : 'LEFT CLICK TO EQUIP'}</div>`;
+    this.tip.innerHTML = `<h5>${it.name}</h5><div class="kind">${RARITY[it.rarity].label} · ${it.slot === 'weapon' && it.classId ? WEAPON_LABEL[it.classId] : SLOT_LABEL[it.slot]} · Item level ${it.ilvl}${it.classId && it.classId !== this.player.cls.id ? ` · <i class="dn">${CLASSES[it.classId].name} only</i>` : ''}</div><div class="big">${it.base.value}<small>${it.base.stat === 'spellDamage' ? 'Weapon damage' : 'Armor'}${compare ? ` <i class="${baseDelta >= 0 ? 'up' : 'dn'}">${baseDelta >= 0 ? '▲' : '▼'} ${Math.abs(baseDelta)}</i>` : ''}</small></div><ul>${lines}${it.power ? `<li class="pas"><span>${it.power.text}</span></li>` : ''}</ul><div class="foot">${compare ? `COMPARED TO ${compare.name.toUpperCase()} · ${scoreDelta >= 0 ? '+' : ''}${scoreDelta} SCORE` : 'LEFT CLICK TO EQUIP'}</div>`;
     this.tip.classList.add('on'); this.moveTip(e);
   }
   private moveTip(e: MouseEvent): void { const r = this.el.getBoundingClientRect(); const w = this.tip.offsetWidth, h = this.tip.offsetHeight; let x = e.clientX - r.left + 18, y = e.clientY - r.top + 12; if (x + w > r.width - 10) x = e.clientX - r.left - w - 18; if (y + h > r.height - 10) y = r.height - h - 10; this.tip.style.left = `${x}px`; this.tip.style.top = `${y}px`; }

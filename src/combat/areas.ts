@@ -29,8 +29,8 @@ export class Areas {
   }
 
   /** Ashen Grimoire: burning ground that keeps setting enemies alight. */
-  caltrops(pos: Vector3, radius: number, damage: () => number, bleedDps: number): void {
-    this.list.push({ kind: 'caltrops', pos: pos.clone(), radius, t: 0, dur: 4, tick: 0, visual: this.vfx.caltrops(pos, radius), damage, knockback: 0, burnDps: bleedDps });
+  caltrops(pos: Vector3, radius: number, damage: () => number, bleedDps: number, dur = 4): void {
+    this.list.push({ kind: 'caltrops', pos: pos.clone(), radius, t: 0, dur, tick: 0, visual: this.vfx.caltrops(pos, radius), damage, knockback: 0, burnDps: bleedDps });
   }
   burn(pos: Vector3, radius: number, damage: () => number, burnDps: number): void {
     this.list.push({ kind: 'burn', pos: pos.clone(), radius, t: 0, dur: 6, tick: 0, visual: this.vfx.burningGround(pos, radius), damage, knockback: 0, burnDps });

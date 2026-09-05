@@ -40,8 +40,8 @@ export function knightAbilities(h: AbilityHost): Partial<Record<AbilityId, Abili
   return {
     cleave: (def) => {
       const third = ctx.player.swing % 3 === 0; // swing was incremented by player.cast
-      swing(def, third ? 1.35 : 1, third ? 6.5 : def.knockback);
-      if (third) ctx.cam.shake(0.08, 0.12);
+      const hits = swing(def, third ? 1.35 : 1, third ? 6.5 : def.knockback);
+      if (third) { ctx.cam.shake(0.08, 0.12); if (ctx.player.powers.has('ironTide') && hits.length) ctx.player.heal(Math.round(ctx.player.hpMax * 0.04 * hits.length)); }
     },
     judgement: (def) => {
       const p = ctx.player; const dir = aim(def);
@@ -90,8 +90,9 @@ export function knightAbilities(h: AbilityHost): Partial<Record<AbilityId, Abili
       for (const e of near) {
         const d = at.subtract(e.position); d.y = 0; const len = d.length();
         if (len > 3) { const pull = d.scale((len - 2.6) / len); ctx.vfx.chain(e.position, at); e.root.position.addInPlace(pull); e.collider.position.copyFrom(e.root.position); }
-        e.applyRoot(2);
-        const r = h.roll(def); ctx.enemies.damage(e, r.amount, { crit: r.crit, element: 'physical', pos: e.hitCenter() });
+        const bind = p.powers.has('gravebind');
+        e.applyRoot(bind ? 4 : 2);
+        const r = h.roll(def, bind ? 3 : 1); ctx.enemies.damage(e, r.amount, { crit: r.crit, element: 'physical', pos: e.hitCenter() });
       }
       if (near.length) { p.onHit(def.energyOnHit * near.length); ctx.cam.shake(0.2, 0.3); }
     },

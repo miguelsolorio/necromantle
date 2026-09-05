@@ -52,9 +52,15 @@ Ability and enemy modules read data only; legendary effects (Milestone 6) patch 
 
 Logical ids resolve through `assets/registry.ts` to files under `public/assets/`. Every downloaded pack keeps its LICENSE next to its files. Missing asset → procedural placeholder mesh flagged with a magenta tint in debug mode and logged. See `asset-conventions.md`.
 
+## Boot, title and classes
+
+`Game.start` builds the engine, the hub level and the select stage, then shows `ui/title.ts`. `Game.launch(classId, fresh)` sets the player's `ClassDef`, restores that class's slot, rebuilds the saved level if needed, loads the rig and hands over the controls. In title and select modes `fixed()` only drives the cinematic camera (`ThirdPersonCamera.cinematic`) and the stage; nothing hostile runs. Class ability modules (`abilities/knight.ts`, `hunter.ts`, `reaver.ts`) receive an `AbilityHost` (context, damage roll, ground targeting, a delayed-call scheduler, hit-stop) and return their implementations keyed by ability id; the Sorcerer's six remain inline in `abilities/system.ts`. Melee uses `EnemyManager.queryArc` / `queryLane` from the player's facing, and `Player.dash` moves the collider a fixed distance for leaps.
+
 ## Save data
 
 `SaveV1 { version:1, level, xp, inventory, equipped, unlockedAbilities, passives, checkpoint }` in `localStorage`, versioned migrations.
+
+Save data is `SaveV2`, one record per class under `necromantle.slot.<classId>` plus an index at `necromantle.index`. `Save.commit` validates size and reports quota errors through `Save.onError`; `Save.load` moves unreadable records to `necromantle.backup.<time>`.
 
 ## Performance plan
 

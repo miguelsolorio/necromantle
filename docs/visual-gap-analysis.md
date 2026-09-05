@@ -127,3 +127,15 @@ Captures: `m9-elites.png`, `m9-charge.png`, `m9-cataclysm.png`.
 | 46 | Elite rim plus emissive can wash the model toward flat gold | R-28 | low | open | Lower the elite base emissive once authored rigs land |
 
 Items still open after Milestone 9 (art and asset work, not code): #10 wear shader, #23 ghoul atlas, #28 nave roof, #29 `box_large` scale, #36–37 loot art, #39 hut roofs, #42 boss rig, #43 NPC gestures, #45, #46.
+
+## Character phase pass
+
+Captures: `m10-title.png`, `select-sorcerer.png`, `select-knight.png`, `select-hunter.png`, `select-reaver.png`, `m10-knight-slash.png`, `m10-knight-stomp.png`, `m10-hunter-fan.png`, `m10-hunter-caltrops.png`, `m10-reaver-whirl.png`, `m10-reaver-leap.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 47 | Select stage is bare stone under a black sky | R-11 | medium | open | Dress the stage: braziers between pedestals, a carved back wall, ground fog |
+| 48 | Character sheet's paper-doll stand shows no model | R-35 | medium | open | Render the rig into the stand with a small render target |
+| 49 | Rain of Bolts reuses the violet ghost beam | R-25 | low | open | Pale bone-coloured streak material |
+| 50 | Knight and Reaver slash arcs are flat discs | R-23 | low | mitigated | Reads as a sweep at gameplay distance; a trail mesh on the weapon would be the upgrade |
+| 51 | Class rigs share the pack's proportions, so silhouettes differ mostly by hat and weapon | R-20 | medium | mitigated | Accent rim colour per class and distinct weapons carry it; authored rigs remain the fix |

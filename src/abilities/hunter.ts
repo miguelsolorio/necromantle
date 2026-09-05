@@ -28,6 +28,7 @@ export function hunterAbilities(h: AbilityHost): Partial<Record<AbilityId, Abili
       const dir = ctx.targeting.direction(muzzle(), new Vector3()).clone();
       audio.play('boltCast', undefined, { pitch: 1.5, gain: 0.4 });
       fire(def, dir, 1, true);
+      if (ctx.player.powers.has('twinString')) fire(def, rot(dir, 0.06), 0.7, true);
     },
     fanOfBolts: (def) => {
       const dir = ctx.targeting.direction(muzzle(), new Vector3()).clone(); dir.y = 0; dir.normalize();
@@ -45,7 +46,8 @@ export function hunterAbilities(h: AbilityHost): Partial<Record<AbilityId, Abili
     },
     caltrops: (def) => {
       const at = h.groundTarget(def.range);
-      ctx.areas.caltrops(at, def.radius, () => h.roll(def).amount, Math.round(8 * ctx.player.meleePower()));
+      const crown = ctx.player.powers.has('thornCrown');
+      ctx.areas.caltrops(at, def.radius, () => h.roll(def).amount, Math.round(8 * ctx.player.meleePower() * (crown ? 2 : 1)), crown ? 8 : 4);
       audio.play('meleeSwing', at, { pitch: 1.3, gain: 0.6 });
     },
     mark: (def) => {

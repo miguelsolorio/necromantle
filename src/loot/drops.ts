@@ -70,11 +70,13 @@ export class Drops {
   }
 
   /** Roll the drops for a kill: chance and quality depend on the archetype and elite status. */
+  /** Class of the current hero; weapons and legendaries roll for it. */
+  classId: import('@/content/abilities').ClassId = 'sorcerer';
   dropFor(enemyId: string, elite: boolean, pos: Vector3, ilvl: number): void {
     const chance = elite ? 1 : enemyId === 'brute' ? 1 : enemyId === 'fallen_knight' ? 0.45 : enemyId === 'necromancer' ? 0.6 : enemyId === 'cultist' ? 0.28 : enemyId === 'wraith' ? 0.3 : 0.13;
     const count = elite ? 3 : enemyId === 'brute' ? 2 : 1;
     if (Math.random() > chance) return;
-    for (let i = 0; i < count; i++) this.drop(rollItem(ilvl, rollRarity(elite ? 1.6 : enemyId === 'brute' ? 1 : 0)), pos);
+    for (let i = 0; i < count; i++) this.drop(rollItem(ilvl, rollRarity(elite ? 1.6 : enemyId === 'brute' ? 1 : 0), undefined, this.classId), pos);
   }
 
   update(dt: number, player: Player, onPickup: (item: Item, ok: boolean) => void): void {
