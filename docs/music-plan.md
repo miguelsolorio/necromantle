@@ -64,3 +64,16 @@ Total: about two and a half days. Step 2 alone changes the feel the most and can
 - The wave-start riser lands before the first spawn every time.
 - Nothing clips: the limiter never reduces by more than 3 dB in the demo renders.
 - Village stays quiet enough that walking onto the road is an audible change.
+
+## Status (2026-09-05)
+
+Built in one pass: `src/audio/music.ts` is now the layered score (bed, tension, combat) with the six moods above; `Game.enterLevel` sets the mood, the wave countdown fires the riser 2.5 s before the spawn, elite spawns fire a shorter one, boss phases slide the organ, and health under 35 % drives the heartbeat. The lute, the resolving chord loop and the warm choir are gone.
+
+Demo renders (`docs/screenshots/soundtrack-<mood>.wav`, made with `audio.renderDemo(seconds, mood, combat)`):
+
+| Mood | RMS in the quiet | Peak in combat |
+|---|---|---|
+| court | −20 to −24 dB | 0.92 (limiter holds) |
+| ossuary | −16 to −22 dB | 0.89 |
+| crypt | −24 to −31 dB | no combat in the render |
+| village | −22 to −28 dB | no combat in the render |
