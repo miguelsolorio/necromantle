@@ -30,7 +30,7 @@ export class Drops {
 
   constructor(private scene: Scene, private vfx: Vfx, private rig: RenderRig, private bus: EventBus, private world: World) {
     const mk = (r: Rarity) => { const m = new StandardMaterial(`loot.${r}`, scene); const c = Color3.FromHexString(RARITY[r].color); m.emissiveColor = c.scale(0.7); m.diffuseColor = c.scale(0.5); m.specularColor = Color3.White(); m.specularPower = 48; return m; };
-    const mkBeam = (r: Rarity) => { const m = new StandardMaterial(`lootBeam.${r}`, scene); m.emissiveColor = Color3.FromHexString(RARITY[r].color); m.diffuseColor = Color3.Black(); m.opacityTexture = Textures.softDot(scene); m.disableLighting = true; m.alphaMode = 1; m.backFaceCulling = false; return m; };
+    const mkBeam = (r: Rarity) => { const m = new StandardMaterial(`lootBeam.${r}`, scene); m.emissiveColor = Color3.FromHexString(RARITY[r].color).scale(r === 'common' ? 0.5 : 0.85); m.diffuseColor = Color3.Black(); m.opacityTexture = Textures.softDot(scene); m.disableLighting = true; m.alphaMode = 1; m.backFaceCulling = false; m.alpha = r === 'common' ? 0.3 : r === 'magic' ? 0.5 : r === 'rare' ? 0.75 : 0.9; return m; };
     this.mats = { common: mk('common'), magic: mk('magic'), rare: mk('rare'), legendary: mk('legendary') };
     this.beamMats = { common: mkBeam('common'), magic: mkBeam('magic'), rare: mkBeam('rare'), legendary: mkBeam('legendary') };
     this.beamSrc = MeshBuilder.CreatePlane('lootBeamSrc', { width: 1, height: 1 }, scene);
@@ -56,8 +56,8 @@ export class Drops {
   drop(item: Item, pos: Vector3): void {
     const mesh = this.body(item.slot, item.rarity);
     const beam = this.beamSrc.clone(`lootBeam${this.nextId}`); beam.isVisible = true; beam.material = this.beamMats[item.rarity]; beam.billboardMode = Mesh.BILLBOARDMODE_Y; beam.isPickable = false;
-    const h = 2 + RARITY[item.rarity].beam * 6;
-    beam.scaling.set(0.35 + RARITY[item.rarity].beam * 0.5, h, 1);
+    const h = item.rarity === 'common' ? 1.6 : 2 + RARITY[item.rarity].beam * 6;
+    beam.scaling.set(0.25 + RARITY[item.rarity].beam * 0.45, h, 1);
     const a = Math.random() * Math.PI * 2, k = rand(1.5, 3.5);
     const d: Drop = { item, mesh, beam, vel: new Vector3(Math.cos(a) * k, rand(5, 7.5), Math.sin(a) * k), pos: pos.clone().addInPlaceFromFloats(0, 0.6, 0), groundY: pos.y, settled: false, t: 0, alive: true };
     mesh.position.copyFrom(d.pos); beam.position.set(d.pos.x, d.groundY + h / 2, d.pos.z);
