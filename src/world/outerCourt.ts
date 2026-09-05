@@ -15,7 +15,7 @@ export class OuterCourt extends KitLevel {
   override waves = [
     { spawns: [{ id: 'ghoul' as const, n: 8 }] },
     { spawns: [{ id: 'ghoul' as const, n: 12 }, { id: 'cultist' as const, n: 3 }] },
-    { fromDoor: true, spawns: [{ id: 'ghoul' as const, n: 14 }, { id: 'wraith' as const, n: 2 }, { id: 'fallen_knight' as const, n: 1, elite: true }] },
+    { fromDoor: true, spawns: [{ id: 'ghoul' as const, n: 14 }, { id: 'wraith' as const, n: 2 }, { id: 'brute' as const, n: 1 }, { id: 'fallen_knight' as const, n: 1, elite: true }] },
   ];
 
   async build(): Promise<void> {

@@ -27,6 +27,11 @@ export class AbilitySystem {
   private repeat: Record<AbilityId, number> = { bolt: 0, orb: 0, rift: 0, nova: 0, frost: 0, cataclysm: 0 };
   private tmp = new Vector3();
 
+  /** Ability behaviours keyed by id; a class lists which ids it owns (content/classes.ts). */
+  private impl: Partial<Record<AbilityId, (def: AbilityDef) => void>> = {
+    bolt: (d) => this.bolt(d), orb: (d) => this.orb(d), nova: (d) => this.nova(d), rift: (d) => this.rift(d), frost: (d) => this.frost(d), cataclysm: (d) => this.cataclysm(d),
+  };
+
   constructor(private ctx: AbilityContext) {}
 
   setWorld(w: World): void { this.ctx.world = w; }
@@ -34,7 +39,7 @@ export class AbilitySystem {
   unlocked(id: AbilityId): boolean { return this.unlockAll || this.ctx.player.level >= ABILITIES[id].unlockLevel; }
 
   slots(): SlotState[] {
-    return ABILITY_ORDER.map((id) => {
+    return this.ctx.player.cls.abilities.map((id) => {
       const def = ABILITIES[id];
       const locked = !this.unlocked(id);
       const cd = this.cooldowns[id];
@@ -47,7 +52,7 @@ export class AbilitySystem {
     for (const id of ABILITY_ORDER) { this.cooldowns[id] = Math.max(0, this.cooldowns[id] - dt); this.repeat[id] = Math.max(0, this.repeat[id] - dt); }
     const p = this.ctx.player;
     if (p.dead) return;
-    for (const id of ABILITY_ORDER) {
+    for (const id of p.cls.abilities) {
       const key = KEYS[id];
       const held = key.startsWith('Mouse') ? input.buttonDown(+key.slice(5)) : input.isDown(key);
       const pressed = key.startsWith('Mouse') ? input.buttonPressed(+key.slice(5)) : input.wasPressed(key);
@@ -69,14 +74,8 @@ export class AbilitySystem {
     this.cooldowns[id] = def.cooldown * this.cdMult;
     player.cast(def);
     bus.emit('ability:cast', { id });
-    switch (id) {
-      case 'bolt': this.bolt(def); break;
-      case 'orb': this.orb(def); break;
-      case 'nova': this.nova(def); break;
-      case 'rift': this.rift(def); break;
-      case 'frost': this.frost(def); break;
-      case 'cataclysm': this.cataclysm(def); break;
-    }
+    const impl = this.impl[id];
+    if (impl) impl(def); else console.warn(`[abilities] no implementation for ${id}`);
     return true;
   }
 

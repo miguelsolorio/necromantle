@@ -1,11 +1,12 @@
 import { AbstractMesh, Color3, Mesh, MeshBuilder, PBRMaterial, Scene, TransformNode, Vector3 } from '@babylonjs/core';
 import type { EnemyDef } from '@/content/enemies';
+import type { EliteModId } from '@/content/elites';
 import { Animator } from '@/player/animator';
 import type { CharacterInstance } from '@/assets/loader';
 import { damp, dampAngle, distXZ, pick, rand } from '@/core/mathx';
 
 const MODEL_YAW_OFFSET = 0;
-export type EnemyState = 'spawning' | 'chase' | 'windup' | 'recover' | 'stagger' | 'dead';
+export type EnemyState = 'spawning' | 'chase' | 'windup' | 'recover' | 'stagger' | 'charge' | 'dead';
 
 /** One enemy: kinematic capsule, animator, small state machine. Movement targets come from the manager. */
 export class Enemy {
@@ -16,6 +17,13 @@ export class Enemy {
   animator: Animator | null = null;
   def!: EnemyDef;
   elite = false;
+  mod: EliteModId | null = null;
+  modTimer = 0;
+  behaviourTimer = 0;
+  /** Aura multipliers applied by a nearby necromancer this step. */
+  auraSpeed = 1; auraDamage = 1;
+  /** Charge state (brute): direction and remaining distance. */
+  charge: { dir: Vector3; left: number } | null = null;
   alive = false;
   state: EnemyState = 'dead';
   hp = 0; hpMax = 0;
@@ -60,8 +68,10 @@ export class Enemy {
     for (const m of this.meshes) { m.receiveShadows = true; }
   }
 
-  spawn(def: EnemyDef, pos: Vector3, elite: boolean, id: number): void {
-    this.def = def; this.elite = elite; this.id = id;
+  get plateTitle(): string { return this.elite ? this.def.eliteName : this.def.name; }
+
+  spawn(def: EnemyDef, pos: Vector3, elite: boolean, id: number, mod: EliteModId | null = null): void {
+    this.def = def; this.elite = elite; this.id = id; this.mod = elite ? mod : null; this.modTimer = 2 + Math.random() * 2; this.behaviourTimer = (def.behaviourCooldown ?? 4) * (0.5 + Math.random() * 0.5); this.charge = null; this.auraSpeed = 1; this.auraDamage = 1;
     this.radius = def.radius * (elite ? 1.3 : 1); this.height = def.height * (elite ? 1.3 : 1);
     this.collider.ellipsoid.set(this.radius, this.height / 2, this.radius); this.collider.ellipsoidOffset.set(0, this.height / 2, 0);
     if (this.model) this.model.scaling.setAll((def.height / 2.17) * (elite ? 1.3 : 1));
@@ -134,13 +144,14 @@ export class Enemy {
   /** Integrate movement toward `seek` (set by manager), plus knockback and separation push. */
   integrate(dt: number, groundY: number | null, push: Vector3): void {
     const def = this.def;
-    const canMove = this.state === 'chase' && this.frozen <= 0;
+    const canMove = (this.state === 'chase' || (this.state === 'charge' && !!this.charge)) && this.frozen <= 0;
     const slow = this.frozen > 0 ? 0 : this.chill > 0 ? 0.45 : 1;
     this.tmp.copyFrom(this.seek).subtractInPlace(this.root.position); this.tmp.y = 0;
     const d = this.tmp.length();
     let desiredX = 0, desiredZ = 0;
-    if (canMove && d > 0.25) { const s = Math.min(def.speed, d * 3) * slow; desiredX = (this.tmp.x / d) * s; desiredZ = (this.tmp.z / d) * s; }
-    const accel = def.accel / def.speed * 3;
+    if (this.charge) { desiredX = this.charge.dir.x * 13; desiredZ = this.charge.dir.z * 13; }
+    else if (canMove && d > 0.25) { const s = Math.min(def.speed, d * 3) * slow * this.auraSpeed; desiredX = (this.tmp.x / d) * s; desiredZ = (this.tmp.z / d) * s; }
+    const accel = this.charge ? 30 : def.accel / def.speed * 3;
     this.velocity.x = damp(this.velocity.x, desiredX, accel, dt);
     this.velocity.z = damp(this.velocity.z, desiredZ, accel, dt);
     this.knock.scaleInPlace(Math.exp(-6 * dt));

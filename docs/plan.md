@@ -72,7 +72,8 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Milestone 3 committed: Astral Orb, Flame Nova, Rift Step, waves, elites, collision and performance fixes. See `visual-gap-analysis.md` for the open items.
 - Playtest round (2026-09-04): audio (procedural soundtrack + effects), level structure (`KitLevel` base, Outer Court, Nave), three scripted waves per level with the door as the exit, dense dressing, closed stair plinth.
 - Milestone 4 built: Frost Field (chill, freeze, shatter), Cataclysm (rune ring, strikes, storm lighting), status tints, ragdoll-lite death arcs.
-- Next: Milestone 5 (elite modifiers, Brute and Necromancer archetypes, wraith blink) plus class-definition groundwork from `character-plan.md`, then loot and inventory (Milestone 6).
+- Milestone 5 built: Brute (charge), Necromancer (aura, summons), wraith blink, six elite affixes with nameplates, class-definition groundwork and ability registry.
+- Next: Milestone 6 (loot: items, rarities, drops, pickup, inventory, equipment, stat modifiers, legendary powers).
 
 ## Gate before execution: style storyboard review
 

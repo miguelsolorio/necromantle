@@ -77,3 +77,13 @@ Captures: `m4-frost.png`, `m4-frozen.png`, `m4-cataclysm.png`.
 | 30 | Frost crystals read white under bloom, not ice-blue | R-10 | low | open | Lower crystal emissive, add a cyan rim, or a refractive-looking gradient texture |
 | 31 | Cataclysm beam is thin; strike reads more like a laser than a pillar of the sky | R-23 | medium | open | Wider, softer beam with a bright core and a cloud flash above the frame edge |
 | 32 | Storm lighting shift works (moon and fill go violet, fog brightens) | R-17 | — | fixed | Keep; consider a brief screen flash per strike |
+
+## Milestone 5 pass (archetypes, elites)
+
+Capture: `m5-brute-necro.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 33 | Brute and Necromancer reuse the knight and cultist rigs at larger scale with darker tints | R-20 | medium | mitigated | Silhouettes differ by scale and colour; authored rigs remain the fix |
+| 34 | Elite affix is only readable from the nameplate | R-28 | medium | open | Add an affix-coloured floor aura per modifier (ember ring for Scorched, frost ring for Chilling, violet for Blinking) |
+| 35 | Charge telegraph is the Taunt clip plus a smoke puff | R-22 | medium | open | Add a ground arrow decal along the charge line and a low horn |

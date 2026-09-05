@@ -2,6 +2,7 @@ import { AbstractMesh, Color3, Mesh, MeshBuilder, PBRMaterial, PointLight, Scene
 import type { AssetLoader } from '@/assets/loader';
 import type { ThirdPersonCamera } from '@/camera/thirdPerson';
 import { PLAYER, XP_TABLE } from '@/content/player';
+import { CLASSES, type ClassDef } from '@/content/classes';
 import { PALETTE } from '@/content/palette';
 import type { AbilityDef } from '@/content/abilities';
 import { clamp, damp, dampAngle, dirToYaw } from '@/core/mathx';
@@ -20,6 +21,7 @@ export interface Stats { vitality: number; power: number; intelligence: number; 
 export class Player {
   readonly root: TransformNode;
   readonly collider: Mesh;
+  readonly cls: ClassDef = CLASSES.sorcerer;
   model!: TransformNode;
   animator: Animator | null = null;
   readonly velocity = new Vector3();
@@ -28,7 +30,7 @@ export class Player {
   xp = 0;
   stats: Stats = { ...PLAYER.base };
   hpMax = 0; hp = 0;
-  energyMax = PLAYER.energyMax; energy = 40;
+  energyMax = CLASSES.sorcerer.resource.max; energy = CLASSES.sorcerer.resource.start;
   invulnerable = 0;
   stance = 0;             // seconds remaining in combat stance (faces camera, strafes)
   castLock = 0;           // seconds the player is held by a cast animation
@@ -36,6 +38,8 @@ export class Player {
   dead = false;
   moving = false;
   speedMult = 1;
+  chilled = 0;
+  private shoveVel = new Vector3();
   grounded = true;
   private vy = 0;
   private staffTipNode: TransformNode | null = null;
@@ -68,14 +72,14 @@ export class Player {
   get position(): Vector3 { return this.root.position; }
 
   async load(loader: AssetLoader, rig: RenderRig): Promise<void> {
-    const inst = await loader.instanceCharacter(PLAYER.model, 'sorcerer');
+    const inst = await loader.instanceCharacter(this.cls.model, this.cls.id);
     this.model = inst.root;
     this.model.parent = this.root;
     if (!inst.failed) {
-      const scale = PLAYER.height / 2.2;
+      const scale = this.cls.height / 2.2;
       this.model.scaling.setAll(scale);
       this.animator = new Animator(inst.groups);
-      this.animator.play('Idle');
+      this.animator.play(this.cls.anims.idle);
       this.handNode = inst.nodes.find((n) => n.name.endsWith('handslot.r')) ?? inst.nodes.find((n) => n.name.endsWith('hand.r')) ?? null;
       for (const m of inst.meshes) {
         rig.addCaster(m);
@@ -87,8 +91,8 @@ export class Player {
       let staffMesh: AbstractMesh | null = null;
       for (const m of inst.meshes) {
         const n = m.name.split('|').pop() ?? '';
-        if (n === '1H_Wand' || n === 'Spellbook_open') m.setEnabled(false);
-        if (n === '2H_Staff') staffMesh = m;
+        if (this.cls.hideMeshes.includes(n)) m.setEnabled(false);
+        if (n === this.cls.weaponMesh) staffMesh = m;
       }
       const tip = new TransformNode('sorcerer.staffTip', this.scene);
       if (staffMesh) {
@@ -112,7 +116,7 @@ export class Player {
       const cm = new PBRMaterial('sorcerer.crystalMat', this.scene);
       cm.emissiveColor = PALETTE.arcaneCore.clone(); cm.albedoColor = Color3.Black(); cm.metallic = 0; cm.roughness = 0.3;
       crystal.material = cm; crystal.parent = tip; crystal.isPickable = false; rig.addGlow(crystal);
-      if (staffMesh) crystal.scaling.setAll(1 / (PLAYER.height / 2.2));
+      if (staffMesh) crystal.scaling.setAll(1 / (this.cls.height / 2.2));
     }
   }
 
@@ -154,7 +158,7 @@ export class Player {
     const mitigated = n * (100 / (100 + this.stats.armor * 0.6));
     this.hp = Math.max(0, this.hp - mitigated);
     this.bus.emit('player:damaged', { amount: mitigated });
-    this.animator?.once('Hit_A', { speed: 1.6 });
+    this.animator?.once(this.cls.anims.hit, { speed: 1.6 });
     if (this.hp <= 0) this.die();
   }
   heal(n: number): void { const before = this.hp; this.hp = Math.min(this.hpMax, this.hp + n); this.bus.emit('player:healed', { amount: this.hp - before }); }
@@ -165,13 +169,13 @@ export class Player {
   private die(): void {
     this.dead = true;
     this.animator?.clearOneShot();
-    this.animator?.once('Death_A', { speed: 1 });
+    this.animator?.once(this.cls.anims.death, { speed: 1 });
     this.velocity.setAll(0);
   }
   respawn(at: Vector3): void {
     this.dead = false; this.hp = this.hpMax; this.energy = 40; this.invulnerable = 1.5;
     this.root.position.copyFrom(at); this.collider.position.copyFrom(at);
-    this.animator?.clearOneShot(); this.animator?.play('Idle');
+    this.animator?.clearOneShot(); this.animator?.play(this.cls.anims.idle);
   }
 
   /** Called by abilities. Plays the cast pose when standing, keeps the run when moving. */
@@ -183,6 +187,10 @@ export class Player {
       this.animator.once(def.anim, { speed: def.animLock > 0 ? 1.4 : 2.2 });
     }
   }
+
+  /** External push (charges, pulls): applied over `duration` seconds through the collision sweep. */
+  shove(delta: Vector3, duration = 0.25): void { this.shoveVel.copyFrom(delta).scaleInPlace(1 / duration); this.shoveT = duration; }
+  private shoveT = 0;
 
   /** Instant displacement with collision sweep (Rift Step). Returns the actual landing point. */
   teleport(delta: Vector3): Vector3 {
@@ -198,7 +206,7 @@ export class Player {
     this.stance = Math.max(0, this.stance - dt);
     this.castLock = Math.max(0, this.castLock - dt);
     this.potionCd = Math.max(0, this.potionCd - dt);
-    this.energy = clamp(this.energy + PLAYER.energyRegen * dt, 0, this.energyMax);
+    this.energy = clamp(this.energy + this.cls.resource.regen * dt, 0, this.energyMax);
     this.staffLight.position.copyFrom(this.staffTip());
 
     if (this.dead) { this.animator?.update(dt); return; }
@@ -229,6 +237,8 @@ export class Player {
     if (groundY !== null && feetY - groundY < 0.6 && this.vy <= 0) { this.grounded = true; this.vy = 0; }
     else { this.grounded = false; this.vy -= PLAYER.gravity * dt; }
 
+    if (this.shoveT > 0) { this.shoveT -= dt; this.velocity.x += this.shoveVel.x * dt * 4; this.velocity.z += this.shoveVel.z * dt * 4; }
+    if (this.chilled > 0) { this.chilled -= dt; if (this.chilled <= 0) this.speedMult = 1; }
     this.tmp.set(this.velocity.x * dt, this.vy * dt, this.velocity.z * dt);
     // Babylon caches world matrices per render id; several fixed steps per frame would otherwise collide from a stale position
     this.collider.computeWorldMatrix(true);
@@ -244,15 +254,16 @@ export class Player {
     } else this.stepTimer = 0.05;
     // animation selection
     if (this.animator && !this.animator.busy) {
-      if (!this.moving) this.animator.play('Idle');
+      const a = this.cls.anims;
+      if (!this.moving) this.animator.play(a.idle);
       else if (inStance) {
         const rel = Math.atan2(this.velocity.x, this.velocity.z) - cam.yaw;
         const s = Math.sin(rel), c = Math.cos(rel);
-        if (c < -0.5) this.animator.play('Walking_Backwards', { speed: 1.4 });
-        else if (Math.abs(s) > 0.6) this.animator.play(s > 0 ? 'Running_Strafe_Right' : 'Running_Strafe_Left', { speed: 1.1 });
-        else this.animator.play('Running_A', { speed: 1.0 });
-      } else if (sprint) this.animator.play('Running_A', { speed: 1.35 });
-      else this.animator.play('Running_A', { speed: 1.0 });
+        if (c < -0.5) this.animator.play(a.back, { speed: 1.4 });
+        else if (Math.abs(s) > 0.6) this.animator.play(s > 0 ? a.strafeR : a.strafeL, { speed: 1.1 });
+        else this.animator.play(a.run, { speed: 1.0 });
+      } else if (sprint) this.animator.play(a.run, { speed: 1.35 });
+      else this.animator.play(a.run, { speed: 1.0 });
     }
     this.animator?.update(dt);
   }

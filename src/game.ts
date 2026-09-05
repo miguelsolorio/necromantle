@@ -100,7 +100,7 @@ export class Game {
     this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
     this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
     status('Waking the dead…');
-    await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith']);
+    await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith', 'brute', 'necromancer']);
     this.wireEvents();
     this.instr = new SceneInstrumentation(this.scene);
     this.instr.captureFrameTime = true;

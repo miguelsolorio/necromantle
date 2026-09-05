@@ -212,6 +212,12 @@ export class Vfx {
       dispose: () => { ring.dispose(); ring2.dispose(); },
     };
   }
+  /** Small burning patch left by a Scorched Ground elite. */
+  scorchTrail(pos: Vector3): void {
+    const d = this.spawnTimed(this.decalSrc, 'decal', new Vector3(pos.x, Math.max(0.1, pos.y + 0.06), pos.z), 1.6, 1.6, 4);
+    d.position.y = Math.max(d.position.y, 0.1);
+    this.burst('ember', pos.add(new Vector3(0, 0.3, 0)), 4);
+  }
   freeze(pos: Vector3): void { this.burst('frost', pos, 24); this.burst('frostMist', pos, 6); }
   shatter(pos: Vector3): void { this.burst('frost', pos, 50); this.burst('bone', pos, 14); this.lights.flash(pos, PALETTE.frost, 16, 0.25, 6); }
 

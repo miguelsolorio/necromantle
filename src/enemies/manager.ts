@@ -3,6 +3,7 @@ import { Textures } from "@/rendering/textures";
 import { audio } from "@/audio";
 import type { AssetLoader } from '@/assets/loader';
 import { ENEMIES, type EnemyDef, type EnemyId } from '@/content/enemies';
+import { ELITE_MODS, ELITE_POOL, type EliteModId } from '@/content/elites';
 import type { EventBus } from '@/core/events';
 import { clamp, rand } from '@/core/mathx';
 import type { RenderRig } from '@/rendering/setup';
@@ -47,7 +48,7 @@ export class EnemyManager {
   queryNear(p: Vector3, r: number, out: Enemy[]): Enemy[] { return this.hash.query(p, r, out); }
 
   /** Spawn a new enemy of `id`. Models are cloned lazily per pooled slot and reused. */
-  async spawn(id: EnemyId, pos: Vector3, elite = false): Promise<Enemy> {
+  async spawn(id: EnemyId, pos: Vector3, elite = false, mod: EliteModId | null = null): Promise<Enemy> {
     const def = ENEMIES[id];
     let e = this.pool.find((x) => !x.alive && x.state === 'dead' && x.def?.id === id && x.deathTimer > 4 || (x.def?.id === id && !x.alive && x.root.position.y < -100));
     if (!e) {
@@ -61,7 +62,8 @@ export class EnemyManager {
       blob.parent = e.root; blob.position.y = 0.05; blob.isPickable = false; blob.scaling.setAll(def.radius * 5.5);
       this.pool.push(e);
     }
-    e.spawn(def, pos, elite, this.nextId++);
+    if (elite && !mod) mod = ELITE_POOL[Math.floor(Math.random() * ELITE_POOL.length)];
+    e.spawn(def, pos, elite, this.nextId++, mod);
     e.hpMax = Math.round(e.hpMax * this.hpMult); e.hp = e.hpMax;
     e.slot = this.pool.indexOf(e);
     if (elite) this.styleElite(e, true); else this.styleElite(e, false);
@@ -142,6 +144,9 @@ export class EnemyManager {
     let meleeIdx = 0;
     const alive = this.pool.filter((e) => e.alive);
     for (const e of alive) this.hash.insert(e);
+    // necromancer aura pre-pass: allies near a caster move and hit harder this step
+    for (const e of alive) { e.auraSpeed = 1; e.auraDamage = 1; }
+    for (const e of alive) { const aura = e.def.aura; if (!aura || this.frozen) continue; for (const o of this.hash.query(e.position, aura.radius, this.near)) { if (o !== e && o.alive) { o.auraSpeed = Math.max(o.auraSpeed, aura.speed); o.auraDamage = Math.max(o.auraDamage, aura.damage); } } }
 
     for (const e of this.pool) {
       if (!e.alive) {
@@ -163,6 +168,32 @@ export class EnemyManager {
         e.burn -= dt; e.burnTick += dt;
         if (e.burnTick >= 0.5) { e.burnTick = 0; this.damage(e, Math.round(e.burnDps * 0.5), { element: 'fire', pos: e.hitCenter() }); if (this.frame % 2 === 0) this.vfx.burst('ember', e.hitCenter(), 3); }
         if (!e.alive) continue;
+      }
+
+
+      // --- special behaviours ---
+      e.behaviourTimer -= dt;
+      if (def.behaviour && e.behaviourTimer <= 0 && e.state === 'chase' && e.frozen <= 0 && !player.dead) {
+        e.behaviourTimer = def.behaviourCooldown ?? 4;
+        if (def.behaviour === 'blink' && dist > 3.5) this.blink(e, player);
+        else if (def.behaviour === 'charge' && dist > 4 && dist < 14) this.startCharge(e, player);
+        else if (def.behaviour === 'summoner') void this.summon(e, 2);
+      }
+      if (e.charge) {
+        e.charge.left -= 13 * dt;
+        const dp2 = Math.hypot(e.position.x - pp.x, e.position.z - pp.z);
+        if (dp2 < e.radius + 0.9 && !player.dead) {
+          player.takeDamage(def.damage * 1.4 * e.auraDamage * (e.elite ? 1.8 : 1), god);
+          player.shove(e.charge.dir.scale(7));
+          this.vfx.burst('gore', player.chest(), 8); audio.play('playerHurt');
+          e.charge = null; e.state = 'recover'; e.timer = 0; e.attackCd = def.attack.cooldown;
+        } else if (e.charge.left <= 0 || Math.hypot(e.velocity.x, e.velocity.z) < 2 && e.charge.left < 8) { e.charge = null; e.state = 'recover'; e.timer = 0; }
+      }
+
+      // --- elite affixes ---
+      if (e.elite && e.mod) {
+        e.modTimer -= dt;
+        if (e.modTimer <= 0) { e.modTimer = ELITE_MODS[e.mod].period; this.runMod(e, player, god); }
       }
 
       // --- seek target ---
@@ -200,13 +231,22 @@ export class EnemyManager {
             e.state = 'recover'; e.timer = 0; e.attackCd = def.attack.cooldown + rand(0, 0.4);
             if (def.attack.ranged) this.fireShard(e, player);
             else if (dist < def.attack.range + 0.5 && !player.dead) {
-              player.takeDamage(def.damage * (e.elite ? 1.8 : 1), god);
+              player.takeDamage(def.damage * e.auraDamage * (e.elite ? 1.8 : 1), god);
               this.vfx.burst('gore', player.chest(), 6);
             }
           }
           break;
         }
         case 'recover': e.timer += dt; if (e.timer >= def.attack.recovery) e.state = 'chase'; break;
+        case 'charge': {
+          e.timer += dt;
+          if (!e.charge) {
+            e.faceToward(pp, dt, def.turnRate);
+            // the Taunt clip normally releases the charge; this fallback covers missing clips and stalled animation
+            if (e.timer > 0.9) { const dir = new Vector3(pp.x - e.position.x, 0, pp.z - e.position.z).normalize(); e.charge = { dir, left: 9 }; audio.play('charge', e.position); this.vfx.burst('smoke', e.position.add(new Vector3(0, 0.3, 0)), 10); }
+          }
+          break;
+        }
         case 'stagger': e.timer -= dt; if (e.timer <= 0) e.state = 'chase'; break;
       }
 
@@ -240,9 +280,79 @@ export class EnemyManager {
     audio.play('cultistShot', from);
     this.projectiles.spawn({
       team: 'enemy', pos: from, dir, speed: r.speed, radius: r.radius, range: e.def.attack.range + 4, visual: 'shard',
-      onHitPlayer: (p) => { player.takeDamage(e.def.damage * (e.elite ? 1.8 : 1), false); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); },
+      onHitPlayer: (p) => { player.takeDamage(e.def.damage * e.auraDamage * (e.elite ? 1.8 : 1), false); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); },
       onExpire: (p) => { this.vfx.cultistImpact(p); audio.play('cultistImpact', p, { gain: 0.5 }); },
     });
+  }
+
+  /** Wraith blink: vanish and reappear beside the player, then strike. */
+  private blink(e: Enemy, player: Player): void {
+    const from = e.hitCenter();
+    const a = Math.random() * Math.PI * 2;
+    const to = this.world.randomSpawn(player.position, 1.6, 2.4);
+    if (Math.abs(to.y - player.position.y) > 1.5) return;
+    this.vfx.rift(e.position.clone(), to.clone()); this.vfx.burst('frostMist', from, 6);
+    audio.play('rift', from, { gain: 0.5, pitch: 1.3 });
+    e.root.position.copyFrom(to); e.collider.position.copyFrom(to);
+    e.yaw = Math.atan2(player.position.x - to.x, player.position.z - to.z) + a * 0;
+    e.attackCd = 0.15;
+  }
+
+  /** Brute charge: a telegraphed windup, then a straight dash that knocks the player back. */
+  private startCharge(e: Enemy, player: Player): void {
+    const dir = new Vector3(player.position.x - e.position.x, 0, player.position.z - e.position.z).normalize();
+    e.state = 'charge'; e.timer = 0; e.charge = null;
+    e.animator?.clearOneShot(); e.animator?.once('Taunt', { speed: 1.6, onEnd: () => { if (e.alive && e.state === 'charge' && !e.charge) { e.charge = { dir, left: 9 }; audio.play('charge', e.position); this.vfx.burst('smoke', e.position.add(new Vector3(0, 0.3, 0)), 10); } } });
+    audio.play('waveStart', e.position, { gain: 0.35, pitch: 1.6 });
+  }
+
+  /** Raise ghouls from the floor around the caster. */
+  private async summon(e: Enemy, n: number): Promise<void> {
+    if (this.alive.length > 40) return;
+    this.vfx.burst('venom', e.hitCenter(), 20); this.vfx.lights.flash(e.hitCenter(), Color3.FromHexString('#B14DFF'), 20, 0.5, 8);
+    audio.play('summon', e.position);
+    e.animator?.clearOneShot(); e.animator?.once('Spellcast_Summon', { speed: 1.3 });
+    for (let i = 0; i < n; i++) { const at = this.world.randomSpawn(e.position, 1.5, 3.5); await this.spawn('ghoul', at); }
+  }
+
+  /** Elite affix tick. */
+  private runMod(e: Enemy, player: Player, god: boolean): void {
+    const c = e.hitCenter();
+    switch (e.mod) {
+      case 'scorched': {
+        const p = e.position.clone(); p.y += 0.02;
+        this.vfx.scorchTrail(p);
+        const d = Math.hypot(player.position.x - p.x, player.position.z - p.z);
+        if (d < 1.4 && !player.dead) { player.takeDamage(6, god); this.vfx.burst('ember', player.chest(), 6); }
+        break;
+      }
+      case 'blink': this.blink(e, player); break;
+      case 'volley': {
+        audio.play('cultistShot', c);
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2;
+          const dir = new Vector3(Math.sin(a), 0.05, Math.cos(a));
+          this.projectiles.spawn({ team: 'enemy', pos: c.clone(), dir, speed: 9, radius: 0.35, range: 14, visual: 'shard', onHitPlayer: (p) => { player.takeDamage(12, false); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); }, onExpire: (p) => this.vfx.cultistImpact(p) });
+        }
+        break;
+      }
+      case 'summoner': void this.summon(e, 2); break;
+      case 'pull': {
+        const d = new Vector3(e.position.x - player.position.x, 0, e.position.z - player.position.z); const len = d.length();
+        if (len < 14 && len > 2.5 && !player.dead) {
+          d.scaleInPlace((len - 2.2) / len);
+          player.shove(d, 0.35);
+          this.vfx.burst('arcaneSpark', player.chest(), 20); this.vfx.rift(player.position.clone(), player.position.add(d));
+          audio.play('rift', player.position, { gain: 0.6, pitch: 0.7 });
+        }
+        break;
+      }
+      case 'chilling': {
+        const d = Math.hypot(player.position.x - e.position.x, player.position.z - e.position.z);
+        if (d < 5) { player.speedMult = 0.6; player.chilled = 0.6; this.vfx.burst('frostMist', player.position.add(new Vector3(0, 0.3, 0)), 2); }
+        break;
+      }
+    }
   }
 
   clear(): void { for (const e of this.pool) { e.alive = false; e.state = 'dead'; e.deathTimer = 99; e.hide(); } }

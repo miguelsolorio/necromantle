@@ -25,7 +25,7 @@ export class DebugPanel {
     vol('Music volume', 'music'); vol('Effects volume', 'sfx');
     const btns = document.createElement('div'); btns.className = 'btns';
     const b = (label: string, fn: () => void) => { const x = document.createElement('button'); x.textContent = label; x.onclick = (e) => { e.preventDefault(); fn(); }; btns.appendChild(x); };
-    b('+10 ghouls', () => hooks.spawn('ghoul', 10)); b('+20 ghouls', () => hooks.spawn('ghoul', 20)); b('+4 knights', () => hooks.spawn('fallen_knight', 4)); b('+4 cultists', () => hooks.spawn('cultist', 4)); b('+3 wraiths', () => hooks.spawn('wraith', 3)); b('+ elite knight', () => hooks.spawn('fallen_knight', 1, true));
+    b('+10 ghouls', () => hooks.spawn('ghoul', 10)); b('+20 ghouls', () => hooks.spawn('ghoul', 20)); b('+4 knights', () => hooks.spawn('fallen_knight', 4)); b('+4 cultists', () => hooks.spawn('cultist', 4)); b('+3 wraiths', () => hooks.spawn('wraith', 3)); b('+ elite knight', () => hooks.spawn('fallen_knight', 1, true)); b('+ brute', () => hooks.spawn('brute', 1)); b('+ necromancer', () => hooks.spawn('necromancer', 1)); b('+ elite ghoul', () => hooks.spawn('ghoul', 1, true));
     b('clear', () => hooks.clear()); b('level up', () => hooks.levelUp()); b('tp court', () => hooks.teleport('court')); b('tp door', () => hooks.teleport('door')); b('screenshot', () => hooks.screenshot());
     this.el.appendChild(btns);
     this.stat = document.createElement('div'); this.stat.className = 'stat'; this.el.appendChild(this.stat);

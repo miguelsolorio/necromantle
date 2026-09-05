@@ -4,6 +4,8 @@ import type { SlotState } from '@/abilities/system';
 import type { Enemy } from '@/enemies/enemy';
 import type { Player } from '@/player/player';
 import { ICONS } from './icons';
+import { ELITE_MODS } from '@/content/elites';
+import { CLASSES } from '@/content/classes';
 import { audio } from '@/audio';
 
 interface Num { el: HTMLSpanElement; t: number; busy: boolean }
@@ -49,7 +51,7 @@ export class Hud {
     this.xp = q('.xpbar i'); this.lvl = q('.xpbar .lvl');
     this.area = q('[data-area]'); this.objective = q('[data-obj]'); this.lock = q('.softlock'); this.lockhint = q('.lockhint'); this.toastEl = q(".toast"); this.deadEl = q(".dead"); this.hurtVig = q(".hurtvig"); this.promptEl = q(".prompt");
     const bar = q('.skillbar');
-    for (const id of ['bolt', 'orb', 'rift', 'nova', 'frost', 'cataclysm']) {
+    for (const id of CLASSES.sorcerer.abilities) {
       const el = document.createElement('div'); el.className = 'slot'; el.innerHTML = `${ICONS[id]}<div class="cdv" style="display:none"></div><div class="key"></div>`;
       bar.appendChild(el);
       this.slots.set(id, { el, cd: el.querySelector('.cdv')!, wasReady: false });
@@ -125,7 +127,7 @@ export class Hud {
       if (!bar) {
         bar = this.barPool.pop() ?? (() => { const b = document.createElement('div'); b.className = 'ebar'; b.innerHTML = '<i></i><div class="plate"></div>'; this.root.appendChild(b); return b; })();
         this.bars.set(e.id, bar); bar.classList.add('on'); bar.classList.toggle('elite', e.elite);
-        (bar.querySelector('.plate') as HTMLElement).innerHTML = e.elite ? `${e.def.name.toUpperCase()} WARDEN<small>Elite</small>` : '';
+        (bar.querySelector('.plate') as HTMLElement).innerHTML = e.elite ? `${e.plateTitle.toUpperCase()}<small>${e.mod ? ELITE_MODS[e.mod].label : 'Elite'}</small>` : '';
       }
       bar.style.left = `${this.proj.x}px`; bar.style.top = `${this.proj.y}px`;
       (bar.firstElementChild as HTMLElement).style.width = `${Math.max(0, (e.hp / e.hpMax) * 100).toFixed(1)}%`;
