@@ -95,9 +95,10 @@ export class BenchmarkScene extends World {
     const topY = 5.1 * stairScale[1], topZ = stairZ0 + 4 * stairScale[2];
     // the kit's steps climb toward the piece origin, so the mesh sits at the top edge and faces the courtyard
     p.push({ id: "kit.stairs_wide", x: 0, z: topZ, scaleV: stairScale, rot: Math.PI, collide: false, ground: false });
-    this.addSurface({ minX: -3.5 * stairScale[0], maxX: 3.5 * stairScale[0], minZ: stairZ0, maxZ: topZ, y0: 0, y1: topY });
-    this.addSurface({ minX: -T * 1.5, maxX: T * 1.5, minZ: topZ, maxZ: topZ + 2 * T, y0: topY, y1: topY });
+    this.addSurface({ minX: -3.5 * stairScale[0], maxX: 3.5 * stairScale[0], minZ: stairZ0, maxZ: topZ, y0: 0, y1: topY, spawn: true });
+    this.addSurface({ minX: -T * 1.5, maxX: T * 1.5, minZ: topZ, maxZ: topZ + 2 * T, y0: topY, y1: topY, spawn: true });
     this.addSurface({ minX: -half, maxX: half, minZ: -half, maxZ: half, y0: 0.075, y1: 0.075 });
+    this.addSurface({ minX: -half + 1.5, maxX: half - 1.5, minZ: -half + 1.5, maxZ: half - 1.5, y0: 0.075, y1: 0.075, spawn: true });
     this.addSurface({ minX: -200, maxX: 200, minZ: -200, maxZ: 200, y0: -0.06, y1: -0.06 });
     // threshold platform: foundation tiles
     for (let ix = -1; ix <= 1; ix++) for (let iz = 0; iz < 2; iz++) p.push({ id: 'kit.floor_tile_large', x: ix * T, z: topZ + T / 2 + iz * T, y: topY, ground: true, collide: true });
@@ -154,6 +155,8 @@ export class BenchmarkScene extends World {
     slab.position.set(0, topY / 2 - 0.15, stairZ0 + 2 * stairScale[2]); slab.rotation.x = -Math.atan2(topY, 4 * stairScale[2]);
     slab.isVisible = false; slab.isPickable = false; slab.metadata = { static: true }; slab.parent = this.root;
     this.addCollider("platformUnder", new Vector3(0, (topY - 0.6) / 2, topZ + T), new Vector3(T * 3, topY - 0.6, 2 * T));
+    // close the strip between the stair and the wall gap so nothing walks in beside the ramp
+    for (const sx of [-1, 1]) this.addCollider(`stairGap${sx}`, new Vector3(sx * (3.5 * stairScale[0] + (T - 3.5 * stairScale[0]) / 2), 3, half), new Vector3(T - 3.5 * stairScale[0] + 0.4, 6, 1.5));
     for (const sx of [-1, 1]) this.addCollider(`stairRail${sx}`, new Vector3(sx * (3.5 * stairScale[0] + 0.3), (topY + 2) / 2, stairZ0 + 2 * stairScale[2]), new Vector3(0.6, topY + 2, 4 * stairScale[2] + 0.5));
     // platform edges: low parapets so nobody drops off the threshold sideways or forward past the stair mouth
     for (const sx of [-1, 1]) this.addCollider(`platformSide${sx}`, new Vector3(sx * (T * 1.5 + 0.3), topY + 1, topZ + T), new Vector3(0.6, 2, 2 * T));

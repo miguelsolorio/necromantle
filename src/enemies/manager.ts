@@ -145,6 +145,11 @@ export class EnemyManager {
       if (this.frozen) { e.updateAnimation(dt); continue; }
       const def = e.def;
       e.attackCd = Math.max(0, e.attackCd - dt);
+      // safety net: anything that ends up below the courtyard floor is off the playable surfaces; put it back near the player
+      if (e.position.y < 0 && e.state !== 'spawning') {
+        const at = this.world.randomSpawn(pp, 5, 10);
+        e.root.position.copyFrom(at); e.collider.position.copyFrom(at);
+      }
       const dist = Vector3.Distance(e.position, pp);
 
       // burning

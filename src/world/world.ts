@@ -3,7 +3,7 @@ import { AbstractMesh, Ray, Scene, Vector3 } from '@babylonjs/core';
 const isStatic = (m: AbstractMesh) => !!m.metadata?.static && m.isEnabled();
 
 /** Axis-aligned walkable surface; height varies linearly from y0 at minZ to y1 at maxZ (ramps). */
-export interface Surface { minX: number; maxX: number; minZ: number; maxZ: number; y0: number; y1: number }
+export interface Surface { minX: number; maxX: number; minZ: number; maxZ: number; y0: number; y1: number; /** enemies may spawn here (false for the catch-all outer ground) */ spawn?: boolean }
 
 /** Static-world queries shared by the player, enemies, camera and projectiles. Scenes extend it. */
 export class World {
@@ -48,14 +48,27 @@ export class World {
     return hit?.hit && hit.pickedPoint ? hit.pickedPoint : null;
   }
 
-  /** A spawn point on a ring around `center` that is on the ground. */
+  /** Height of a spawnable surface at (x, z), or null when the point is off the playable surfaces. */
+  spawnHeight(x: number, z: number): number | null {
+    let best: number | null = null;
+    for (const s of this.surfaces) {
+      if (!s.spawn || x < s.minX || x > s.maxX || z < s.minZ || z > s.maxZ) continue;
+      const t = s.maxZ > s.minZ ? (z - s.minZ) / (s.maxZ - s.minZ) : 0;
+      const y = s.y0 + (s.y1 - s.y0) * t;
+      if (best === null || y > best) best = y;
+    }
+    return best;
+  }
+
+  /** A spawn point on a ring around `center` that lies on a spawnable surface near the player's height. */
   randomSpawn(center: Vector3, minR: number, maxR: number): Vector3 {
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 24; i++) {
       const a = Math.random() * Math.PI * 2, r = minR + Math.random() * (maxR - minR);
       const x = center.x + Math.sin(a) * r, z = center.z + Math.cos(a) * r;
-      const y = this.groundY(x, z, center.y + 4);
+      const y = this.spawnHeight(x, z);
       if (y !== null && Math.abs(y - center.y) < 2.5) return new Vector3(x, y, z);
     }
-    return center.clone();
+    const y = this.spawnHeight(center.x, center.z);
+    return new Vector3(center.x, y ?? center.y, center.z);
   }
 }
