@@ -28,6 +28,7 @@ Then open http://127.0.0.1:5173. Models are committed under `public/assets` and 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Vite dev server on port 5173 |
+| `npm run dev:lan` | The same server on every interface, port 5174, for a phone on the same Wi-Fi (plain http, so WebGL2) |
 | `npm run build` | Typecheck, then build to `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` |

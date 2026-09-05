@@ -6,6 +6,7 @@ import type { Settings, SlotInfo } from '@/persistence/save';
 import { ICONS } from './icons';
 import { audio } from '@/audio';
 import { PLATFORM } from '@/core/platform';
+import { onActivate } from './tap';
 
 export type TitleView = 'title' | 'select' | 'hidden';
 
@@ -69,10 +70,10 @@ export class TitleScreen {
       <div class="backend"></div>`;
     document.body.appendChild(this.root);
     (this.root.querySelector('.backend') as HTMLElement).textContent = hooks.backend;
-    this.root.querySelector('.sv-back')!.addEventListener('click', () => this.show('title'));
-    for (const m of this.root.querySelectorAll('.tmodal')) m.querySelector('.close')!.addEventListener('click', () => this.closeModal(m));
-    this.root.querySelector('.settings .mute')!.addEventListener('click', () => { audio.engine.toggleMute(); this.syncMute(); });
-    this.root.querySelector('[data-act="delete"]')!.addEventListener('click', () => { this.hooks.onDelete(this.focused); this.root.querySelector('.confirm')!.classList.remove('on'); this.renderSelect(); });
+    onActivate(this.root.querySelector('.sv-back')!, () => this.show('title'));
+    for (const m of this.root.querySelectorAll('.tmodal')) onActivate(m.querySelector('.close')!, () => this.closeModal(m));
+    onActivate(this.root.querySelector('.settings .mute')!, () => { audio.engine.toggleMute(); this.syncMute(); });
+    onActivate(this.root.querySelector('[data-act="delete"]')!, () => { this.hooks.onDelete(this.focused); this.root.querySelector('.confirm')!.classList.remove('on'); this.renderSelect(); });
     for (const input of this.root.querySelectorAll<HTMLElement>('.settings input, .settings select')) {
       const apply = () => { const s = this.readSettings(); this.hooks.onSettings(s); this.syncSettings(s); };
       input.addEventListener('input', apply); input.addEventListener('change', apply);
@@ -108,7 +109,7 @@ export class TitleScreen {
   private renderTitle(): void {
     const menu = this.root.querySelector('.tv-menu') as HTMLElement; menu.innerHTML = '';
     const last = this.hooks.lastPlayed(); const slot = last ? this.hooks.slots().find((s) => s.classId === last) : null;
-    const btn = (label: string, hint: string | null, cls: string, act: () => void) => { const b = document.createElement('button'); b.className = cls; b.innerHTML = `${label}${hint ? `<span class="hint">${hint}</span>` : ''}`; b.addEventListener('click', act); menu.appendChild(b); return b; };
+    const btn = (label: string, hint: string | null, cls: string, act: () => void) => { const b = document.createElement('button'); b.className = cls; b.innerHTML = `${label}${hint ? `<span class="hint">${hint}</span>` : ''}`; onActivate(b, act); menu.appendChild(b); return b; };
     if (slot && last) btn('Continue', `${CLASSES[last].name} · Level ${slot.level} · ${slot.areaName || 'Hollowmere'}`, 'primary', () => this.hooks.onBegin(last, false));
     btn(slot ? 'Choose a character' : 'New journey', null, slot ? '' : 'primary', () => this.show('select'));
     btn('Settings', null, '', () => { this.syncSettings(this.hooks.getSettings()); this.root.querySelector('.settings')!.classList.add('on'); });
@@ -124,20 +125,13 @@ export class TitleScreen {
       const b = document.createElement('button'); b.className = `cls${id === this.focused ? ' focus' : ''}`; b.style.setProperty('--accent', def.accent);
       b.innerHTML = `<b>${def.name}${slot ? `<span class="lvl">LV ${slot.level}</span>` : ''}</b><small>${def.weaponLabel} · ${def.resource.name}${def.playable ? '' : ' · in development'}</small>`;
       b.addEventListener('mouseenter', () => this.focus(id)); b.addEventListener('focus', () => this.focus(id));
-      // Mouse: click begins. Touch: the first tap focuses the class (its card shows Continue / Start over / Delete),
-      // a tap on the focused class begins. Handled on pointerup because iOS withholds the compat click when the
-      // hover handlers change content, and the compat mouseenter would otherwise focus before the click arrives.
-      b.addEventListener('click', () => { if (PLATFORM.touch) return; this.focus(id); if (def.playable) this.hooks.onBegin(id, !slot); });
-      let down: { x: number; y: number } | null = null;
-      b.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') down = { x: e.clientX, y: e.clientY }; });
-      b.addEventListener('pointerup', (e) => {
-        if (e.pointerType === 'mouse' || !down) return;
-        const tap = Math.hypot(e.clientX - down.x, e.clientY - down.y) < 12; down = null;
-        if (!tap) return;
-        if (this.focused === id) { if (def.playable) this.hooks.onBegin(id, !this.hooks.slots().some((s) => s.classId === id)); }
+      // Mouse: a click begins. Touch: the first tap focuses the class (its card shows Continue / Start over / Delete)
+      // and a tap on the focused class begins; the compat mouseenter that follows a tap only re-focuses.
+      onActivate(b, () => {
+        const fresh = !this.hooks.slots().some((s) => s.classId === id);
+        if (!PLATFORM.touch || this.focused === id) { this.focus(id); if (def.playable) this.hooks.onBegin(id, fresh); }
         else this.focus(id);
       });
-      b.addEventListener('pointercancel', () => { down = null; });
       tabs.appendChild(b);
     }
     this.renderPanel(); this.renderSlot();
@@ -160,7 +154,7 @@ export class TitleScreen {
     panel.innerHTML = `<h2>${def.name.toUpperCase()}</h2><p class="blurb">${def.blurb}</p>
       <div class="res"><b>${def.resource.name}</b><span><i></i></span><span style="grid-column: 1 / -1">${def.resource.desc}</span></div>
       <div class="sv-abilities">${cards}</div>`;
-    for (const c of panel.querySelectorAll<HTMLElement>('.sv-ab')) { const preview = () => this.hooks.onPreview(this.focused, c.dataset.anim!); c.addEventListener('mouseenter', preview); c.addEventListener('click', preview); }
+    for (const c of panel.querySelectorAll<HTMLElement>('.sv-ab')) { const preview = () => this.hooks.onPreview(this.focused, c.dataset.anim!); c.addEventListener('mouseenter', preview); onActivate(c, preview); }
   }
 
   private renderSlot(): void {
@@ -170,9 +164,10 @@ export class TitleScreen {
     el.innerHTML = `<h3>${def.name.toUpperCase()}</h3>${rows}<div class="actions">
       ${def.playable ? (slot ? `<button class="primary" data-act="continue">Continue</button><button data-act="fresh">Start over</button><button class="danger" data-act="ask">Delete journey</button>` : `<button class="primary" data-act="fresh">Begin</button>`) : `<button disabled>In development</button>`}
     </div>`;
-    el.querySelector('[data-act="continue"]')?.addEventListener('click', () => this.hooks.onBegin(this.focused, false));
-    el.querySelector('[data-act="fresh"]')?.addEventListener('click', () => this.hooks.onBegin(this.focused, true));
-    el.querySelector('[data-act="ask"]')?.addEventListener('click', () => { (this.root.querySelector('.tconfirm') as HTMLElement).textContent = `Delete the ${def.name}'s journey (level ${slot?.level ?? 1})? This cannot be undone.`; this.root.querySelector('.confirm')!.classList.add('on'); });
+    const act = (sel: string, fn: () => void) => { const b = el.querySelector(sel); if (b) onActivate(b, fn); };
+    act('[data-act="continue"]', () => this.hooks.onBegin(this.focused, false));
+    act('[data-act="fresh"]', () => this.hooks.onBegin(this.focused, true));
+    act('[data-act="ask"]', () => { (this.root.querySelector('.tconfirm') as HTMLElement).textContent = `Delete the ${def.name}'s journey (level ${slot?.level ?? 1})? This cannot be undone.`; this.root.querySelector('.confirm')!.classList.add('on'); });
   }
 
   private onKey(e: KeyboardEvent): void {

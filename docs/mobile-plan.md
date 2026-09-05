@@ -42,7 +42,7 @@ Driven with `?touch=1&nolock&play=sorcerer` at 760×390 (the pane only emulates 
 
 ## Still to do on a real device
 
-The pane cannot emulate two fingers at once. On a phone: `npm run dev -- --host` over the LAN (plain http, so WebGL2), then the Pages build (https, WebGPU on iOS 26 and Android Chrome). Check stick + look + a held skill together, frame rate with a 20-ghoul pack on the low tier (`?dev=1` shows the panel), backgrounding saves and holds, add-to-home-screen opens landscape and full screen. Record the numbers here.
+The pane cannot emulate two fingers at once. On a phone: `npm run dev:lan` (port 5174 on every interface; plain http, so WebGL2), then the Pages build (https, WebGPU on iOS 26 and Android Chrome). Check stick + look + a held skill together, frame rate with a 20-ghoul pack on the low tier (`?dev=1` shows the panel), backgrounding saves and holds, add-to-home-screen opens landscape and full screen. Record the numbers here.
 
 ## Out of scope
 

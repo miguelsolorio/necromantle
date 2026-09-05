@@ -1,5 +1,6 @@
 import { CAMERA } from '@/content/player';
 import type { Input } from './input';
+import { onActivate } from '@/ui/tap';
 
 export interface TouchHooks { pause(): void }
 
@@ -40,11 +41,11 @@ export class TouchControls {
       </div>`;
     hud.appendChild(this.el);
     this.stick = this.el.querySelector('.stick')!; this.knob = this.el.querySelector('.knob')!;
-    this.el.querySelector('.bag')!.addEventListener('click', () => input.tap('KeyI'));
-    this.el.querySelector('.pause')!.addEventListener('click', () => hooks.pause());
+    onActivate(this.el.querySelector('.bag')!, () => input.tap('KeyI'));
+    onActivate(this.el.querySelector('.pause')!, () => hooks.pause());
     // contextual buttons the HUD already draws: the interaction prompt and the death card
-    hud.querySelector('.prompt')!.addEventListener('click', () => input.tap('KeyE'));
-    hud.querySelector('.dead')!.addEventListener('click', () => input.tap('KeyR'));
+    onActivate(hud.querySelector('.prompt')!, () => input.tap('KeyE'));
+    onActivate(hud.querySelector('.dead')!, () => input.tap('KeyR'));
 
     // world touches: joystick zone on the left, look-drag elsewhere
     canvas.addEventListener('pointerdown', (e) => this.onWorldDown(e));

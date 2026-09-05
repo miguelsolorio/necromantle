@@ -7,6 +7,7 @@ import { IMPROVEMENTS, PASSIVES, PASSIVE_ORDER, passiveSlots } from '@/content/p
 import { ABILITIES } from '@/content/abilities';
 import { ICONS } from './icons';
 import { PLATFORM } from '@/core/platform';
+import { onActivate } from './tap';
 
 const SLOT_ICON: Record<string, string> = {
   weapon: '<svg viewBox="0 0 40 40"><path d="M12 34 L28 6" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="29" cy="7" r="5" fill="currentColor"/></svg>',
@@ -43,11 +44,11 @@ export class InventoryUI {
     this.el.innerHTML = `<div class="inv-panel"><div class="inv-title">${tabs}<span class="x" title="Close">✕</span></div><div class="inv-doll"><div class="inv-stand"></div><div class="inv-slots"></div><div class="inv-stats"></div></div><div class="inv-bag"><div class="inv-grid"></div><div class="inv-passives"></div><div class="inv-hint">${hint}</div></div><div class="inv-skills"></div><div class="inv-tip"></div></div>`;
     document.getElementById('hud')!.appendChild(this.el);
     this.skills = this.el.querySelector('.inv-skills')!;
-    for (const t of this.el.querySelectorAll<HTMLElement>('.inv-title .tab')) t.onclick = () => { this.tab = t.dataset.tab as Tab; this.hideTip(); this.refresh(); };
-    this.el.querySelector('.inv-title .x')!.addEventListener('click', () => this.close());
+    for (const t of this.el.querySelectorAll<HTMLElement>('.inv-title .tab')) onActivate(t, () => { this.tab = t.dataset.tab as Tab; this.hideTip(); this.refresh(); });
+    onActivate(this.el.querySelector('.inv-title .x')!, () => this.close());
     this.doll = this.el.querySelector('.inv-slots')!; this.grid = this.el.querySelector('.inv-grid')!; this.stats = this.el.querySelector('.inv-stats')!; this.tip = this.el.querySelector('.inv-tip')!; this.passives = this.el.querySelector('.inv-passives')!;
     this.el.addEventListener('contextmenu', (e) => e.preventDefault());
-    if (PLATFORM.touch) this.el.addEventListener('click', (e) => { if (e.target === this.el) this.close(); }); // tap the dark backdrop to leave
+    if (PLATFORM.touch) onActivate(this.el, (e) => { if (e.target === this.el) this.close(); }); // tap the dark backdrop to leave
     else this.el.addEventListener('mouseleave', () => this.hideTip());
   }
 
@@ -71,7 +72,7 @@ export class InventoryUI {
       if (it) {
         cell.classList.toggle('sel', this.selected === it.uid);
         const unequip = () => { if (p.unequip(key)) { audio.play('pickup'); this.hideTip(); this.refresh(); this.onChange(); } else audio.play('denied'); };
-        if (PLATFORM.touch) cell.onclick = () => this.openCard(it, null, [{ label: 'Unequip', cls: 'primary', act: unequip }]);
+        if (PLATFORM.touch) onActivate(cell, () => this.openCard(it, null, [{ label: 'Unequip', cls: 'primary', act: unequip }]));
         else { cell.onmouseenter = (e) => this.showTip(it, e, null); cell.onmousemove = (e) => this.moveTip(e); cell.onmouseleave = () => this.hideTip(); cell.onclick = unequip; }
       }
       this.doll.appendChild(cell);
@@ -87,7 +88,7 @@ export class InventoryUI {
         const equipped = it.slot === 'ring' ? p.equipment.ring : p.equipment[it.slot];
         const equip = () => { if (!p.canEquip(it)) { audio.play('denied'); return; } p.equip(it); audio.play('pickup', undefined, { pitch: 1.2 }); this.hideTip(); this.refresh(); this.onChange(); };
         const drop = () => { p.removeItem(it.uid); audio.play('denied'); this.hideTip(); this.refresh(); this.onChange(); };
-        if (PLATFORM.touch) cell.onclick = () => this.openCard(it, equipped ?? null, [...(p.canEquip(it) ? [{ label: 'Equip', cls: 'primary', act: equip }] : []), { label: 'Drop', cls: 'danger', act: drop }]);
+        if (PLATFORM.touch) onActivate(cell, () => this.openCard(it, equipped ?? null, [...(p.canEquip(it) ? [{ label: 'Equip', cls: 'primary', act: equip }] : []), { label: 'Drop', cls: 'danger', act: drop }]));
         else {
           cell.onmouseenter = (e) => this.showTip(it, e, equipped ?? null); cell.onmousemove = (e) => this.moveTip(e); cell.onmouseleave = () => this.hideTip();
           cell.onclick = equip;
@@ -106,11 +107,11 @@ export class InventoryUI {
     this.passives.innerHTML = html;
     this.passives.querySelectorAll<HTMLElement>('.pv-slot.open').forEach((el) => {
       const clear = () => { p.setPassive(+el.dataset.slot!, null); this.refresh(); this.onChange(); };
-      el.onclick = () => { this.pickSlot = +el.dataset.slot!; this.refresh(); };
+      onActivate(el, () => { this.pickSlot = +el.dataset.slot!; this.refresh(); });
       el.oncontextmenu = (e) => { e.preventDefault(); clear(); };
-      const x = el.querySelector<HTMLElement>('.clr'); if (x) x.onclick = (e) => { e.stopPropagation(); clear(); };
+      const x = el.querySelector<HTMLElement>('.clr'); if (x) onActivate(x, (e) => { e.stopPropagation(); clear(); });
     });
-    this.passives.querySelectorAll<HTMLElement>('.pv').forEach((el) => { el.onclick = () => { if (slots === 0) { audio.play('denied'); return; } if (this.pickSlot >= slots) this.pickSlot = 0; if (p.setPassive(this.pickSlot, el.dataset.id as any)) { audio.play('levelUp'); this.refresh(); this.onChange(); } else audio.play('denied'); }; });
+    this.passives.querySelectorAll<HTMLElement>('.pv').forEach((el) => { onActivate(el, () => { if (slots === 0) { audio.play('denied'); return; } if (this.pickSlot >= slots) this.pickSlot = 0; if (p.setPassive(this.pickSlot, el.dataset.id as any)) { audio.play('levelUp'); this.refresh(); this.onChange(); } else audio.play('denied'); }); });
 
     const s = p.stats, b = p.bonus;
     const row = (k: string, v: string) => `<span>${k}<b>${v}</b></span>`;
@@ -151,7 +152,7 @@ export class InventoryUI {
     this.selected = it.uid;
     this.renderTip(it, compare);
     const acts = document.createElement('div'); acts.className = 'acts';
-    for (const a of [...actions, { label: 'Close', cls: '', act: () => this.hideTip() }]) { const b = document.createElement('button'); b.className = a.cls; b.textContent = a.label; b.onclick = a.act; acts.appendChild(b); }
+    for (const a of [...actions, { label: 'Close', cls: '', act: () => this.hideTip() }]) { const b = document.createElement('button'); b.className = a.cls; b.textContent = a.label; onActivate(b, a.act); acts.appendChild(b); }
     this.tip.appendChild(acts);
     this.tip.classList.add('on');
     this.refresh(); // re-marks the selected cell
