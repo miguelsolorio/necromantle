@@ -92,8 +92,9 @@ export class BenchmarkScene extends World {
     // visual mesh only; walking uses an analytic ramp surface and camera obstruction uses an invisible slab.
     const stairScale: [number, number, number] = [1.3, 0.72, 1.7];
     const stairZ0 = half - 0.5;
-    p.push({ id: "kit.stairs_wide", x: 0, z: stairZ0, scaleV: stairScale, rot: 0, collide: false, ground: false });
     const topY = 5.1 * stairScale[1], topZ = stairZ0 + 4 * stairScale[2];
+    // the kit's steps climb toward the piece origin, so the mesh sits at the top edge and faces the courtyard
+    p.push({ id: "kit.stairs_wide", x: 0, z: topZ, scaleV: stairScale, rot: Math.PI, collide: false, ground: false });
     this.addSurface({ minX: -3.5 * stairScale[0], maxX: 3.5 * stairScale[0], minZ: stairZ0, maxZ: topZ, y0: 0, y1: topY });
     this.addSurface({ minX: -T * 1.5, maxX: T * 1.5, minZ: topZ, maxZ: topZ + 2 * T, y0: topY, y1: topY });
     this.addSurface({ minX: -half, maxX: half, minZ: -half, maxZ: half, y0: 0.075, y1: 0.075 });
