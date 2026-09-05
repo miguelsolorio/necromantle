@@ -1,4 +1,4 @@
-import { AbstractMesh, Color3, Mesh, MeshBuilder, PBRMaterial, PointLight, Scene, TransformNode, Vector3 } from '@babylonjs/core';
+import { AbstractMesh, AnimationGroup, Color3, Mesh, MeshBuilder, PBRMaterial, PointLight, Scene, TransformNode, Vector3 } from '@babylonjs/core';
 import type { AssetLoader } from '@/assets/loader';
 import type { ThirdPersonCamera } from '@/camera/thirdPerson';
 import { PLAYER, XP_TABLE } from '@/content/player';
@@ -33,7 +33,8 @@ export class Player {
   swing = 0;
   /** Seconds since the last hit dealt or taken; resources with `decay` drain once this passes 3 s. */
   sinceCombat = 99;
-  model!: TransformNode;
+  /** The class rig; null between `unload` and the next `load`. */
+  model: TransformNode | null = null;
   animator: Animator | null = null;
   readonly velocity = new Vector3();
   yaw = 0;
@@ -75,6 +76,9 @@ export class Player {
   private vy = 0;
   private staffTipNode: TransformNode | null = null;
   private handNode: TransformNode | null = null;
+  /** What `load` created, so `unload` can take it down again: the rig's clips, the tip crystal and the glow it joined. */
+  private groups: Map<string, AnimationGroup> | null = null;
+  private crystal: { mesh: Mesh; mat: PBRMaterial; rig: RenderRig } | null = null;
   readonly staffLight: PointLight;
   private tmp = new Vector3();
   private tmpMove = new Vector3();
@@ -104,7 +108,7 @@ export class Player {
 
   async load(loader: AssetLoader, rig: RenderRig): Promise<void> {
     const inst = await loader.instanceCharacter(this.cls.model, this.cls.id);
-    this.model = inst.root;
+    this.model = inst.root; this.groups = inst.groups;
     this.model.parent = this.root;
     if (!inst.failed) {
       const scale = this.cls.height / 2.2;
@@ -147,10 +151,33 @@ export class Player {
       const cm = new PBRMaterial('sorcerer.crystalMat', this.scene);
       cm.emissiveColor = PALETTE.arcaneCore.clone(); cm.albedoColor = Color3.Black(); cm.metallic = 0; cm.roughness = 0.3;
       crystal.material = cm; crystal.parent = tip; crystal.isPickable = false; rig.addGlow(crystal);
+      this.crystal = { mesh: crystal, mat: cm, rig };
       if (staffMesh) crystal.scaling.setAll(1 / (this.cls.height / 2.2));
       // only the Sorcerer's staff carries a lit crystal; the other classes' weapons stay dark
       if (this.cls.id !== 'sorcerer') { crystal.setEnabled(false); this.staffLight.intensity = 0; }
     }
+  }
+
+  /**
+   * Take the rig down again (character change, start over): the clips, the crystal and its own material, then the
+   * model hierarchy. The character's materials stay: they belong to the shared asset container, not to this instance.
+   */
+  unload(): void {
+    this.animator?.dispose(); this.animator = null;
+    if (this.groups) { for (const g of this.groups.values()) g.dispose(); this.groups = null; }
+    if (this.crystal) { this.crystal.rig.glow.removeIncludedOnlyMesh(this.crystal.mesh); this.crystal.mesh.dispose(); this.crystal.mat.dispose(); this.crystal = null; }
+    this.model?.dispose(false, false); this.model = null;
+    this.staffTipNode = null; this.handNode = null;
+    this.staffLight.intensity = 2.2;
+  }
+
+  /** Back to a fresh level-1 hero before a slot is restored: progression, bag, gear, passives and every combat timer. */
+  reset(): void {
+    this.level = 1; this.xp = 0; this.inventory = []; for (const k of EQUIP_KEYS) this.equipment[k] = null; this.passives = [null, null];
+    this.dead = false; this.invulnerable = 0; this.stance = 0; this.castLock = 0; this.potionCd = 0; this.momentum = 0; this.sinceCombat = 99; this.swing = 0;
+    this.shield = 0; this.shieldT = 0; this.frenzyT = 0; this.harvestT = 0; this.whirlT = 0; this.leapT = 0; this.chilled = 0; this.speedMult = 1;
+    this.moving = false; this.grounded = true; this.vy = 0; this.velocity.setAll(0); this.shoveVel.setAll(0); this.shoveT = 0; this.dashVel.setAll(0); this.dashT = 0;
+    this.hpMax = 0; this.recalcStats(); this.hp = this.hpMax; this.energy = this.cls.resource.start;
   }
 
   recalcStats(): void {
@@ -350,7 +377,7 @@ export class Player {
     // facing
     const targetYaw = inStance ? cam.yaw : this.moving ? dirToYaw(this.velocity) : this.yaw;
     this.yaw = dampAngle(this.yaw, targetYaw, inStance ? 20 : PLAYER.turnRate, dt);
-    this.model.rotation.y = this.yaw + MODEL_YAW_OFFSET;
+    if (this.model) this.model.rotation.y = this.yaw + MODEL_YAW_OFFSET;
 
     // ground and gravity
     const groundY = world.groundY(this.collider.position.x, this.collider.position.z, this.collider.position.y + 1);

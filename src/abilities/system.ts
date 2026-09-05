@@ -57,6 +57,9 @@ export class AbilitySystem {
 
   setWorld(w: World): void { this.ctx.world = w; }
 
+  /** A run ended: every cooldown, stored charge, repeat timer and pending delayed call goes. */
+  reset(): void { this.cooldowns = zero(); this.charges = zero(); this.repeat = zero(); this.timers.length = 0; }
+
   unlocked(id: AbilityId): boolean { return this.unlockAll || this.ctx.player.level >= ABILITIES[id].unlockLevel; }
 
   private maxCharges(id: AbilityId): number { return id === 'rift' && this.ctx.player.powers.has('fold') ? 2 : 1; }

@@ -5,8 +5,12 @@
 #title .view { position: absolute; inset: 0; display: none; }
 #title .view.on { display: block; }
 #title button { font-family: var(--font-display); letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--bone); background: linear-gradient(180deg, #221c24, #120e14); border: 1px solid #4a3b2a; box-shadow: 0 0 0 1px #17121a, 0 6px 18px rgba(0,0,0,.6); padding: .8em 1.6em; cursor: pointer; transition: transform .12s, border-color .12s, color .12s; }
-#title button:hover, #title button:focus-visible { border-color: var(--gilt); color: #fff3d6; transform: translateY(-1px); outline: none; }
+/* Hover only where a pointer can hover: phones make it stick to the last tapped button, which then reads like a selection. */
+@media (hover: hover) { #title button:hover { border-color: var(--gilt); color: #fff3d6; transform: translateY(-1px); } }
+#title button:focus-visible { border-color: var(--gilt); color: #fff3d6; transform: translateY(-1px); outline: none; }
 #title button.primary { background: linear-gradient(180deg, #3a2c16, #1d150b); border-color: var(--gilt); color: #ffe9b8; }
+/* Touch press (ui/tap.ts): a bright gold flash with a glow, brighter than the primary fill, held a beat past the release. */
+#title button.press, #title button.primary.press { background: linear-gradient(180deg, #7a5f2c, #3f301a); border-color: #ffe2a8; color: #fff8e8; box-shadow: 0 0 0 1px #17121a, 0 0 0 3px rgba(217,181,106,.35), 0 0 22px rgba(217,181,106,.6); transform: scale(.97); transition: none; }
 #title button[disabled] { opacity: .45; cursor: default; transform: none; }
 #title .status { position: absolute; left: 50%; bottom: 8vh; transform: translateX(-50%); font-family: var(--font-mono); font-size: 13px; letter-spacing: .12em; color: #8e8577; }
 #title .backend { position: absolute; right: 2vw; bottom: 2vh; font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; color: #6b6357; }
@@ -65,8 +69,21 @@
 .tconfirm { font-family: var(--font-body); font-size: 15px; color: #cdc3ae; margin: 0 0 14px; }
 @media (prefers-reduced-motion: reduce) { #title button { transition: none; } }
 
-/* --- settings sheet over the game (touch pause), extra rows --- */
-#title.modal-only .view, #title.modal-only .veil, #title.modal-only .backend { display: none; }
+/* --- pause menu (Esc, the touch pause button, a lost pointer lock) over the held game --- */
+#title.pause .veil { background: radial-gradient(ellipse at 50% 45%, rgba(5,4,10,.45), rgba(5,4,10,.8)); }
+#title.pause .backend { display: none; }
+.pv-box { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 400px); max-height: calc(100dvh - 16px); overflow: auto; box-sizing: border-box; padding: 26px 28px 22px; text-align: center; background: linear-gradient(180deg, rgba(26,21,28,.97), rgba(13,10,16,.97)); border: 1px solid #4a3b2a; box-shadow: 0 0 0 1px #100c12, 0 20px 50px rgba(0,0,0,.8); }
+.pv-box h2 { margin: 0; font-size: 26px; letter-spacing: .3em; text-indent: .3em; color: var(--gilt); font-weight: 700; }
+.pv-sub { font-family: var(--font-body); font-size: 15px; color: #a89c86; margin: 6px 0 18px; }
+.pv-menu { display: grid; gap: 8px; }
+.pv-menu button { width: 100%; padding: .7em 1em; font-size: 13px; }
+.pv-menu button.danger { border-color: #5a1a22; color: #d88; }
+.pv-menu .hint { font-family: var(--font-body); font-size: 13px; letter-spacing: .02em; text-transform: none; color: #a89c86; display: block; margin-top: .25em; font-weight: 400; }
+.pv-menu .hint.ok { color: var(--gilt); } .pv-menu .hint.bad { color: #d88; }
+.pv-hint { margin-top: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; color: #6b6357; }
+html.touch .pv-hint { display: none; }
+
+/* --- settings sheet extra rows --- */
 .tmodal .box { max-height: 90dvh; overflow: auto; box-sizing: border-box; }
 .tmodal label select { font: inherit; font-size: 13px; background: #120e14; color: var(--bone); border: 1px solid #4a3b2a; padding: 4px 6px; }
 .tmodal label .note { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11px; color: #7d7466; letter-spacing: .06em; }
@@ -97,6 +114,10 @@ html:not(.touch) .touch-only { display: none; }
   .sv-ab b { font-size: 11px; } .sv-ab small { font-size: 12px; } .sv-ab .meta { font-size: 10px; }
   .tmodal .box { padding: 16px 18px; }
   .tmodal label { grid-template-columns: 1fr 120px auto; font-size: 14px; }
+  .pv-box { padding: 14px 16px 12px; max-height: calc(100dvh - var(--st) - var(--sb) - 8px); }
+  .pv-box h2 { font-size: 20px; } .pv-sub { font-size: 13px; margin: 4px 0 10px; }
+  .pv-menu { gap: 5px; } .pv-menu button { padding: .55em 1em; font-size: 12px; } .pv-menu .hint { font-size: 12px; margin-top: .1em; }
+  .pv-hint { margin-top: 8px; }
 }
 @media (max-width: 700px) {
   .tv-wordmark { font-size: clamp(30px, 8.5vw, 120px); letter-spacing: .1em; }

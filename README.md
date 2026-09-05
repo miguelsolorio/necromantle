@@ -51,6 +51,7 @@ Pushes to `main` deploy to GitHub Pages through `.github/workflows/deploy.yml`.
 | `I` or `Tab` | Inventory |
 | `M` | Mute |
 | `R` | Respawn at the checkpoint |
+| `Esc` | Pause menu: save, settings, change character, start over |
 | `F1` / `F2` | Dev panel / hide the HUD |
 
 On a phone or tablet the same actions are on screen:
@@ -60,7 +61,7 @@ On a phone or tablet the same actions are on screen:
 | Left half of the screen | Floating stick to move; push it past the ring to sprint |
 | Drag anywhere else | Aim the camera |
 | Hold a skill in the bottom-right arc | Use it (the big one is the generator) |
-| Potion, prompt, bag and pause buttons | Potion, talk or take the door, inventory, settings |
+| Potion, prompt, bag and pause buttons | Potion, talk or take the door, inventory, pause menu |
 
 Phones play in landscape. Add the page to the home screen and it opens full screen.
 

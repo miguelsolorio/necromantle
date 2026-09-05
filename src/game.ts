@@ -91,10 +91,18 @@ export class Game {
   private settings: Settings = { music: 0.8, sfx: 0.9, ssao: false };
   private titleT = 0;
   private launched = false;
+  private launching = false;
+  private leaving = false;
+  private wired = false;
   private nearby: import('@/enemies/enemy').Enemy[] = [];
   private spawning = false;
+  /** Bumped when a run ends so a wave still spawning stops instead of filling the next level. */
+  private run = 0;
   /** Nothing hostile happens until the player has clicked in once. */
   playing = false;
+  /** The pause menu is up; the sim holds under 'menu'. */
+  paused = false;
+  private wasLocked = false;
 
   async start(canvas: HTMLCanvasElement, status: (s: string) => void): Promise<void> {
     status('Waking the engine…');
@@ -161,7 +169,11 @@ export class Game {
       onBegin: (id, fresh) => { void this.launch(id, fresh); },
       onDelete: (id) => Save.remove(id),
       getSettings: () => this.settings, onSettings: (st) => this.applySettings(st),
+      pauseInfo: () => ({ className: CLASSES[this.classId].name, level: this.player.level, area: this.world.name, savedAt: Save.load(this.classId)?.savedAt ?? null }),
       onResume: () => this.resume(),
+      onSave: () => this.save(),
+      onLeave: () => { void this.leave('select'); },
+      onRestart: () => { void this.restart(); },
     });
     this.instr = new SceneInstrumentation(this.scene);
     this.instr.captureFrameTime = true;
@@ -187,7 +199,7 @@ export class Game {
   }
 
   private onTitleView(v: TitleView): void {
-    if (v === 'hidden') return;
+    if (v === 'hidden' || v === 'pause') return; // the pause menu sits over the held game; the mode stays 'play'
     this.mode = v;
     this.stage.setVisible(v === 'select');
     if (v === 'select') this.cam.cinematic = this.stage.cameraPose(this.stage.focused);
@@ -207,19 +219,73 @@ export class Game {
     this.touch?.setLook(st.look ?? 1);
   }
 
-  /** Touch pause button: hold the sim, drop the controls, open the settings sheet over the game. */
+  /**
+   * Esc, the touch pause button or a lost pointer lock: hold the sim, drop the controls, open the pause menu over
+   * the game. Not while a level is loading or changing, since the menu can tear the run down.
+   */
   pause(): void {
-    if (this.mode !== 'play') return;
+    if (this.mode !== 'play' || this.paused || this.launching || this.leaving || this.transitioning) return;
+    this.paused = true;
+    if (this.inventoryUI.open) this.inventoryUI.close();
     this.loop.hold('menu', true); this.input.wantsLock = false; this.input.release(); this.touch?.reset();
-    this.title.openSettings();
+    audio.setIntensity(0);
+    this.title.show('pause');
   }
-  private resume(): void { this.loop.hold('menu', false); this.input.wantsLock = true; }
+
+  /** Back to the game. Pointer lock comes back inside the button click; after an Esc it may not, and the click-to-play hint covers that. */
+  private resume(): void {
+    if (!this.paused || this.leaving) return;
+    this.paused = false;
+    this.title.show('hidden');
+    this.loop.hold('menu', false);
+    this.input.endFrame(); this.input.wantsLock = true; this.input.engage();
+    this.wasLocked = this.input.locked;
+  }
+
+  /**
+   * End the run from the pause menu. Saves, fades out, clears the field, drops the rig and rebuilds the village so
+   * the hub is the backdrop again, then shows the select or hands straight to `launch` (start over).
+   */
+  private async leave(next: 'select' | null): Promise<void> {
+    if (!this.paused || this.leaving) return;
+    this.leaving = true;
+    this.save();
+    this.run++;
+    this.title.show('hidden');
+    this.hud.fade(true);
+    await new Promise((r) => setTimeout(r, 750));
+    this.enemies.clear(); this.projectiles.clear(); this.pickups.clear(); this.areas.clear(); this.drops.clear();
+    this.abilities.reset(); this.player.unload();
+    this.hud.setBoss(null); this.hud.prompt(null); this.hud.setHidden(true);
+    this.transitioning = false; this.spawning = false;
+    if (this.levelIndex !== 0) {
+      this.world.dispose(); this.levelIndex = 0; this.world = new this.levels[0](this.scene, this.loader, this.rig); await this.world.build();
+      this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
+    }
+    this.enterLevel();
+    this.cam.combatTarget = 0; this.cam.extraDistance = 0;
+    this.playing = false; this.launched = false; this.paused = false; this.saveTimer = 10;
+    this.input.wantsLock = true; this.input.release(); // back to the boot state: the next run's first click takes the controls
+    document.documentElement.classList.remove('playing');
+    this.mode = 'select'; this.applyRotate?.(); // hub-backdrop mode before the hold lifts: fixed() must not step a player with no rig
+    this.loop.hold('menu', false);
+    this.leaving = false;
+    if (next) { this.title.show(next); this.hud.fade(false); }
+  }
+
+  /** Pause menu, confirmed: erase this class's slot and begin its journey again in the village. */
+  private async restart(): Promise<void> {
+    const id = this.classId;
+    await this.leave(null);
+    await this.launch(id, true);
+  }
 
   /** Leave the title: load the chosen class, restore its slot (or start fresh), build the saved level, hand over the controls. */
   async launch(classId: ClassId, fresh: boolean): Promise<void> {
-    if (this.launched) return; this.launched = true;
+    if (this.launched) return; this.launched = true; this.launching = true;
     void audio.unlock(); // still inside the title button's gesture, which is what iOS needs
     const cls = CLASSES[classId]; this.classId = classId;
+    this.loop.hold('launch', true); // the sim waits for the level and the rig; the scene keeps rendering under the fade
     this.title.show('hidden'); this.mode = 'play'; this.stage.setVisible(false); this.cam.cinematic = null;
     document.documentElement.classList.add('playing'); this.applyRotate?.();
     this.hud.fade(true);
@@ -241,10 +307,14 @@ export class Game {
     this.hud.fade(false);
     if (this.player.level > 1) this.hud.toast(`WELCOME BACK · LEVEL ${this.player.level}`, this.player.passiveNames ? this.player.passiveNames.toUpperCase() : '', 3);
     else this.hud.toast(cls.name.toUpperCase(), PLATFORM.touch ? 'TAP TO TAKE THE FIELD' : 'CLICK TO TAKE THE FIELD', 3);
+    this.wasLocked = this.input.locked; this.input.endFrame();
+    this.launching = false; this.loop.hold('launch', false);
     this.save();
   }
 
+  /** Bus listeners live for the whole session (they reach every system through `this`), so a relaunch must not add a second set. */
   private wireEvents(): void {
+    if (this.wired) return; this.wired = true;
     this.bus.on('enemy:damaged', ({ pos, amount, crit, element, killed }) => {
       this.hud.number(pos, `${amount}`, crit ? 'crit' : element === 'fire' ? 'fire' : element === 'frost' ? 'frost' : 'normal');
       if (crit) { this.cam.shake(0.05, 0.1); this.loop.hitStop(0.05, 0.15); }
@@ -291,17 +361,18 @@ export class Game {
   async spawnPack(id: EnemyId, n: number, elite = false): Promise<void> {
     if (this.spawning) return;
     this.spawning = true;
+    const run = this.run;
     const pp = this.player.position;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n && run === this.run; i++) {
       const at = this.world.randomSpawn(pp, 9, 16);
       await this.enemies.spawn(id, at, elite && i === 0);
     }
     this.spawning = false;
   }
 
-  /** Persist the class slot: progression, bag, gear, passives, checkpoint, stats, settings. */
-  save(): void {
-    if (this.mode !== 'play') return;
+  /** Persist the class slot: progression, bag, gear, passives, checkpoint, stats, settings. False when nothing was written. */
+  save(): boolean {
+    if (this.mode !== 'play' || this.launching) return false;
     const p = this.player;
     const prev = Save.load(this.classId);
     const rec: SaveV2 = {
@@ -310,11 +381,12 @@ export class Game {
       hp: p.hp, resource: p.energy, inventory: p.inventory, equipment: p.equipment, passives: p.passives,
       stats: { ...this.stats }, settings: { ...this.settings },
     };
-    Save.commit(rec);
+    return Save.commit(rec);
   }
 
-  /** Restore the class slot if present. Returns the level index to start on. */
+  /** Restore the class slot if present (onto a fresh level-1 hero either way). Returns the level index to start on. */
   private restore(): number {
+    this.player.reset();
     const s = Save.load(this.classId);
     if (!s) { this.playTime = 0; this.stats = { kills: 0, eliteKills: 0, deaths: 0, legendaries: 0 }; return 0; }
     this.player.level = Math.max(1, Math.min(10, s.level)); this.player.xp = s.xp;
@@ -373,6 +445,7 @@ export class Game {
   private async startWave(): Promise<void> {
     const def: WaveDef | undefined = this.world.waves[this.wave];
     if (!def) return;
+    const run = this.run;
     this.wave++;
     this.waveState = 'active';
     this.dbg.state.hpMult = +(1 + (this.wave - 1) * 0.12 + this.levelIndex * 0.3 + (this.player.level - 1) * 0.1).toFixed(2);
@@ -388,7 +461,7 @@ export class Game {
     }
     this.spawning = true;
     for (const g of def.spawns) {
-      for (let i = 0; i < g.n; i++) {
+      for (let i = 0; i < g.n && run === this.run; i++) {
         const at = g.id === 'hollow_king' ? new Vector3(0, 0.075, 12)
           : def.fromDoor ? this.world.randomSpawn(this.world.doorPoint.add(new Vector3(0, 0, -2.5)), 1, 4)
           : this.world.randomSpawn(this.player.position, 9, 16);
@@ -438,10 +511,16 @@ export class Game {
       this.input.endFrame();
       return;
     }
+    if (this.paused || this.leaving) { this.input.endFrame(); return; } // a tick can step twice; the hold only lands on the next one
     this.playTime += dt;
     if (this.input.wasPressed('F1')) this.dbg.toggle();
     if (this.input.wasPressed('KeyI') || this.input.wasPressed('Tab')) this.inventoryUI.toggle();
+    // Esc closes the inventory first, then pauses. Under pointer lock the browser keeps the Esc keydown and only
+    // drops the lock, so a lock lost while the game still wanted it (Esc, alt-tab) opens the menu too.
+    const lostLock = this.wasLocked && !this.input.locked && this.input.wantsLock;
+    this.wasLocked = this.input.locked;
     if (this.input.wasPressed('Escape') && this.inventoryUI.open) this.inventoryUI.close();
+    else if (this.input.wasPressed('Escape') || lostLock) { this.pause(); if (this.paused) { this.input.endFrame(); return; } }
     if (this.input.wasPressed('KeyM')) { const m = audio.engine.toggleMute(); this.hud.toast(m ? 'AUDIO MUTED' : 'AUDIO ON', '', 1); }
     if (!audio.ready) void audio.unlock();
     if (this.input.wasPressed('F2')) { d.hideHud = !d.hideHud; }
@@ -523,7 +602,7 @@ export class Game {
   /** Per-render-frame work: HUD sync and stats. */
   private frame(dt: number): void {
     if (this.mode !== 'play') return;
-    this.hud.update(dt, this.player, this.abilities.slots(), this.targeting.target, this.enemies.pool, this.input.locked || this.inventoryUI.open);
+    this.hud.update(dt, this.player, this.abilities.slots(), this.targeting.target, this.enemies.pool, this.input.locked || this.inventoryUI.open || this.paused || this.leaving);
     this.hud.updateLoot(this.drops.views);
     const king = this.enemies.pool.find((e) => e.alive && e.def.id === 'hollow_king');
     this.hud.setBoss(king ? 'THE HOLLOW KING' : null, king ? king.hp / king.hpMax : 1);

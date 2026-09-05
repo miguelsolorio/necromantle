@@ -8,7 +8,11 @@ import { audio } from '@/audio';
 import { PLATFORM } from '@/core/platform';
 import { onActivate } from './tap';
 
-export type TitleView = 'title' | 'select' | 'hidden';
+/** `pause` sits over the held game; the other two run the hub as a backdrop. */
+export type TitleView = 'title' | 'select' | 'pause' | 'hidden';
+
+/** What the pause menu says about the run under it. */
+export interface PauseInfo { className: string; level: number; area: string; savedAt: number | null }
 
 export interface TitleHooks {
   slots(): SlotInfo[];
@@ -21,15 +25,23 @@ export interface TitleHooks {
   onDelete(id: ClassId): void;
   getSettings(): Settings;
   onSettings(s: Settings): void;
-  /** The settings sheet was closed while it stood alone over the game (touch pause). */
-  onResume?(): void;
+  /** Pause menu (Esc, the touch pause button, a lost pointer lock). */
+  pauseInfo(): PauseInfo;
+  onResume(): void;
+  /** Write the slot now; false when the record could not be stored. */
+  onSave(): boolean;
+  /** Leave the run for the character select. */
+  onLeave(): void;
+  /** Erase this class's journey and begin it again. */
+  onRestart(): void;
 }
 
 const fmtTime = (s: number) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m`; };
+const fmtAgo = (ms: number) => { const s = Math.floor(ms / 1000); return s < 5 ? 'just now' : s < 60 ? `${s} s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)} h ago`; };
 
 /**
- * Title screen and character select as an HTML overlay above the live hub scene. The 3D pedestals live in
- * `world/selectStage.ts`; this only owns the panels, the slot card, keyboard focus and the two modals.
+ * Title screen, character select and pause menu as an HTML overlay above the live scene. The 3D pedestals live in
+ * `world/selectStage.ts`; this only owns the panels, the slot card, keyboard focus and the modals.
  */
 export class TitleScreen {
   private root: HTMLElement;
@@ -52,6 +64,9 @@ export class TitleScreen {
         <div class="sv-classes"></div>
         <button class="sv-back">Back</button>
       </div>
+      <div class="view pv" data-view="pause">
+        <div class="pv-box"><h2>PAUSED</h2><div class="pv-sub"></div><div class="pv-menu"></div><div class="pv-hint">ESC RESUMES</div></div>
+      </div>
       <div class="tmodal settings"><div class="box"><h2>SETTINGS</h2>
         <label>Music <input type="range" min="0" max="1" step="0.05" data-set="music"><output></output></label>
         <label>Effects <input type="range" min="0" max="1" step="0.05" data-set="sfx"><output></output></label>
@@ -67,6 +82,7 @@ export class TitleScreen {
         <li>Every sound and every note is synthesized at run time.</li></ul>
         <button class="close">Back</button></div></div>
       <div class="tmodal confirm"><div class="box"><h2>DELETE JOURNEY</h2><p class="tconfirm"></p><button class="primary danger" data-act="delete">Delete</button><button class="close">Keep it</button></div></div>
+      <div class="tmodal restart"><div class="box"><h2>START OVER</h2><p class="tconfirm"></p><button class="primary danger" data-act="restart">Start over</button><button class="close">Keep playing</button></div></div>
       <div class="backend"></div>`;
     document.body.appendChild(this.root);
     (this.root.querySelector('.backend') as HTMLElement).textContent = hooks.backend;
@@ -74,6 +90,7 @@ export class TitleScreen {
     for (const m of this.root.querySelectorAll('.tmodal')) onActivate(m.querySelector('.close')!, () => this.closeModal(m));
     onActivate(this.root.querySelector('.settings .mute')!, () => { audio.engine.toggleMute(); this.syncMute(); });
     onActivate(this.root.querySelector('[data-act="delete"]')!, () => { this.hooks.onDelete(this.focused); this.root.querySelector('.confirm')!.classList.remove('on'); this.renderSelect(); });
+    onActivate(this.root.querySelector('[data-act="restart"]')!, () => { this.root.querySelector('.restart')!.classList.remove('on'); this.hooks.onRestart(); });
     for (const input of this.root.querySelectorAll<HTMLElement>('.settings input, .settings select')) {
       const apply = () => { const s = this.readSettings(); this.hooks.onSettings(s); this.syncSettings(s); };
       input.addEventListener('input', apply); input.addEventListener('change', apply);
@@ -86,25 +103,37 @@ export class TitleScreen {
   show(view: TitleView): void {
     this.view = view;
     this.root.classList.toggle('on', view !== 'hidden');
+    this.root.classList.toggle('pause', view === 'pause');
     for (const v of this.root.querySelectorAll<HTMLElement>('.view')) v.classList.toggle('on', v.dataset.view === view);
+    if (view === 'hidden') for (const m of this.root.querySelectorAll('.tmodal.on')) m.classList.remove('on');
     if (view === 'title') this.renderTitle();
     if (view === 'select') { this.focused = this.hooks.lastPlayed() ?? 'sorcerer'; this.renderSelect(); this.hooks.onFocus(this.focused); }
+    if (view === 'pause') this.renderPause();
     this.hooks.onView(view);
   }
 
   setStatus(text: string): void { (this.root.querySelector('.status') as HTMLElement).textContent = text; }
 
-  /** Settings as a sheet over the running game (touch pause button). `onResume` fires when it closes. */
-  openSettings(): void {
-    this.syncSettings(this.hooks.getSettings()); this.syncMute();
-    this.root.classList.add('on', 'modal-only');
-    this.root.querySelector('.settings')!.classList.add('on');
-  }
-  private closeModal(m: Element): void {
-    m.classList.remove('on');
-    if (this.root.classList.contains('modal-only')) { this.root.classList.remove('on', 'modal-only'); this.hooks.onResume?.(); }
-  }
+  private openSettings(): void { this.syncSettings(this.hooks.getSettings()); this.syncMute(); this.root.querySelector('.settings')!.classList.add('on'); }
+  private closeModal(m: Element): void { m.classList.remove('on'); }
   private syncMute(): void { (this.root.querySelector('.settings .mute') as HTMLElement).textContent = audio.engine.muted ? 'Unmute' : 'Mute'; }
+
+  /** Pause menu over the held game: resume, save, settings, back to the select, or erase the journey and begin again. */
+  private renderPause(): void {
+    const info = this.hooks.pauseInfo();
+    (this.root.querySelector('.pv-sub') as HTMLElement).textContent = `${info.className} · Level ${info.level} · ${info.area}`;
+    const menu = this.root.querySelector('.pv-menu') as HTMLElement; menu.innerHTML = '';
+    const btn = (label: string, hint: string | null, cls: string, act: () => void) => { const b = document.createElement('button'); b.className = cls; b.innerHTML = `${label}${hint ? `<span class="hint">${hint}</span>` : ''}`; onActivate(b, act); menu.appendChild(b); return b; };
+    btn('Resume', null, 'primary', () => this.hooks.onResume());
+    const save = btn('Save journey', info.savedAt ? `Last saved ${fmtAgo(Date.now() - info.savedAt)}` : 'Not saved yet', '', () => { const ok = this.hooks.onSave(); const hint = save.querySelector('.hint') as HTMLElement; hint.textContent = ok ? 'Saved just now' : 'Could not save'; hint.className = ok ? 'hint ok' : 'hint bad'; });
+    btn('Settings', null, '', () => this.openSettings());
+    btn('Change character', 'Saves, then back to the character select', '', () => this.hooks.onLeave());
+    btn('Start over', null, 'danger', () => {
+      (this.root.querySelector('.restart .tconfirm') as HTMLElement).textContent = `Erase the ${info.className}'s journey (level ${info.level}, ${info.area}) and begin again from level 1? This cannot be undone.`;
+      this.root.querySelector('.restart')!.classList.add('on');
+    });
+    if (!PLATFORM.touch) (menu.firstElementChild as HTMLElement)?.focus(); // keyboard start point; on touch a focus ring would only look like a second selection
+  }
 
   private renderTitle(): void {
     const menu = this.root.querySelector('.tv-menu') as HTMLElement; menu.innerHTML = '';
@@ -112,7 +141,7 @@ export class TitleScreen {
     const btn = (label: string, hint: string | null, cls: string, act: () => void) => { const b = document.createElement('button'); b.className = cls; b.innerHTML = `${label}${hint ? `<span class="hint">${hint}</span>` : ''}`; onActivate(b, act); menu.appendChild(b); return b; };
     if (slot && last) btn('Continue', `${CLASSES[last].name} · Level ${slot.level} · ${slot.areaName || 'Hollowmere'}`, 'primary', () => this.hooks.onBegin(last, false));
     btn(slot ? 'Choose a character' : 'New journey', null, slot ? '' : 'primary', () => this.show('select'));
-    btn('Settings', null, '', () => { this.syncSettings(this.hooks.getSettings()); this.root.querySelector('.settings')!.classList.add('on'); });
+    btn('Settings', null, '', () => this.openSettings());
     btn('Credits', null, '', () => this.root.querySelector('.credits')!.classList.add('on'));
     (menu.firstElementChild as HTMLElement)?.focus();
   }
@@ -171,8 +200,18 @@ export class TitleScreen {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.view === 'hidden' && !this.root.classList.contains('modal-only')) return;
+    if (this.view === 'hidden') return;
     if (this.root.querySelector('.tmodal.on')) { if (e.key === 'Escape') this.root.querySelectorAll('.tmodal.on').forEach((m) => this.closeModal(m)); return; }
+    if (this.view === 'pause') {
+      // Esc resumes; the arrows walk the menu (Tab is reserved by the game's input layer). Enter presses the focused button.
+      if (e.key === 'Escape') this.hooks.onResume();
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const btns = [...this.root.querySelectorAll<HTMLElement>('.pv-menu button')];
+        const i = btns.indexOf(document.activeElement as HTMLElement);
+        btns[(i + (e.key === 'ArrowDown' ? 1 : -1) + btns.length) % btns.length]?.focus(); e.preventDefault();
+      }
+      return;
+    }
     if (this.view === 'select') {
       const i = CLASS_ORDER.indexOf(this.focused);
       if (e.key === 'ArrowRight' || e.key === 'd') this.focus(CLASS_ORDER[(i + 1) % CLASS_ORDER.length]);
