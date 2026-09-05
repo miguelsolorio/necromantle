@@ -3,9 +3,11 @@ import { AbilitySystem } from '@/abilities/system';
 import { AssetLoader } from '@/assets/loader';
 import { ThirdPersonCamera } from '@/camera/thirdPerson';
 import { Pickups } from '@/combat/pickups';
+import { Areas } from '@/combat/areas';
 import { Projectiles } from '@/combat/projectiles';
 import { Targeting } from '@/combat/targeting';
 import type { EnemyId } from '@/content/enemies';
+import { ABILITIES, type AbilityId } from '@/content/abilities';
 import { PLAYER } from '@/content/player';
 import { createEngine, type Backend } from '@/core/engine';
 import { EventBus } from '@/core/events';
@@ -42,6 +44,7 @@ export class Game {
   abilities!: AbilitySystem;
   vfx!: Vfx;
   pickups!: Pickups;
+  areas!: Areas;
   hud!: Hud;
   dbg!: DebugPanel;
   loop!: GameLoop;
@@ -75,11 +78,12 @@ export class Game {
     this.enemies = new EnemyManager(this.scene, this.loader, this.rig, this.bus, this.vfx, this.projectiles, this.world);
     this.targeting = new Targeting();
     this.pickups = new Pickups(this.scene, this.vfx, this.bus, this.rig);
-    this.abilities = new AbilitySystem({ player: this.player, cam: this.cam, enemies: this.enemies, projectiles: this.projectiles, vfx: this.vfx, targeting: this.targeting, bus: this.bus, world: this.world });
+    this.areas = new Areas(this.enemies, this.vfx, this.cam, this.rig);
+    this.abilities = new AbilitySystem({ player: this.player, cam: this.cam, enemies: this.enemies, projectiles: this.projectiles, vfx: this.vfx, targeting: this.targeting, bus: this.bus, world: this.world, areas: this.areas });
     this.hud = new Hud(this.cam);
     this.dbg = new DebugPanel({
       spawn: (k, n, elite) => this.spawnPack(k as EnemyId, n, !!elite),
-      clear: () => { this.enemies.clear(); this.projectiles.clear(); },
+      clear: () => { this.enemies.clear(); this.projectiles.clear(); this.areas.clear(); },
       screenshot: () => { void this.snapshot(`shot-${Date.now()}`); },
       teleport: (w) => this.teleport(w),
       levelUp: () => this.player.addXp(this.player.xpToNext() - this.player.xp),
@@ -129,7 +133,7 @@ export class Game {
     });
     this.bus.on('pickup:globe', ({ pos }) => audio.play('globe', pos));
     this.bus.on('ability:denied', ({ id, reason }) => {
-      audio.play('denied'); if (reason === 'locked' && (id === 'frost' || id === 'cataclysm')) this.hud.toast(id === 'frost' ? 'FROST FIELD' : 'CATACLYSM', 'ARRIVES IN MILESTONE 4', 1.4); });
+      audio.play('denied'); if (reason === 'locked') this.hud.toast(ABILITIES[id as AbilityId].name.toUpperCase(), `UNLOCKS AT LEVEL ${ABILITIES[id as AbilityId].unlockLevel}`, 1.4); });
   }
 
   /** Render an off-screen 1080p frame and save it through the dev server (docs/screenshots/<name>.png). */
@@ -187,7 +191,7 @@ export class Game {
     this.hud.fade(true);
     audio.play('door');
     await new Promise((r) => setTimeout(r, 750));
-    this.enemies.clear(); this.projectiles.clear(); this.pickups.clear();
+    this.enemies.clear(); this.projectiles.clear(); this.pickups.clear(); this.areas.clear();
     this.world.dispose();
     this.levelIndex++;
     this.world = new this.levels[this.levelIndex](this.scene, this.loader, this.rig);
@@ -231,6 +235,7 @@ export class Game {
     this.projectiles.update(dt, (p, r, out) => this.enemies.queryNear(p, r, out), this.player, this.world);
     this.enemies.update(dt, this.player, d.god);
     this.pickups.update(dt, this.player);
+    this.areas.update(dt);
     this.vfx.update(dt);
     this.world.update(this.loop.time);
 

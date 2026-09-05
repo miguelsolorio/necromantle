@@ -10,9 +10,10 @@ import type { Input } from '@/input/input';
 import type { Player } from '@/player/player';
 import type { Vfx } from '@/vfx/vfx';
 import type { World } from '@/world/world';
+import type { Areas } from '@/combat/areas';
 import { audio } from '@/audio';
 
-export interface AbilityContext { player: Player; cam: ThirdPersonCamera; enemies: EnemyManager; projectiles: Projectiles; vfx: Vfx; targeting: Targeting; bus: EventBus; world: World }
+export interface AbilityContext { player: Player; cam: ThirdPersonCamera; enemies: EnemyManager; projectiles: Projectiles; vfx: Vfx; targeting: Targeting; bus: EventBus; world: World; areas: Areas }
 export interface SlotState { id: AbilityId; def: AbilityDef; ready: boolean; cd: number; cdMax: number; noEnergy: boolean; locked: boolean }
 
 const KEYS: Record<AbilityId, string> = { bolt: 'Mouse0', orb: 'Mouse2', rift: 'Digit1', nova: 'Digit2', frost: 'Digit3', cataclysm: 'Digit4' };
@@ -35,7 +36,7 @@ export class AbilitySystem {
   slots(): SlotState[] {
     return ABILITY_ORDER.map((id) => {
       const def = ABILITIES[id];
-      const locked = !this.unlocked(id) || id === 'frost' || id === 'cataclysm';
+      const locked = !this.unlocked(id);
       const cd = this.cooldowns[id];
       const noEnergy = !this.infiniteEnergy && def.cost > this.ctx.player.energy;
       return { id, def, ready: !locked && cd <= 0 && !noEnergy, cd, cdMax: def.cooldown * this.cdMult, noEnergy, locked };
@@ -61,7 +62,7 @@ export class AbilitySystem {
   cast(id: AbilityId): boolean {
     const { player, bus } = this.ctx;
     const def = ABILITIES[id];
-    if (!this.unlocked(id) || id === 'frost' || id === 'cataclysm') { bus.emit('ability:denied', { id, reason: 'locked' }); return false; }
+    if (!this.unlocked(id)) { bus.emit('ability:denied', { id, reason: 'locked' }); return false; }
     if (this.cooldowns[id] > 0) { bus.emit('ability:denied', { id, reason: 'cooldown' }); return false; }
     if (player.castLock > 0 && id !== 'rift') return false;
     if (def.cost > 0 && !this.infiniteEnergy && !player.spendEnergy(def.cost)) { bus.emit('ability:denied', { id, reason: 'energy' }); return false; }
@@ -73,6 +74,8 @@ export class AbilitySystem {
       case 'orb': this.orb(def); break;
       case 'nova': this.nova(def); break;
       case 'rift': this.rift(def); break;
+      case 'frost': this.frost(def); break;
+      case 'cataclysm': this.cataclysm(def); break;
     }
     return true;
   }
@@ -132,6 +135,28 @@ export class AbilitySystem {
     audio.play('nova');
     const burnDps = Math.round(12 * player.spellPower());
     enemies.damageArea(at, def.radius, () => this.roll(def).amount, { knockback: def.knockback, element: 'fire', burn: { dps: burnDps, dur: 3 } });
+  }
+
+  /** Ground target: the enemy cluster nearest the reticle, clamped to range. */
+  private groundTarget(range: number): Vector3 {
+    const { player, targeting, world } = this.ctx;
+    const p = targeting.clusterPoint.clone();
+    const d = new Vector3(p.x - player.position.x, 0, p.z - player.position.z); const len = d.length();
+    if (len > range) { d.scaleInPlace(range / len); p.x = player.position.x + d.x; p.z = player.position.z + d.z; }
+    const gy = world.groundY(p.x, p.z, player.position.y + 3);
+    p.y = gy ?? player.position.y;
+    return p;
+  }
+
+  private frost(def: AbilityDef): void {
+    const at = this.groundTarget(def.range);
+    this.ctx.areas.frost(at, def, () => this.roll(def).amount);
+  }
+
+  private cataclysm(def: AbilityDef): void {
+    const at = this.groundTarget(def.range);
+    this.ctx.areas.storm(at, def, () => this.roll(def).amount);
+    this.ctx.cam.shake(0.35, 0.5);
   }
 
   private rift(def: AbilityDef): void {

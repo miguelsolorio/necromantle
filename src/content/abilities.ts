@@ -56,7 +56,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   frost: {
     id: 'frost', name: 'Frost Field', slot: 4, keyLabel: '3', kind: 'cooldown', unlockLevel: 6,
     cost: 0, cooldown: 14, castInterval: 0, range: 18, radius: 4.5, speed: 0,
-    damage: { base: 18, element: 'frost' }, energyOnHit: 0, knockback: 0, homing: 0,
+    damage: { base: 8, element: 'frost' }, energyOnHit: 0, knockback: 0, homing: 0,
     anim: 'Spellcast_Raise', animLock: 0.3,
     description: 'Ground field that chills, then freezes weaker enemies. (Milestone 4)',
   },

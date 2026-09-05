@@ -4,7 +4,8 @@ import type { Element } from '@/content/abilities';
 import { Textures } from '@/rendering/textures';
 import { LightPool } from './lightPool';
 
-interface Timed { mesh: Mesh; t: number; dur: number; kind: 'ring' | 'decal' | 'ghost'; from: number; to: number }
+interface Timed { mesh: Mesh; t: number; dur: number; kind: 'ring' | 'decal' | 'ghost' | 'beam' | 'frostRing'; from: number; to: number }
+export interface AreaVisual { update(dt: number, life: number): void; dispose(): void }
 
 /**
  * Effects are composed from four families: particle bursts, flat ground rings/decals, pooled lights and ghost
@@ -21,6 +22,11 @@ export class Vfx {
   private ringSrc: Mesh;
   private decalSrc: Mesh;
   private ghostSrc: Mesh;
+  private beamSrc: Mesh;
+  private frostRingSrc: Mesh;
+  private frostMat: StandardMaterial;
+  private iceMat: StandardMaterial;
+  private runeMat: StandardMaterial;
 
   constructor(private scene: Scene) {
     this.lights = new LightPool(scene, 3);
@@ -38,6 +44,9 @@ export class Vfx {
     this.mkBurst('gold', spark, { c1: new Color3(1, 0.95, 0.7), c2: PALETTE.gilt, size: [0.08, 0.25], life: [0.6, 1.4], power: [2, 7], gravity: -6, cap: 400 });
     this.mkBurst('rift', dot, { c1: PALETTE.arcaneCore, c2: PALETTE.arcane, size: [0.2, 0.7], life: [0.25, 0.6], power: [0.5, 2], gravity: 1, cap: 400 });
     this.mkBurst('venom', dot, { c1: new Color3(0.7, 1, 0.5), c2: new Color3(0.2, 0.6, 0.2), size: [0.2, 0.5], life: [0.2, 0.5], power: [2, 5], gravity: -4, cap: 300 });
+    this.mkBurst('frost', spark, { c1: new Color3(0.85, 0.98, 1), c2: PALETTE.frost, size: [0.08, 0.28], life: [0.5, 1.3], power: [1, 4], gravity: -3, cap: 500 });
+    this.mkBurst('frostMist', dot, { c1: new Color3(0.7, 0.9, 1), c2: new Color3(0.3, 0.5, 0.7), size: [0.8, 2.0], life: [0.8, 1.8], power: [0.3, 1.2], gravity: 0.4, cap: 300, blend: ParticleSystem.BLENDMODE_STANDARD, alpha: 0.35 });
+    this.mkBurst('strike', spark, { c1: PALETTE.arcaneWhite, c2: PALETTE.arcaneCore, size: [0.1, 0.3], life: [0.3, 0.7], power: [5, 14], gravity: -16, cap: 600 });
 
     this.ringMat = new StandardMaterial('vfx.ring', scene);
     this.ringMat.diffuseTexture = Textures.ring(scene); this.ringMat.opacityTexture = Textures.ring(scene);
@@ -57,6 +66,21 @@ export class Vfx {
     this.ghostMat.emissiveColor = PALETTE.arcane.scale(0.7); this.ghostMat.diffuseColor = Color3.Black(); this.ghostMat.alpha = 0.28; this.ghostMat.disableLighting = true; this.ghostMat.alphaMode = 1;
     this.ghostSrc = MeshBuilder.CreateCapsule("vfx.ghostSrc", { radius: 0.32, height: 1.7, tessellation: 8, subdivisions: 1 }, scene);
     this.ghostSrc.material = this.ghostMat; this.ghostSrc.isVisible = false; this.ghostSrc.isPickable = false; this.ghostSrc.position.y = -500;
+
+    // Cataclysm strike beam: tall additive cylinder that collapses over its lifetime
+    const beamMat = new StandardMaterial('vfx.beam', scene);
+    beamMat.emissiveColor = PALETTE.arcaneWhite.clone(); beamMat.diffuseColor = Color3.Black(); beamMat.disableLighting = true; beamMat.alpha = 0.85; beamMat.alphaMode = 1;
+    this.beamSrc = MeshBuilder.CreateCylinder('vfx.beamSrc', { height: 1, diameterTop: 0.9, diameterBottom: 0.5, tessellation: 10 }, scene);
+    this.beamSrc.material = beamMat; this.beamSrc.isVisible = false; this.beamSrc.isPickable = false; this.beamSrc.position.y = -500;
+    // Frost: floor plate, ice crystals, and the rune ring for storms
+    this.frostMat = new StandardMaterial('vfx.frost', scene);
+    this.frostMat.diffuseTexture = Textures.frost(scene); this.frostMat.opacityTexture = Textures.frost(scene); this.frostMat.emissiveColor = new Color3(0.35, 0.7, 0.9); this.frostMat.diffuseColor = new Color3(0.5, 0.8, 1); this.frostMat.disableLighting = true; this.frostMat.backFaceCulling = false; this.frostMat.alpha = 0.85;
+    this.iceMat = new StandardMaterial('vfx.ice', scene);
+    this.iceMat.emissiveColor = new Color3(0.35, 0.75, 0.95); this.iceMat.diffuseColor = new Color3(0.6, 0.85, 1); this.iceMat.specularColor = Color3.White(); this.iceMat.alpha = 0.8;
+    this.frostRingSrc = MeshBuilder.CreatePlane('vfx.frostRingSrc', { size: 1 }, scene);
+    this.frostRingSrc.rotation.x = Math.PI / 2; this.frostRingSrc.material = this.ringMat.clone('vfx.frostRingMat'); (this.frostRingSrc.material as StandardMaterial).emissiveColor = PALETTE.frost.clone(); this.frostRingSrc.isVisible = false; this.frostRingSrc.isPickable = false; this.frostRingSrc.position.y = -500;
+    this.runeMat = new StandardMaterial('vfx.rune', scene);
+    this.runeMat.diffuseTexture = Textures.rune(scene); this.runeMat.opacityTexture = Textures.rune(scene); this.runeMat.emissiveColor = PALETTE.arcane.scale(1.2); this.runeMat.diffuseColor = Color3.Black(); this.runeMat.disableLighting = true; this.runeMat.backFaceCulling = false; this.runeMat.alphaMode = 1;
   }
 
   private mkBurst(name: string, tex: Texture, o: { c1: Color3; c2: Color3; size: [number, number]; life: [number, number]; power: [number, number]; gravity: number; cap: number; blend?: number; alpha?: number }): void {
@@ -138,6 +162,59 @@ export class Vfx {
   }
   cultistImpact(pos: Vector3): void { this.burst('venom', pos, 12); this.lights.flash(pos, new Color3(0.4, 1, 0.4), 8, 0.15, 4); }
   globePickup(pos: Vector3): void { this.burst('heal', pos, 30); this.lights.flash(pos, PALETTE.healthBright, 14, 0.35, 5); }
+  /** Frost Field: plate, crystals, mist, rim ring. Returns a handle updated by the area system. */
+  frostField(pos: Vector3, radius: number): AreaVisual {
+    const y = Math.max(pos.y + 0.08, 0.1);
+    const plate = MeshBuilder.CreatePlane('vfx.frostPlate', { size: radius * 2.1 }, this.scene);
+    plate.rotation.x = Math.PI / 2; plate.position.set(pos.x, y, pos.z); plate.material = this.frostMat; plate.isPickable = false; plate.scaling.setAll(0.2);
+    const crystals: Mesh[] = [];
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + Math.random() * 0.5, r = radius * (0.35 + Math.random() * 0.55);
+      const c = MeshBuilder.CreateCylinder(`vfx.ice${i}`, { height: 1, diameterTop: 0, diameterBottom: 0.5 + Math.random() * 0.4, tessellation: 5 }, this.scene);
+      c.material = this.iceMat; c.isPickable = false; c.position.set(pos.x + Math.cos(a) * r, y, pos.z + Math.sin(a) * r);
+      c.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * 6, (Math.random() - 0.5) * 0.5); c.scaling.set(1, 0.05, 1);
+      (c as any).__h = 1.2 + Math.random() * 1.6; crystals.push(c);
+    }
+    this.spawnTimed(this.frostRingSrc, 'frostRing', new Vector3(pos.x, y + 0.02, pos.z), 0.5, radius * 2.2, 0.45);
+    this.burst('frost', pos.add(new Vector3(0, 0.5, 0)), 70); this.burst('frostMist', pos.add(new Vector3(0, 0.4, 0)), 20);
+    this.lights.flash(pos.add(new Vector3(0, 1.5, 0)), PALETTE.frost, 30, 0.6, radius * 3);
+    let mistT = 0;
+    return {
+      update: (dt, life) => {
+        const grow = Math.min(1, life * 6), fade = life > 0.8 ? (1 - life) / 0.2 : 1;
+        plate.scaling.setAll(grow * fade);
+        for (const c of crystals) { const h = (c as any).__h as number; c.position.y = y + (h * grow * fade) / 2; c.scaling.set(fade, Math.max(0.05, h * grow * fade), fade); }
+        mistT += dt; if (mistT > 0.25 && life < 0.85) { mistT = 0; const a = Math.random() * Math.PI * 2, r = Math.random() * radius; this.burst('frostMist', new Vector3(pos.x + Math.cos(a) * r, y + 0.3, pos.z + Math.sin(a) * r), 2); this.burst('frost', new Vector3(pos.x + Math.cos(a) * r, y + 0.2, pos.z + Math.sin(a) * r), 3); }
+      },
+      dispose: () => { plate.dispose(); for (const c of crystals) c.dispose(); },
+    };
+  }
+
+  /** One Cataclysm strike: beam, ground ring, spark burst, flash. */
+  strike(pos: Vector3): void {
+    const beam = this.beamSrc.createInstance(`vfx.beam${this.timed.length}`) as unknown as Mesh;
+    beam.position.set(pos.x, pos.y + 9, pos.z); beam.scaling.set(1, 18, 1); beam.isPickable = false;
+    this.timed.push({ mesh: beam, t: 0, dur: 0.28, kind: 'beam', from: 1, to: 0.05 });
+    this.spawnTimed(this.ringSrc, 'ring', new Vector3(pos.x, Math.max(0.1, pos.y + 0.06), pos.z), 0.4, 5.5, 0.3);
+    this.burst('strike', pos.add(new Vector3(0, 0.6, 0)), 40); this.burst('arcaneImpact', pos.add(new Vector3(0, 0.8, 0)), 16); this.burst('smoke', pos.add(new Vector3(0, 0.5, 0)), 4);
+    this.lights.flash(pos.add(new Vector3(0, 2.5, 0)), PALETTE.arcaneCore, 70, 0.35, 12);
+  }
+
+  /** Cataclysm area: a slowly turning rune ring on the floor for the storm's duration. */
+  stormRing(pos: Vector3, radius: number): AreaVisual {
+    const y = Math.max(pos.y + 0.09, 0.11);
+    const ring = MeshBuilder.CreatePlane('vfx.rune', { size: radius * 2.2 }, this.scene);
+    ring.rotation.x = Math.PI / 2; ring.position.set(pos.x, y, pos.z); ring.material = this.runeMat; ring.isPickable = false; ring.scaling.setAll(0.1);
+    const ring2 = MeshBuilder.CreatePlane('vfx.rune2', { size: radius * 1.5 }, this.scene);
+    ring2.rotation.x = Math.PI / 2; ring2.position.set(pos.x, y + 0.01, pos.z); ring2.material = this.runeMat; ring2.isPickable = false; ring2.scaling.setAll(0.1);
+    return {
+      update: (dt, life) => { const k = Math.min(1, life * 5) * (life > 0.85 ? (1 - life) / 0.15 : 1); ring.scaling.setAll(k); ring2.scaling.setAll(k); ring.rotation.y += dt * 0.6; ring2.rotation.y -= dt * 0.9; },
+      dispose: () => { ring.dispose(); ring2.dispose(); },
+    };
+  }
+  freeze(pos: Vector3): void { this.burst('frost', pos, 24); this.burst('frostMist', pos, 6); }
+  shatter(pos: Vector3): void { this.burst('frost', pos, 50); this.burst('bone', pos, 14); this.lights.flash(pos, PALETTE.frost, 16, 0.25, 6); }
+
   levelUp(pos: Vector3): void {
     this.burst('gold', pos, 120); this.lights.flash(pos.add(new Vector3(0, 1.5, 0)), PALETTE.gilt, 50, 0.9, 12);
     this.spawnTimed(this.ringSrc, 'ring', new Vector3(pos.x, pos.y + 0.05, pos.z), 0.5, 9, 0.6);
@@ -149,10 +226,11 @@ export class Vfx {
       const t = this.timed[i];
       t.t += dt;
       const k = Math.min(1, t.t / t.dur);
-      if (t.kind === 'ring') { const e = 1 - (1 - k) * (1 - k); t.mesh.scaling.setAll(t.from + (t.to - t.from) * e); }
+      if (t.kind === 'ring' || t.kind === 'frostRing') { const e = 1 - (1 - k) * (1 - k); t.mesh.scaling.setAll(t.from + (t.to - t.from) * e); }
+      else if (t.kind === 'beam') { const w = t.from + (t.to - t.from) * k; t.mesh.scaling.set(w, 18, w); }
       else if (t.kind === 'ghost') { t.mesh.scaling.setAll(t.from + (t.to - t.from) * k); t.mesh.position.y += dt * 0.4; }
       // instances cannot fade individually; drop them near the end (rings are short-lived anyway)
-      if (t.kind === 'ring' && k > 0.85) t.mesh.setEnabled(false);
+      if ((t.kind === 'ring' || t.kind === 'frostRing' || t.kind === 'beam') && k > 0.85) t.mesh.setEnabled(false);
       if (t.kind === 'ghost' && k > 0.8) t.mesh.setEnabled(false);
       if (t.kind === 'decal' && k > 0.9) t.mesh.setEnabled(false);
       if (k >= 1) { t.mesh.dispose(); this.timed.splice(i, 1); }

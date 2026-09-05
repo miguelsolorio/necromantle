@@ -1,6 +1,6 @@
 import type { AudioEngine } from './engine';
 
-export type SfxName = 'boltCast' | 'boltImpact' | 'orbCast' | 'orbExplode' | 'nova' | 'rift' | 'enemyHit' | 'enemyDeath' | 'eliteDeath' | 'playerHurt' | 'globe' | 'levelUp' | 'potion' | 'denied' | 'door' | 'footstep' | 'cultistShot' | 'cultistImpact' | 'waveStart' | 'ready' | 'burnTick';
+export type SfxName = 'boltCast' | 'boltImpact' | 'orbCast' | 'orbExplode' | 'nova' | 'rift' | 'enemyHit' | 'enemyDeath' | 'eliteDeath' | 'playerHurt' | 'globe' | 'levelUp' | 'potion' | 'denied' | 'door' | 'footstep' | 'cultistShot' | 'cultistImpact' | 'waveStart' | 'ready' | 'burnTick' | 'frostCast' | 'freeze' | 'shatter' | 'cataclysmCast' | 'strike';
 
 interface Opts { pan?: number; gain?: number; pitch?: number }
 
@@ -48,6 +48,11 @@ export class Sfx {
       case 'waveStart': this.horn(out, t, 73.4, 1.8, 0.55); this.reverb(out, 0.9); break;
       case 'ready': this.chime(out, t, [1320], 0.18, 0.15); break;
       case 'burnTick': this.crackle(out, t, 0.25, 0.15); break;
+      case 'frostCast': this.whoosh(out, t, 0.6, 0.5); this.shimmer(out, t + 0.1, 0.9, 0.4); this.swell(out, t, 900, 300, 0.7, 0.2); this.reverb(out, 0.5); break;
+      case 'freeze': this.chime(out, t, [1760, 2637], 0.35, 0.25, 0.04); this.noiseHit(out, t, 0.12, 6000, 0.25, 'highpass'); break;
+      case 'shatter': this.rattle(out, t, 12, 0.5); this.chime(out, t, [2093, 2637, 3136], 0.3, 0.3, 0.02); this.reverb(out, 0.4); break;
+      case 'cataclysmCast': this.horn(out, t, 55, 2.2, 0.5); this.swell(out, t, 60, 240, 2.0, 0.4); this.shimmer(out, t + 0.3, 1.5, 0.4); this.reverb(out, 0.9); break;
+      case 'strike': this.noiseHit(out, t, 0.06, 5000, 0.6, 'highpass'); this.thump(out, t + 0.01, 60, 0.6, 0.9); this.noiseHit(out, t + 0.02, 0.35, 700, 0.5, 'lowpass'); this.reverb(out, 0.6); break;
     }
   }
 

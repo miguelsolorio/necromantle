@@ -26,10 +26,16 @@ export class Enemy {
   timer = 0;            // state timer
   attackCd = 0;
   burn = 0; burnDps = 0; burnTick = 0;
+  chill = 0;            // seconds of slow remaining
+  frozen = 0;           // seconds locked solid
+  chillExposure = 0;    // time spent chilled recently; freezes weaker enemies past a threshold
+  private arc: Vector3 | null = null; // ragdoll-lite launch on a lethal heavy hit
+  private arcGround = 0;
   slot = 0;             // ring slot index assigned by manager
   flash = 0;
   deathTimer = 0;
   lastHitDir = new Vector3(0, 0, 1);
+  private tinted = false;
   readonly seek = new Vector3();  // desired position (from manager)
   private tmp = new Vector3();
   private center = new Vector3();
@@ -64,7 +70,8 @@ export class Enemy {
     this.yaw = rand(0, Math.PI * 2);
     this.velocity.setAll(0); this.knock.setAll(0);
     this.alive = true; this.state = 'spawning'; this.timer = 0; this.attackCd = rand(0.3, 1.2);
-    this.burn = 0; this.flash = 0; this.deathTimer = 0;
+    this.burn = 0; this.chill = 0; this.frozen = 0; this.chillExposure = 0; this.arc = null; this.flash = 0; this.deathTimer = 0;
+    this.root.rotation.x = 0;
     this.root.setEnabled(true); this.collider.setEnabled(true);
     for (const m of this.meshes) m.setEnabled(true);
     if (this.animator) {
@@ -74,9 +81,17 @@ export class Enemy {
     } else this.state = 'chase';
   }
 
+  /** Chill slows; enough exposure freezes anything that is not elite or heavy. */
+  applyChill(duration: number): void {
+    this.chill = Math.max(this.chill, duration);
+    this.chillExposure += 0.5;
+    if (this.chillExposure >= 1.0 && this.frozen <= 0 && !this.elite && this.def.mass < 2) { this.frozen = 2.5; this.chillExposure = 0; this.state = 'stagger'; this.timer = 2.5; this.animator?.clearOneShot(); }
+  }
+
   /** Damage with an optional knockback impulse (m/s). Returns true if this hit killed it. */
   hurt(amount: number, dir: Vector3 | null, knockback: number): boolean {
     if (!this.alive) return false;
+    if (this.frozen > 0) amount *= 1.25;
     this.hp -= amount;
     this.flash = 0.07;
     if (dir) { this.lastHitDir.copyFrom(dir); this.lastHitDir.y = 0; this.lastHitDir.normalize(); }
@@ -84,7 +99,7 @@ export class Enemy {
       const k = knockback / (this.elite ? this.def.mass * 2 : this.def.mass);
       this.knock.addInPlace(this.tmp.copyFrom(this.lastHitDir).scaleInPlace(k));
     }
-    if (this.hp <= 0) { this.die(); return true; }
+    if (this.hp <= 0) { this.die(dir && knockback >= 6 ? this.lastHitDir.scale(knockback * 0.6) : null); return true; }
     // stagger on heavy hits (relative to max hp) or big knockback
     if ((amount > this.hpMax * 0.18 || knockback >= 6) && this.state !== 'windup') {
       this.state = 'stagger'; this.timer = knockback >= 6 ? 0.55 : 0.32;
@@ -95,8 +110,10 @@ export class Enemy {
 
   applyBurn(dps: number, duration: number): void { this.burn = Math.max(this.burn, duration); this.burnDps = Math.max(this.burnDps, dps); }
 
-  private die(): void {
+  private die(launch: Vector3 | null = null): void {
     this.alive = false; this.state = 'dead'; this.hp = 0; this.deathTimer = 0;
+    if (launch) { this.arc = new Vector3(launch.x, 4.5 + Math.random() * 2, launch.z); this.arcGround = this.root.position.y; }
+    this.frozen = 0; this.chill = 0;
     this.collider.checkCollisions = false; this.collider.setEnabled(false);
     this.animator?.clearOneShot();
     this.animator?.once(pick(this.def.anims.death), { speed: 1.3 });
@@ -117,11 +134,12 @@ export class Enemy {
   /** Integrate movement toward `seek` (set by manager), plus knockback and separation push. */
   integrate(dt: number, groundY: number | null, push: Vector3): void {
     const def = this.def;
-    const canMove = this.state === 'chase';
+    const canMove = this.state === 'chase' && this.frozen <= 0;
+    const slow = this.frozen > 0 ? 0 : this.chill > 0 ? 0.45 : 1;
     this.tmp.copyFrom(this.seek).subtractInPlace(this.root.position); this.tmp.y = 0;
     const d = this.tmp.length();
     let desiredX = 0, desiredZ = 0;
-    if (canMove && d > 0.25) { const s = Math.min(def.speed, d * 3); desiredX = (this.tmp.x / d) * s; desiredZ = (this.tmp.z / d) * s; }
+    if (canMove && d > 0.25) { const s = Math.min(def.speed, d * 3) * slow; desiredX = (this.tmp.x / d) * s; desiredZ = (this.tmp.z / d) * s; }
     const accel = def.accel / def.speed * 3;
     this.velocity.x = damp(this.velocity.x, desiredX, accel, dt);
     this.velocity.z = damp(this.velocity.z, desiredZ, accel, dt);
@@ -137,22 +155,35 @@ export class Enemy {
 
   updateAnimation(dt: number): void {
     if (!this.animator) return;
-    if (this.alive && !this.animator.busy) {
+    if (this.frozen > 0) { this.frozen -= dt; this.animator.setSpeedScale(0); if (this.frozen <= 0 && this.alive) { this.animator.setSpeedScale(1); this.state = 'chase'; } }
+    else this.animator.setSpeedScale(this.chill > 0 ? 0.6 : 1);
+    if (this.chill > 0) { this.chill -= dt; if (this.chill <= 0) this.chillExposure = 0; }
+    if (this.alive && !this.animator.busy && this.frozen <= 0) {
       const sp = Math.hypot(this.velocity.x, this.velocity.z);
       if (this.state === 'chase' && sp > 0.6) this.animator.play(this.def.anims.run, { speed: Math.max(0.8, sp / this.def.speed) * (this.def.speed > 4 ? 1.25 : 1) });
       else this.animator.play(this.def.anims.idle);
     }
     this.animator.update(dt);
-    // hit flash: brief emissive pulse on the (per-enemy) body materials
-    if (this.flash > 0) {
-      this.flash -= dt;
-      const k = Math.max(0, this.flash / 0.07);
+    // emissive status tint: hit flash (white-violet), frozen (ice), chilled (pale blue), burning (ember flicker)
+    const wasFlashing = this.flash > 0;
+    if (this.flash > 0) this.flash -= dt;
+    const k = Math.max(0, this.flash / 0.07);
+    const status = this.frozen > 0 ? [0.12, 0.42, 0.6] : this.chill > 0 ? [0.04, 0.16, 0.26] : this.burn > 0 ? [0.35 + 0.2 * Math.sin(this.burnTick * 40), 0.1, 0.0] : null;
+    if (wasFlashing || status || this.tinted) {
       for (const m of this.meshes) {
         const mat = m.material as PBRMaterial | null;
         if (!mat || !(mat instanceof PBRMaterial) || /eyes/i.test(m.name)) continue;
         const base = (mat.metadata?.baseEmissive as Color3 | undefined) ?? Color3.Black();
-        mat.emissiveColor.set(base.r + 0.55 * k, base.g + 0.45 * k, base.b + 0.75 * k);
+        mat.emissiveColor.set(base.r + 0.55 * k + (status?.[0] ?? 0), base.g + 0.45 * k + (status?.[1] ?? 0), base.b + 0.75 * k + (status?.[2] ?? 0));
       }
+      this.tinted = !!status || k > 0;
+    }
+    // ragdoll-lite: a lethal heavy hit launches the corpse in an arc before it settles
+    if (this.arc) {
+      this.arc.y -= 22 * dt;
+      this.root.position.addInPlace(this.tmp.copyFrom(this.arc).scaleInPlace(dt));
+      this.root.rotation.x += dt * 5;
+      if (this.root.position.y <= this.arcGround) { this.root.position.y = this.arcGround; this.arc = null; }
     }
     if (!this.alive) {
       this.deathTimer += dt;

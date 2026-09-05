@@ -71,6 +71,21 @@ export const Textures = {
     ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
     for (let i = 0; i < 700; i++) { const y = Math.random() * s * 0.5; const a = Math.random() * 0.8; ctx.fillStyle = `rgba(220,225,255,${a})`; const r = Math.random() < 0.1 ? 1.6 : 0.9; ctx.beginPath(); ctx.arc(Math.random() * s, y, r, 0, Math.PI * 2); ctx.fill(); }
   }, { alpha: false }),
+  /** Frost floor plate: pale centre, crystalline cracks, feathered rim. */
+  frost: (scene: Scene) => make(scene, 'frost', 256, (ctx, s) => {
+    const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    g.addColorStop(0, 'rgba(255,255,255,0.75)'); g.addColorStop(0.55, 'rgba(255,255,255,0.45)'); g.addColorStop(0.88, 'rgba(255,255,255,0.7)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2; let x = s / 2, y = s / 2; ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 6; k++) { const r = (s / 2) * (0.15 + k * 0.14); x = s / 2 + Math.cos(a + (Math.random() - 0.5) * 0.6) * r; y = s / 2 + Math.sin(a + (Math.random() - 0.5) * 0.6) * r; ctx.lineTo(x, y); } ctx.stroke(); }
+  }),
+  /** Rune ring for the Cataclysm storm: two concentric bands with tick marks. */
+  rune: (scene: Scene) => make(scene, 'rune', 256, (ctx, s) => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(s / 2, s / 2, s * 0.46, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s / 2, s / 2, s * 0.36, 0, Math.PI * 2); ctx.stroke();
+    for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(s / 2 + Math.cos(a) * s * 0.37, s / 2 + Math.sin(a) * s * 0.37); ctx.lineTo(s / 2 + Math.cos(a) * s * (i % 3 ? 0.41 : 0.45), s / 2 + Math.sin(a) * s * (i % 3 ? 0.41 : 0.45)); ctx.stroke(); }
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; const x = s / 2 + Math.cos(a) * s * 0.26, y = s / 2 + Math.sin(a) * s * 0.26; ctx.beginPath(); ctx.moveTo(x - 8, y); ctx.lineTo(x, y - 12); ctx.lineTo(x + 8, y); ctx.lineTo(x, y + 12); ctx.closePath(); ctx.stroke(); }
+  }),
   /** Grey noise used as roughness/detail. Tiles. */
   noise: (scene: Scene) => make(scene, 'noise', 256, (ctx, s) => {
     const img = ctx.createImageData(s, s);

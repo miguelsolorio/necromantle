@@ -13,6 +13,8 @@ export interface RenderRig {
   addCaster(mesh: AbstractMesh): void;
   addGlow(mesh: AbstractMesh): void;
   setFov(deg: number): void;
+  /** 0 = normal night, 1 = arcane storm: the moon and fill turn violet, fog brightens (rule R-17). */
+  setStormTint(k: number): void;
 }
 
 /**
@@ -115,5 +117,10 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
     addCaster: (mesh) => shadows.addShadowCaster(mesh, true),
     addGlow: (mesh) => { if (mesh instanceof Mesh) glow.addIncludedOnlyMesh(mesh); else if (mesh instanceof InstancedMesh) glow.addIncludedOnlyMesh(mesh.sourceMesh); },
     setFov: (deg) => { camera.fov = (deg * Math.PI) / 180; },
+    setStormTint: (k) => {
+      moon.diffuse = Color3.Lerp(PALETTE.moon, PALETTE.arcane, k * 0.8); moon.intensity = 1.9 + k * 1.2;
+      hemi.diffuse = Color3.Lerp(new Color3(0.34, 0.4, 0.62), PALETTE.arcane, k * 0.6); hemi.intensity = 0.8 + k * 0.6;
+      scene.fogColor = Color3.Lerp(PALETTE.fog, new Color3(0.25, 0.16, 0.42), k);
+    },
   };
 }

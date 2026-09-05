@@ -67,3 +67,13 @@ Feel check against the design's final sentence: with 18 ghouls, three cultists a
 | 27 | Blank frames after a level swap on WebGPU (destroyed light uniform buffers) | — | blocker | fixed | Level lights are pooled and reused, never disposed |
 | 28 | Nave open to the sky; the kit has no roof pieces | R-13 | medium | open | Reads as a ruin. Roof needs authored vaults; a fog ceiling could stand in |
 | 29 | Large crates scale up to 3.4 m and crowd the aisle | R-12 | low | open | Cap box_large scale at 1.4 |
+
+## Milestone 4 pass (Frost Field, Cataclysm)
+
+Captures: `m4-frost.png`, `m4-frozen.png`, `m4-cataclysm.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 30 | Frost crystals read white under bloom, not ice-blue | R-10 | low | open | Lower crystal emissive, add a cyan rim, or a refractive-looking gradient texture |
+| 31 | Cataclysm beam is thin; strike reads more like a laser than a pillar of the sky | R-23 | medium | open | Wider, softer beam with a bright core and a cloud flash above the frame edge |
+| 32 | Storm lighting shift works (moon and fill go violet, fog brightens) | R-17 | — | fixed | Keep; consider a brief screen flash per strike |

@@ -71,7 +71,8 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Milestones 1–2 committed (`627530c`): benchmark courtyard, controller, camera, enemies, Arcane Bolt.
 - Milestone 3 committed: Astral Orb, Flame Nova, Rift Step, waves, elites, collision and performance fixes. See `visual-gap-analysis.md` for the open items.
 - Playtest round (2026-09-04): audio (procedural soundtrack + effects), level structure (`KitLevel` base, Outer Court, Nave), three scripted waves per level with the door as the exit, dense dressing, closed stair plinth.
-- Next: Milestone 4 (Frost Field, Cataclysm, status effects), then loot and inventory (Milestone 6).
+- Milestone 4 built: Frost Field (chill, freeze, shatter), Cataclysm (rune ring, strikes, storm lighting), status tints, ragdoll-lite death arcs.
+- Next: Milestone 5 (elite modifiers, Brute and Necromancer archetypes, wraith blink), then loot and inventory (Milestone 6).
 
 ## Gate before execution: style storyboard review
 

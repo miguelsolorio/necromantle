@@ -108,13 +108,14 @@ export class EnemyManager {
     const at = opts.pos ?? e.hitCenter();
     this.bus.emit('enemy:damaged', { pos: at.clone(), amount, crit: !!opts.crit, element: opts.element ?? 'arcane', killed });
     if (killed) {
+      if (e.frozen > 0 || opts.element === 'frost') this.vfx.shatter(e.hitCenter());
       this.vfx.enemyDeath(e.hitCenter(), opts.dir ?? undefined);
       this.bus.emit('enemy:killed', { pos: e.position.clone(), xp: Math.round(e.def.xp * (e.elite ? 4 : 1)), elite: e.elite });
     }
   }
 
   /** Damage every living enemy within `radius` of `center`. */
-  damageArea(center: Vector3, radius: number, amount: (e: Enemy) => number, opts: { knockback?: number; element?: string; crit?: boolean; burn?: { dps: number; dur: number } }): number {
+  damageArea(center: Vector3, radius: number, amount: (e: Enemy) => number, opts: { knockback?: number; element?: string; crit?: boolean; burn?: { dps: number; dur: number }; chill?: number }): number {
     const hits = this.hash.query(center, radius + 0.8, this.near);
     let n = 0;
     for (const e of hits) {
@@ -125,7 +126,9 @@ export class EnemyManager {
       if (dir.lengthSquared() < 0.001) dir.set(rand(-1, 1), 0, rand(-1, 1));
       dir.normalize();
       if (opts.burn) e.applyBurn(opts.burn.dps, opts.burn.dur);
-      this.damage(e, amount(e), { dir, knockback: opts.knockback, element: opts.element, crit: opts.crit, pos: c });
+      if (opts.chill) { const wasFrozen = e.frozen > 0; e.applyChill(opts.chill); if (!wasFrozen && e.frozen > 0) { this.vfx.freeze(c); audio.play('freeze', c); } }
+      const dmg = amount(e);
+      if (dmg > 0) this.damage(e, dmg, { dir, knockback: opts.knockback, element: opts.element, crit: opts.crit, pos: c });
       n++;
     }
     return n;
@@ -179,6 +182,7 @@ export class EnemyManager {
       }
 
       // --- state machine ---
+      if (e.frozen > 0) { this.push.setAll(0); e.integrate(dt, null, this.push); e.updateAnimation(dt); continue; }
       switch (e.state) {
         case 'spawning': e.timer += dt; if (e.timer > 2.5) e.state = 'chase'; break;
         case 'chase': {

@@ -1,6 +1,6 @@
 import type { AnimationGroup } from '@babylonjs/core';
 
-interface Track { group: AnimationGroup; weight: number; target: number }
+interface Track { group: AnimationGroup; weight: number; target: number; baseSpeed?: number }
 
 /** Cross-fading animation player over glTF AnimationGroups. One primary clip at a time plus a fading tail. */
 export class Animator {
@@ -16,7 +16,7 @@ export class Animator {
   /** Loop `name`, cross-fading from whatever is playing. Returns false if the clip is missing. */
   play(name: string, opts: { speed?: number; fade?: number } = {}): boolean {
     if (this.oneShot) return false;
-    if (this.current === name) { const t = this.tracks.get(name); if (t) t.group.speedRatio = opts.speed ?? 1; return true; }
+    if (this.current === name) { const t = this.tracks.get(name); if (t) { t.baseSpeed = opts.speed ?? 1; t.group.speedRatio = (opts.speed ?? 1) * this.speedScale; } return true; }
     return this.start(name, true, opts);
   }
 
@@ -31,6 +31,14 @@ export class Animator {
     return true;
   }
 
+  /** Scale playback of everything that is playing (0 freezes the pose). */
+  setSpeedScale(k: number): void {
+    if (this.speedScale === k) return;
+    this.speedScale = k;
+    for (const t of this.tracks.values()) t.group.speedRatio = (t.baseSpeed ?? 1) * k;
+  }
+  private speedScale = 1;
+
   /** Cancel any one-shot immediately (used when a cast is interrupted by movement). */
   clearOneShot(): void { this.oneShot = null; }
   get busy(): boolean { return this.oneShot !== null; }
@@ -42,9 +50,9 @@ export class Animator {
     for (const t of this.tracks.values()) t.target = 0;
     let t = this.tracks.get(name);
     if (!t) { t = { group: g, weight: 0, target: 1 }; this.tracks.set(name, t); }
-    t.target = 1;
+    t.target = 1; t.baseSpeed = opts.speed ?? 1;
     g.stop();
-    g.start(loop, opts.speed ?? 1);
+    g.start(loop, (opts.speed ?? 1) * this.speedScale);
     g.setWeightForAllAnimatables(t.weight);
     this.current = name;
     return true;
