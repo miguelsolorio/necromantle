@@ -197,6 +197,8 @@ export class Game {
     await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith', 'brute', 'necromancer', 'hollow_king']);
     this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
     this.wireEvents();
+    this.abilities.onHitStop = (sec, scale) => this.loop.hitStop(sec, scale);
+    this.cam.extraDistance = cls.melee ? 1.2 : 0;
     this.hud.setHidden(this.dbg.state.hideHud);
     this.hud.fade(false);
     if (this.player.level > 1) this.hud.toast(`WELCOME BACK · LEVEL ${this.player.level}`, this.player.passiveNames ? this.player.passiveNames.toUpperCase() : '', 3);
@@ -210,8 +212,10 @@ export class Game {
       if (crit) { this.cam.shake(0.05, 0.1); this.loop.hitStop(0.05, 0.15); }
       if (!killed) audio.play(element === 'fire' && amount < 40 ? 'burnTick' : 'enemyHit', pos, { pitch: crit ? 0.8 : 0.9 + Math.random() * 0.25, gain: crit ? 1.2 : 0.8 });
     });
-    this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning }) => {
+    this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning, marked }) => {
       this.player.addXp(xp); this.player.onKill();
+      if (this.player.harvestT > 0) { this.player.heal(Math.round(this.player.hpMax * 0.08)); this.player.addEnergy(10); }
+      if (marked) this.pickups.spawnGlobe(pos);
       this.stats.kills++; if (elite) this.stats.eliteKills++;
       audio.play(elite ? 'eliteDeath' : 'enemyDeath', pos);
       if (elite) this.loop.hitStop(0.14, 0.08);

@@ -1,6 +1,6 @@
 import type { AudioEngine } from './engine';
 
-export type SfxName = 'boltCast' | 'boltImpact' | 'orbCast' | 'orbExplode' | 'nova' | 'rift' | 'enemyHit' | 'enemyDeath' | 'eliteDeath' | 'playerHurt' | 'globe' | 'levelUp' | 'potion' | 'denied' | 'door' | 'footstep' | 'cultistShot' | 'cultistImpact' | 'waveStart' | 'ready' | 'burnTick' | 'frostCast' | 'freeze' | 'shatter' | 'cataclysmCast' | 'strike' | 'charge' | 'summon' | 'loot' | 'lootRare' | 'legendary' | 'pickup';
+export type SfxName = 'meleeSwing' | 'meleeHit' | 'slam' | 'boltCast' | 'boltImpact' | 'orbCast' | 'orbExplode' | 'nova' | 'rift' | 'enemyHit' | 'enemyDeath' | 'eliteDeath' | 'playerHurt' | 'globe' | 'levelUp' | 'potion' | 'denied' | 'door' | 'footstep' | 'cultistShot' | 'cultistImpact' | 'waveStart' | 'ready' | 'burnTick' | 'frostCast' | 'freeze' | 'shatter' | 'cataclysmCast' | 'strike' | 'charge' | 'summon' | 'loot' | 'lootRare' | 'legendary' | 'pickup';
 
 interface Opts { pan?: number; gain?: number; pitch?: number }
 
@@ -53,6 +53,9 @@ export class Sfx {
       case 'shatter': this.rattle(out, t, 12, 0.5); this.chime(out, t, [2093, 2637, 3136], 0.3, 0.3, 0.02); this.reverb(out, 0.4); break;
       case 'cataclysmCast': this.horn(out, t, 55, 2.2, 0.5); this.swell(out, t, 60, 240, 2.0, 0.4); this.shimmer(out, t + 0.3, 1.5, 0.4); this.reverb(out, 0.9); break;
       case 'charge': this.whoosh(out, t, 0.5, 0.6); this.thump(out, t, 90, 0.3, 0.5); break;
+      case 'meleeSwing': this.whoosh(out, t, 0.18, 0.45 * p); break;
+      case 'meleeHit': this.whoosh(out, t, 0.1, 0.3); this.noiseHit(out, t + 0.02, 0.07, 1600 * p, 0.55, 'bandpass'); this.thump(out, t + 0.02, 140 * p, 0.12, 0.5); this.rattle(out, t + 0.03, 2, 0.25); break;
+      case 'slam': this.thump(out, t, 48, 0.7, 1.0); this.noiseHit(out, t, 0.3, 500, 0.6, 'lowpass'); this.rattle(out, t + 0.05, 5, 0.4); this.reverb(out, 0.5); break;
       case 'summon': this.swell(out, t, 80, 200, 1.2, 0.35); this.rattle(out, t + 0.3, 8, 0.4); this.shimmer(out, t + 0.2, 0.8, 0.2); this.reverb(out, 0.6); break;
       case 'loot': this.noiseHit(out, t, 0.05, 1800, 0.25, 'bandpass'); this.thump(out, t, 300, 0.08, 0.2); break;
       case 'lootRare': this.chime(out, t, [880, 1320], 0.5, 0.35, 0.05); this.reverb(out, 0.3); break;

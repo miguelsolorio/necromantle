@@ -12,8 +12,21 @@ import type { Vfx } from '@/vfx/vfx';
 import type { World } from '@/world/world';
 import type { Areas } from '@/combat/areas';
 import { audio } from '@/audio';
+import { knightAbilities } from './knight';
+import { hunterAbilities } from './hunter';
+import { reaverAbilities } from './reaver';
 
 export interface AbilityContext { player: Player; cam: ThirdPersonCamera; enemies: EnemyManager; projectiles: Projectiles; vfx: Vfx; targeting: Targeting; bus: EventBus; world: World; areas: Areas }
+/** What class ability modules get: the shared context plus the damage roll, ground targeting and a delayed-call scheduler. */
+export interface AbilityHost {
+  ctx: AbilityContext;
+  roll(def: AbilityDef, mult?: number): { amount: number; crit: boolean; element: import('@/content/abilities').Element };
+  groundTarget(range: number): Vector3;
+  later(seconds: number, fn: () => void): void;
+  hitStop(seconds: number, scale?: number): void;
+}
+export type AbilityImpl = (def: AbilityDef) => void;
+
 export interface SlotState { id: AbilityId; def: AbilityDef; ready: boolean; cd: number; cdMax: number; noEnergy: boolean; locked: boolean }
 
 const zero = (): Record<AbilityId, number> => Object.fromEntries(ABILITY_ORDER.map((id) => [id, 0])) as Record<AbilityId, number>;
@@ -30,11 +43,17 @@ export class AbilitySystem {
   private tmp = new Vector3();
 
   /** Ability behaviours keyed by id; a class lists which ids it owns (content/classes.ts). */
-  private impl: Partial<Record<AbilityId, (def: AbilityDef) => void>> = {
+  private impl: Partial<Record<AbilityId, AbilityImpl>> = {
     bolt: (d) => this.bolt(d), orb: (d) => this.orb(d), nova: (d) => this.nova(d), rift: (d) => this.rift(d), frost: (d) => this.frost(d), cataclysm: (d) => this.cataclysm(d),
   };
+  private timers: { t: number; fn: () => void }[] = [];
+  /** Set by the game so abilities can request hit-stop. */
+  onHitStop: (seconds: number, scale: number) => void = () => {};
 
-  constructor(private ctx: AbilityContext) {}
+  constructor(private ctx: AbilityContext) {
+    const host: AbilityHost = { ctx, roll: (d, m) => this.roll(d, m), groundTarget: (r) => this.groundTarget(r), later: (sec, fn) => this.timers.push({ t: sec, fn }), hitStop: (sec, scale = 0.15) => this.onHitStop(sec, scale) };
+    Object.assign(this.impl, knightAbilities(host), hunterAbilities(host), reaverAbilities(host));
+  }
 
   setWorld(w: World): void { this.ctx.world = w; }
 
@@ -54,6 +73,7 @@ export class AbilitySystem {
   }
 
   update(dt: number, input: Input): void {
+    for (let i = this.timers.length - 1; i >= 0; i--) { const tm = this.timers[i]; tm.t -= dt; if (tm.t <= 0) { this.timers.splice(i, 1); tm.fn(); } }
     for (const id of ABILITY_ORDER) {
       this.cooldowns[id] = Math.max(0, this.cooldowns[id] - dt); this.repeat[id] = Math.max(0, this.repeat[id] - dt);
       // refill stored charges one per cooldown period
@@ -69,7 +89,7 @@ export class AbilitySystem {
       const pressed = key.startsWith('Mouse') ? input.buttonPressed(+key.slice(5)) : input.wasPressed(key);
       const def = ABILITIES[id];
       if (def.castInterval > 0 ? held && this.repeat[id] <= 0 : pressed) {
-        if (this.cast(id)) this.repeat[id] = def.castInterval / p.stats.attackSpeed;
+        if (this.cast(id)) this.repeat[id] = def.castInterval / (p.stats.attackSpeed * (p.frenzyT > 0 ? 1.4 : 1));
       }
     }
     if (input.wasPressed('KeyQ')) { if (p.usePotion()) audio.play('potion'); else audio.play('denied'); }
@@ -80,8 +100,10 @@ export class AbilitySystem {
     const def = ABILITIES[id];
     if (!this.unlocked(id)) { bus.emit('ability:denied', { id, reason: 'locked' }); return false; }
     if (this.cooldowns[id] > 0 && this.charges[id] <= 0) { bus.emit('ability:denied', { id, reason: 'cooldown' }); return false; }
-    if (player.castLock > 0 && id !== 'rift') return false;
-    if (def.cost > 0 && !this.infiniteEnergy && !player.spendEnergy(def.cost)) { bus.emit('ability:denied', { id, reason: 'energy' }); return false; }
+    if (player.castLock > 0 && id !== 'rift' && id !== 'vault') return false;
+    if (player.leapT > 0) return false;
+    const free = def.id === 'frenzy' && player.energy >= player.energyMax - 0.01;
+    if (def.cost > 0 && !this.infiniteEnergy && !free && !player.spendEnergy(def.cost)) { bus.emit('ability:denied', { id, reason: 'energy' }); return false; }
     if (this.cooldowns[id] > 0 && this.charges[id] > 0) this.charges[id]--; else this.cooldowns[id] = this.cooldownOf(def);
     player.cast(def);
     bus.emit('ability:cast', { id });
@@ -92,7 +114,7 @@ export class AbilitySystem {
 
   private roll(def: AbilityDef, mult = 1) {
     const p = this.ctx.player;
-    return rollDamage(def.damage.base, p.spellPower() * p.elementMult(def.damage.element), p.stats.critChance, p.stats.critDamage, def.damage.element, mult);
+    return rollDamage(def.damage.base, p.powerFor(def.damage.element), p.stats.critChance, p.stats.critDamage, def.damage.element, mult);
   }
 
   private bolt(def: AbilityDef): void {

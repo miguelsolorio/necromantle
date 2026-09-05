@@ -16,6 +16,8 @@ export class ThirdPersonCamera {
   combatTarget = 0;
   combat = 0;
   distanceOverride: number | null = null;
+  /** Melee classes pull the combat camera back a little further. */
+  extraDistance = 0;
   /** Title and select screens: the camera glides to a fixed pose and ignores the player. */
   cinematic: { pos: Vector3; target: Vector3 } | null = null;
   private cinePos = new Vector3(); private cineLook = new Vector3(); private cineInit = false;
@@ -64,7 +66,7 @@ export class ThirdPersonCamera {
     this.forward.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
-    const targetDist = this.distanceOverride ?? lerp(CAMERA.exploreDistance, CAMERA.combatDistance, this.combat);
+    const targetDist = this.distanceOverride ?? lerp(CAMERA.exploreDistance, CAMERA.combatDistance + this.extraDistance, this.combat);
     const fov = this.fovOverride ?? lerp(CAMERA.exploreFov, CAMERA.combatFov, this.combat);
     this.camera.fov = damp(this.camera.fov, (fov * Math.PI) / 180, 4, dt);
 

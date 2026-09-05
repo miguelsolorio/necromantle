@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Necromantle app icon</title>
+  <desc>The Arcane Sorcerer under the Cathedral of St. Vessel.</desc>
+  <defs>
+    <!-- night over Hollowmere: indigo overhead, the rift burning violet at the horizon -->
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E0A20"/>
+      <stop offset="0.38" stop-color="#1F1642"/>
+      <stop offset="0.68" stop-color="#3A2160"/>
+      <stop offset="1" stop-color="#5E2A63"/>
+    </linearGradient>
+
+    <radialGradient id="moonGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#EDE9FF" stop-opacity="0.7"/>
+      <stop offset="0.4" stop-color="#B9AEF2" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#B9AEF2" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="rift" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#C084FC" stop-opacity="0.62"/>
+      <stop offset="0.5" stop-color="#8B5CF6" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="crystalGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#9FF6EE" stop-opacity="0.9"/>
+      <stop offset="0.38" stop-color="#4FD8CE" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#4FD8CE" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="eyeGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F6F1FF" stop-opacity="1"/>
+      <stop offset="0.3" stop-color="#C9A8FF" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#A855F7" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- hat: flat facets, key light from the upper left, like the game's moon -->
+    <linearGradient id="coneL" x1="0" y1="0.1" x2="1" y2="0.3">
+      <stop offset="0" stop-color="#9EA3D6"/>
+      <stop offset="1" stop-color="#8288BE"/>
+    </linearGradient>
+    <linearGradient id="coneR" x1="0" y1="0.1" x2="1" y2="0.3">
+      <stop offset="0" stop-color="#7076AC"/>
+      <stop offset="1" stop-color="#565C8E"/>
+    </linearGradient>
+    <linearGradient id="brimTop" x1="0.05" y1="0" x2="0.95" y2="0.5">
+      <stop offset="0" stop-color="#959ACE"/>
+      <stop offset="0.5" stop-color="#7C82B8"/>
+      <stop offset="1" stop-color="#5B6191"/>
+    </linearGradient>
+    <linearGradient id="robe" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#A62C55"/>
+      <stop offset="1" stop-color="#6B1836"/>
+    </linearGradient>
+    <linearGradient id="bandG" x1="0" y1="0" x2="1" y2="0.4">
+      <stop offset="0" stop-color="#C0664B"/>
+      <stop offset="1" stop-color="#94472F"/>
+    </linearGradient>
+
+    <filter id="soft" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+    <filter id="tight" x="-90%" y="-90%" width="280%" height="280%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+
+    <radialGradient id="vig" cx="0.5" cy="0.44" r="0.74">
+      <stop offset="0.5" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#05030E" stop-opacity="0.6"/>
+    </radialGradient>
+
+    <clipPath id="frame"><rect width="1024" height="1024"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1024" height="1024" fill="url(#sky)"/>
+
+    <g fill="#DCD6FF" opacity="0.5">
+      <circle cx="118" cy="128" r="4"/><circle cx="252" cy="72" r="2.8"/><circle cx="392" cy="140" r="2.4"/>
+      <circle cx="654" cy="88" r="3.2"/><circle cx="812" cy="176" r="2.6"/><circle cx="928" cy="112" r="3.6"/>
+      <circle cx="60" cy="300" r="2.4"/><circle cx="968" cy="318" r="2.8"/><circle cx="516" cy="52" r="2.4"/>
+    </g>
+
+    <circle cx="228" cy="212" r="164" fill="url(#moonGlow)"/>
+    <circle cx="228" cy="212" r="58" fill="#EDE9FF" opacity="0.9"/>
+
+    <!-- the rift blooming behind the cathedral -->
+    <circle cx="512" cy="560" r="400" fill="url(#rift)"/>
+
+    <!-- Cathedral of St. Vessel on the ridge: bell towers rise either side of the hat,
+         the nave roof and its lancets read in the gaps beside the sorcerer's head -->
+    <g fill="#120C26">
+      <path d="M128 1024 V596 h84 v428z"/>
+      <path d="M170 508 l50 88 H120z"/>
+      <path d="M812 1024 V596 h84 v428z"/>
+      <path d="M854 508 l50 88 H804z"/>
+      <path d="M212 1024 V704 h600 v320z"/>
+      <path d="M512 638 l176 66 H336z"/>
+      <path d="M296 704 l22-46 22 46z"/>
+      <path d="M684 704 l22-46 22 46z"/>
+    </g>
+    <g fill="#FFB765" opacity="0.85">
+      <path d="M158 648 a12 12 0 0 1 24 0 v44 h-24z"/>
+      <path d="M842 648 a12 12 0 0 1 24 0 v44 h-24z"/>
+      <path d="M256 736 a11 11 0 0 1 22 0 v40 h-22z"/>
+      <path d="M746 736 a11 11 0 0 1 22 0 v40 h-22z"/>
+    </g>
+
+    <!-- horizon haze, no hard edge -->
+    <ellipse cx="512" cy="812" rx="640" ry="120" fill="#6B2F6B" opacity="0.5" filter="url(#soft)"/>
+    <ellipse cx="512" cy="864" rx="540" ry="96" fill="#8B5CF6" opacity="0.2" filter="url(#soft)"/>
+
+    <!-- ============ the Arcane Sorcerer ============ -->
+    <!-- shoulders, with the cloak yoke sitting over them -->
+    <path d="M214 1024 c0-186 133-286 298-286 s298 100 298 286z" fill="url(#robe)"/>
+    <path d="M214 1024 c0-186 133-286 298-286 s298 100 298 286 h-46 c0-160-114-246-252-246 s-252 86-252 246z" fill="#262A4E"/>
+    <path d="M214 1024 c0-186 133-286 298-286 s298 100 298 286 h-46 c0-160-114-246-252-246 s-252 86-252 246z" fill="#3A3F6E" opacity="0.35"/>
+
+    <!-- head, sunk in the brim's shadow -->
+    <ellipse cx="512" cy="596" rx="122" ry="126" fill="#141127"/>
+
+    <!-- eyes -->
+    <g>
+      <circle cx="468" cy="606" r="44" fill="url(#eyeGlow)" opacity="0.95"/>
+      <circle cx="556" cy="606" r="44" fill="url(#eyeGlow)" opacity="0.95"/>
+      <ellipse cx="468" cy="606" rx="19" ry="14" fill="#F8F4FF"/>
+      <ellipse cx="556" cy="606" rx="19" ry="14" fill="#F8F4FF"/>
+    </g>
+
+    <!-- hat -->
+    <ellipse cx="512" cy="510" rx="336" ry="88" fill="#474C79"/>
+    <ellipse cx="512" cy="494" rx="336" ry="88" fill="url(#brimTop)"/>
+    <path d="M176 494 a336 88 0 0 1 672 0z" fill="#A3A8D8" opacity="0.22"/>
+
+    <path d="M512 196 l132 300 h-264z" fill="url(#coneL)"/>
+    <path d="M512 196 l132 300 h-132z" fill="url(#coneR)"/>
+    <path d="M512 196 l44 300 h-26z" fill="#ADB2E0" opacity="0.2"/>
+
+    <path d="M400 428 h224 l20 62 h-264z" fill="url(#bandG)"/>
+    <path d="M400 428 h224 l5 16 h-234z" fill="#D2795C" opacity="0.65"/>
+    <path d="M380 476 h264 l4 14 h-272z" fill="#7A3A28"/>
+
+    <!-- staff crystal -->
+    <circle cx="838" cy="892" r="112" fill="url(#crystalGlow)"/>
+    <path d="M838 838 l28 42 -28 44 -28-44z" fill="#BDFCF5"/>
+    <path d="M838 838 l28 42 -28 44z" fill="#6FE8E0"/>
+    <rect x="828" y="922" width="20" height="102" rx="8" fill="#463656"/>
+
+    <!-- arcane motes -->
+    <g fill="#D8BBFF">
+      <circle cx="186" cy="884" r="9" opacity="0.7" filter="url(#tight)"/>
+      <circle cx="140" cy="796" r="6" opacity="0.55" filter="url(#tight)"/>
+      <circle cx="258" cy="952" r="7" opacity="0.45" filter="url(#tight)"/>
+    </g>
+
+    <rect width="1024" height="1024" fill="url(#vig)"/>
+  </g>
+</svg>

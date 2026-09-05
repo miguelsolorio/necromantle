@@ -6,7 +6,7 @@ import type { Vfx } from '@/vfx/vfx';
 import type { World } from '@/world/world';
 import { damp } from '@/core/mathx';
 
-export type Visual = 'bolt' | 'orb' | 'shard';
+export type Visual = 'bolt' | 'orb' | 'shard' | 'quarrel';
 export interface ProjectileSpec {
   team: 'player' | 'enemy';
   pos: Vector3; dir: Vector3; speed: number; radius: number; range: number;
@@ -25,7 +25,7 @@ interface Projectile extends ProjectileSpec {
 /** Swept-sphere projectiles for both teams. Visual bodies are built per kind and reused. */
 export class Projectiles {
   private list: Projectile[] = [];
-  private free: Record<Visual, Projectile[]> = { bolt: [], orb: [], shard: [] };
+  private free: Record<Visual, Projectile[]> = { bolt: [], orb: [], shard: [], quarrel: [] };
   private mats: Record<Visual, StandardMaterial>;
   private tmp = new Vector3();
   private tmp2 = new Vector3();
@@ -33,7 +33,7 @@ export class Projectiles {
 
   constructor(private scene: Scene, private vfx: Vfx, private rig?: { addGlow(m: Mesh): void }) {
     const mk = (name: string, c: Color3) => { const m = new StandardMaterial(`proj.${name}`, scene); m.emissiveColor = c; m.diffuseColor = Color3.Black(); m.specularColor = Color3.Black(); m.disableLighting = true; return m; };
-    this.mats = { bolt: mk("bolt", PALETTE.arcaneWhite), orb: mk("orb", new Color3(0.45, 0.75, 1.0)), shard: mk("shard", new Color3(0.6, 1, 0.5)) };
+    this.mats = { bolt: mk("bolt", PALETTE.arcaneWhite), orb: mk("orb", new Color3(0.45, 0.75, 1.0)), shard: mk("shard", new Color3(0.6, 1, 0.5)), quarrel: mk('quarrel', new Color3(0.85, 0.9, 0.7)) };
   }
 
   private build(visual: Visual): Projectile {
@@ -49,6 +49,11 @@ export class Projectiles {
       const tm = this.mats.orb.clone('proj.orbTrailMat'); tm.emissiveColor = PALETTE.arcane.clone(); tm.alpha = 0.55; trail.material = tm;
       light = new PointLight('proj.orbLight', Vector3.Zero(), this.scene);
       light.diffuse = PALETTE.arcane.clone(); light.intensity = 10; light.range = 11; light.parent = mesh; light.renderPriority = 65;
+    } else if (visual === 'quarrel') {
+      mesh = MeshBuilder.CreateCylinder('proj.quarrel', { height: 0.9, diameter: 0.08, tessellation: 5 }, this.scene);
+      mesh.rotation.x = Math.PI / 2; mesh.bakeCurrentTransformIntoVertices(); mesh.rotation.x = 0;
+      trail = new TrailMesh('proj.quarrelTrail', mesh, this.scene, 0.06, 14, true);
+      const tm = this.mats.quarrel.clone('proj.quarrelTrailMat'); tm.emissiveColor = new Color3(0.6, 0.75, 0.45); tm.alpha = 0.6; trail.material = tm;
     } else {
       mesh = MeshBuilder.CreateSphere('proj.shard', { diameter: 0.5, segments: 6 }, this.scene);
       mesh.scaling.set(1, 1, 1.8);

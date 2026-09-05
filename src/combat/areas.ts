@@ -6,7 +6,7 @@ import type { RenderRig } from '@/rendering/setup';
 import type { AreaVisual, Vfx } from '@/vfx/vfx';
 import { audio } from '@/audio';
 
-interface Area { kind: 'frost' | 'storm' | 'burn'; pos: Vector3; radius: number; t: number; dur: number; tick: number; visual: AreaVisual; damage: () => number; knockback: number; burnDps?: number }
+interface Area { kind: 'frost' | 'storm' | 'burn' | 'caltrops'; pos: Vector3; radius: number; t: number; dur: number; tick: number; visual: AreaVisual; damage: () => number; knockback: number; burnDps?: number }
 
 /**
  * Persistent ground effects. Frost Field ticks chill (and freezes weak enemies that linger);
@@ -29,6 +29,9 @@ export class Areas {
   }
 
   /** Ashen Grimoire: burning ground that keeps setting enemies alight. */
+  caltrops(pos: Vector3, radius: number, damage: () => number, bleedDps: number): void {
+    this.list.push({ kind: 'caltrops', pos: pos.clone(), radius, t: 0, dur: 4, tick: 0, visual: this.vfx.caltrops(pos, radius), damage, knockback: 0, burnDps: bleedDps });
+  }
   burn(pos: Vector3, radius: number, damage: () => number, burnDps: number): void {
     this.list.push({ kind: 'burn', pos: pos.clone(), radius, t: 0, dur: 6, tick: 0, visual: this.vfx.burningGround(pos, radius), damage, knockback: 0, burnDps });
   }
@@ -44,6 +47,8 @@ export class Areas {
       a.visual.update(dt, life);
       if (a.kind === 'burn') {
         if (a.tick <= 0 && life < 0.92) { a.tick = 0.5; this.enemies.damageArea(a.pos, a.radius, () => a.damage(), { element: 'fire', burn: { dps: a.burnDps ?? 10, dur: 2 } }); }
+      } else if (a.kind === 'caltrops') {
+        if (a.tick <= 0 && life < 0.95) { a.tick = 0.5; this.enemies.damageArea(a.pos, a.radius, () => a.damage(), { element: 'bleed', bleed: { dps: a.burnDps ?? 8, dur: 3 }, slow: { k: 0.5, dur: 0.8 } }); }
       } else if (a.kind === 'frost') {
         if (a.tick <= 0 && life < 0.9) {
           a.tick = 0.5;

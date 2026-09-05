@@ -21,6 +21,8 @@ const GOLDEN = Math.PI * (3 - Math.sqrt(5));
  * Owns the enemy pool, group steering (ring slots + separation), attacks and deaths.
  * Melee enemies claim slots on two rings around the player so packs surround rather than queue (rule R-03).
  */
+export interface AreaOpts { knockback?: number; element?: string; crit?: boolean; burn?: { dps: number; dur: number }; chill?: number; bleed?: { dps: number; dur: number }; slow?: { k: number; dur: number }; root?: number; taunt?: number }
+
 export class EnemyManager {
   readonly pool: Enemy[] = [];
   readonly hash = new SpatialHash<Enemy>(3);
@@ -53,6 +55,31 @@ export class EnemyManager {
   get alive(): Enemy[] { return this.pool.filter((e) => e.alive); }
   countNear(p: Vector3, r: number): number { return this.hash.query(p, r, this.near).length; }
   queryNear(p: Vector3, r: number, out: Enemy[]): Enemy[] { return this.hash.query(p, r, out); }
+  /** Melee arc: alive enemies within `range` of `origin` whose bearing is inside `arcDeg` of `dir` (their radius counts). */
+  queryArc(origin: Vector3, dir: Vector3, range: number, arcDeg: number): Enemy[] {
+    const half = (arcDeg * Math.PI) / 360; const out: Enemy[] = [];
+    for (const e of this.hash.query(origin, range + 1, this.near)) {
+      if (!e.alive) continue;
+      const dx = e.position.x - origin.x, dz = e.position.z - origin.z; const d = Math.hypot(dx, dz);
+      if (d > range + e.radius) continue;
+      const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dir.x + dz * dir.z) / Math.max(0.001, d))));
+      const pad = Math.atan2(e.radius, Math.max(0.5, d));
+      if (ang <= half + pad) out.push(e);
+    }
+    return out;
+  }
+  /** Lane: alive enemies within `halfWidth` of the segment from `from` along `dir` for `length` metres. */
+  queryLane(from: Vector3, dir: Vector3, length: number, halfWidth: number): Enemy[] {
+    const out: Enemy[] = []; const mid = from.add(dir.scale(length / 2));
+    for (const e of this.hash.query(mid, length / 2 + halfWidth + 1, this.near)) {
+      if (!e.alive) continue;
+      const dx = e.position.x - from.x, dz = e.position.z - from.z; const along = dx * dir.x + dz * dir.z;
+      if (along < -e.radius || along > length + e.radius) continue;
+      const side = Math.abs(dx * dir.z - dz * dir.x);
+      if (side <= halfWidth + e.radius) out.push(e);
+    }
+    return out;
+  }
 
   /** Spawn a new enemy of `id`. Models are cloned lazily per pooled slot and reused. */
   async spawn(id: EnemyId, pos: Vector3, elite = false, mod: EliteModId | null = null): Promise<Enemy> {
@@ -132,18 +159,19 @@ export class EnemyManager {
   damage(e: Enemy, amount: number, opts: { dir?: Vector3 | null; knockback?: number; crit?: boolean; element?: string; pos?: Vector3 }): void {
     if (!e.alive) return;
     if (e.frozen > 0) amount = Math.round(amount * this.frozenBonus);
+    if (e.markT > 0) amount = Math.round(amount * 1.3);
     const killed = e.hurt(amount, opts.dir ?? null, opts.knockback ?? 0);
     const at = opts.pos ?? e.hitCenter();
     this.bus.emit('enemy:damaged', { pos: at.clone(), amount, crit: !!opts.crit, element: opts.element ?? 'arcane', killed });
     if (killed) {
       if (e.frozen > 0 || opts.element === 'frost') this.vfx.shatter(e.hitCenter());
       this.vfx.enemyDeath(e.hitCenter(), opts.dir ?? undefined);
-      this.bus.emit('enemy:killed', { pos: e.position.clone(), xp: Math.round(e.def.xp * (e.elite ? 4 : 1)), elite: e.elite, id: e.def.id, burning: e.burn > 0 });
+      this.bus.emit('enemy:killed', { pos: e.position.clone(), xp: Math.round(e.def.xp * (e.elite ? 4 : 1)), elite: e.elite, id: e.def.id, burning: e.burn > 0, marked: e.markT > 0, bleeding: e.bleed > 0 });
     }
   }
 
   /** Damage every living enemy within `radius` of `center`. */
-  damageArea(center: Vector3, radius: number, amount: (e: Enemy) => number, opts: { knockback?: number; element?: string; crit?: boolean; burn?: { dps: number; dur: number }; chill?: number }): number {
+  damageArea(center: Vector3, radius: number, amount: (e: Enemy) => number, opts: AreaOpts): number {
     const hits = this.hash.query(center, radius + 0.8, this.near);
     let n = 0;
     for (const e of hits) {
@@ -154,6 +182,10 @@ export class EnemyManager {
       if (dir.lengthSquared() < 0.001) dir.set(rand(-1, 1), 0, rand(-1, 1));
       dir.normalize();
       if (opts.burn) e.applyBurn(opts.burn.dps, opts.burn.dur);
+      if (opts.bleed) e.applyBleed(opts.bleed.dps, opts.bleed.dur);
+      if (opts.slow) e.applySlow(opts.slow.k, opts.slow.dur);
+      if (opts.root) e.applyRoot(opts.root);
+      if (opts.taunt) e.tauntT = Math.max(e.tauntT, opts.taunt);
       if (opts.chill) { const wasFrozen = e.frozen > 0; e.applyChill(opts.chill); if (!wasFrozen && e.frozen > 0) { e.frozen += this.frozenExtra; this.vfx.freeze(c); audio.play('freeze', c); } }
       const dmg = amount(e);
       if (dmg > 0) this.damage(e, dmg, { dir, knockback: opts.knockback, element: opts.element, crit: opts.crit, pos: c });
@@ -190,6 +222,12 @@ export class EnemyManager {
       const dist = Vector3.Distance(e.position, pp);
 
       // burning
+      e.slowT = Math.max(0, e.slowT - dt); if (e.slowT <= 0) e.slowK = 1;
+      e.rootT = Math.max(0, e.rootT - dt); e.markT = Math.max(0, e.markT - dt); e.tauntT = Math.max(0, e.tauntT - dt);
+      if (e.bleed > 0) {
+        e.bleed -= dt; e.bleedTick += dt;
+        if (e.bleedTick >= 0.5) { e.bleedTick = 0; this.damage(e, Math.round(e.bleedDps * 0.5), { element: 'bleed', pos: e.hitCenter() }); if (this.frame % 2 === 0) this.vfx.burst('gore', e.hitCenter(), 2); }
+      }
       if (e.burn > 0) {
         e.burn -= dt; e.burnTick += dt;
         if (e.burnTick >= 0.5) { e.burnTick = 0; this.damage(e, Math.round(e.burnDps * 0.5), { element: 'fire', pos: e.hitCenter() }); if (this.frame % 2 === 0) this.vfx.burst('ember', e.hitCenter(), 3); }

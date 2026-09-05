@@ -66,6 +66,9 @@ export class Player {
   dead = false;
   moving = false;
   speedMult = 1;
+  /** Iron Ward absorb pool and its timer. */
+  shield = 0; shieldT = 0;
+  frenzyT = 0; harvestT = 0; whirlT = 0; leapT = 0;
   chilled = 0;
   private shoveVel = new Vector3();
   grounded = true;
@@ -145,6 +148,8 @@ export class Player {
       cm.emissiveColor = PALETTE.arcaneCore.clone(); cm.albedoColor = Color3.Black(); cm.metallic = 0; cm.roughness = 0.3;
       crystal.material = cm; crystal.parent = tip; crystal.isPickable = false; rig.addGlow(crystal);
       if (staffMesh) crystal.scaling.setAll(1 / (this.cls.height / 2.2));
+      // only the Sorcerer's staff carries a lit crystal; the other classes' weapons stay dark
+      if (this.cls.id !== 'sorcerer') { crystal.setEnabled(false); this.staffLight.intensity = 0; }
     }
   }
 
@@ -202,7 +207,11 @@ export class Player {
   get passiveNames(): string { return this.passives.filter(Boolean).map((p) => PASSIVES[p!].name).join(', '); }
 
   /** Damage multiplier for an element from gear. */
-  elementMult(el: Element): number { return 1 + (el === 'arcane' ? this.bonus.arcane : el === 'fire' ? this.bonus.fire : this.bonus.frost); }
+  elementMult(el: Element): number { return 1 + (el === 'arcane' ? this.bonus.arcane : el === 'fire' ? this.bonus.fire : el === 'frost' ? this.bonus.frost : 0); }
+  /** Physical scaling for the melee and crossbow classes: weapon-led, power-led, a little from intelligence. */
+  meleePower(): number { return (0.5 + this.weaponDamage / 40) * (1 + this.stats.power / 60 + this.stats.intelligence / 200); }
+  /** Damage scaling for an element: physical and bleed use melee power, the rest spell power. */
+  powerFor(el: Element): number { return (el === 'physical' || el === 'bleed' ? this.meleePower() : this.spellPower()) * this.elementMult(el); }
 
   /** Put an item in the bag. False when full (the drop stays on the ground). */
   addItem(item: Item): boolean { if (this.inventory.length >= this.inventoryMax) return false; this.inventory.push(item); return true; }
@@ -248,7 +257,8 @@ export class Player {
     this.sinceCombat = 0;
     if (this.cls.resource.onHurt > 0 && !this.dead && this.invulnerable <= 0) this.energy = clamp(this.energy + this.cls.resource.onHurt, 0, this.energyMax);
     if (this.dead || this.invulnerable > 0 || god) return;
-    const mitigated = n * (100 / (100 + this.stats.armor * 0.6));
+    let mitigated = n * (100 / (100 + this.stats.armor * 0.6));
+    if (this.shield > 0) { const used = Math.min(this.shield, mitigated); this.shield -= used; mitigated -= used; if (mitigated <= 0) { this.bus.emit('player:damaged', { amount: 0 }); return; } }
     this.hp = Math.max(0, this.hp - mitigated);
     this.bus.emit('player:damaged', { amount: mitigated });
     this.animator?.once(this.cls.anims.hit, { speed: 1.6 });
@@ -275,13 +285,18 @@ export class Player {
   cast(def: AbilityDef): void {
     this.stance = PLAYER.combatStance;
     if (def.animLock > 0) this.castLock = def.animLock;
-    if (this.animator && (!this.moving || def.animLock > 0)) {
-      this.animator.clearOneShot();
-      this.animator.once(def.anim, { speed: def.animLock > 0 ? 1.4 : 2.2 });
-    }
+    if (!this.animator) return;
+    if (def.channel) { this.whirlT = 0.3; if (!this.animator.current?.startsWith(def.anim)) this.animator.play(def.anim, { speed: 1.6 }); return; }
+    if (this.moving && def.animLock <= 0 && !def.arc) return;
+    this.animator.clearOneShot();
+    const clip = def.arc && this.cls.chain.length ? this.cls.chain[this.swing++ % this.cls.chain.length] : def.anim;
+    this.animator.once(clip, { speed: def.arc ? 1.9 : def.animLock > 0 ? 1.4 : 2.2 });
   }
 
   /** External push (charges, pulls): applied over `duration` seconds through the collision sweep. */
+  /** Precise movement for leaps and dashes: the collider covers `delta` over `duration`, ignoring input and damping. */
+  dash(delta: Vector3, duration: number): void { this.dashVel.copyFrom(delta).scaleInPlace(1 / duration); this.dashT = duration; this.leapT = duration; }
+  private dashVel = new Vector3(); private dashT = 0;
   shove(delta: Vector3, duration = 0.25): void { this.shoveVel.copyFrom(delta).scaleInPlace(1 / duration); this.shoveT = duration; }
   private shoveT = 0;
 
@@ -300,6 +315,8 @@ export class Player {
     this.castLock = Math.max(0, this.castLock - dt);
     this.potionCd = Math.max(0, this.potionCd - dt);
     this.sinceCombat += dt;
+    this.shieldT = Math.max(0, this.shieldT - dt); if (this.shieldT <= 0) this.shield = 0;
+    this.frenzyT = Math.max(0, this.frenzyT - dt); this.harvestT = Math.max(0, this.harvestT - dt); this.whirlT = Math.max(0, this.whirlT - dt); this.leapT = Math.max(0, this.leapT - dt);
     const r = this.cls.resource;
     let gain = (r.regen + this.bonus.energyRegen) * dt;
     if (r.stillRegen > 0 && !this.moving && !this.dead) gain += r.stillRegen * dt;
@@ -311,16 +328,17 @@ export class Player {
 
     // desired velocity relative to camera
     const axis = input.moveAxis();
-    const wantMove = (axis.x !== 0 || axis.z !== 0) && this.castLock <= 0;
+    const wantMove = (axis.x !== 0 || axis.z !== 0) && this.castLock <= 0 && this.leapT <= 0;
     const inStance = this.stance > 0;
     const sprint = input.sprint && !inStance;
     this.momentum = Math.max(0, this.momentum - dt);
-    const maxSpeed = (sprint ? PLAYER.sprintSpeed : inStance ? PLAYER.strafeSpeed : PLAYER.jogSpeed) * this.speedMult * (1 + this.bonus.moveSpeed + (this.momentum > 0 ? 0.3 : 0));
+    const maxSpeed = (sprint ? PLAYER.sprintSpeed : inStance ? PLAYER.strafeSpeed : PLAYER.jogSpeed) * this.speedMult * (this.whirlT > 0 ? 0.7 : 1) * (this.frenzyT > 0 ? 1.4 : 1) * (1 + this.bonus.moveSpeed + (this.momentum > 0 ? 0.3 : 0));
     this.tmpMove.set(cam.forward.x * axis.z + cam.right.x * axis.x, 0, cam.forward.z * axis.z + cam.right.z * axis.x);
     const target = wantMove ? this.tmpMove.normalize().scaleInPlace(maxSpeed) : Vector3.ZeroReadOnly;
     const rate = wantMove ? PLAYER.accel : PLAYER.decel;
-    this.velocity.x = damp(this.velocity.x, target.x, rate / maxSpeed * 4, dt);
-    this.velocity.z = damp(this.velocity.z, target.z, rate / maxSpeed * 4, dt);
+    const dampRate = this.leapT > 0 || this.shoveT > 0 ? rate / maxSpeed : rate / maxSpeed * 4;
+    this.velocity.x = damp(this.velocity.x, target.x, dampRate, dt);
+    this.velocity.z = damp(this.velocity.z, target.z, dampRate, dt);
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
     this.moving = speed > 0.3;
     if (this.moving && this.castLock <= 0 && this.animator?.busy) this.animator.clearOneShot();
@@ -337,6 +355,7 @@ export class Player {
     else { this.grounded = false; this.vy -= PLAYER.gravity * dt; }
 
     if (this.shoveT > 0) { this.shoveT -= dt; this.velocity.x += this.shoveVel.x * dt * 4; this.velocity.z += this.shoveVel.z * dt * 4; }
+    if (this.dashT > 0) { this.dashT -= dt; this.velocity.x = this.dashVel.x; this.velocity.z = this.dashVel.z; }
     if (this.chilled > 0) { this.chilled -= dt; if (this.chilled <= 0) this.speedMult = 1; }
     this.tmp.set(this.velocity.x * dt, this.vy * dt, this.velocity.z * dt);
     // Babylon caches world matrices per render id; several fixed steps per frame would otherwise collide from a stale position

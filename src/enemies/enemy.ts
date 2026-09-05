@@ -35,6 +35,11 @@ export class Enemy {
   attackCd = 0;
   burn = 0; burnDps = 0; burnTick = 0;
   chill = 0;            // seconds of slow remaining
+  bleed = 0; bleedDps = 0; bleedTick = 0;
+  slowT = 0; slowK = 1;  // generic slow (caltrops, stomp)
+  rootT = 0;             // held in place (Bulwark)
+  markT = 0;             // takes +30 % damage, drops a globe on death (Mark)
+  tauntT = 0;            // lunges at the player faster (Iron Ward)
   frozen = 0;           // seconds locked solid
   chillExposure = 0;    // time spent chilled recently; freezes weaker enemies past a threshold
   private arc: Vector3 | null = null; // ragdoll-lite launch on a lethal heavy hit
@@ -84,7 +89,7 @@ export class Enemy {
     this.yaw = rand(0, Math.PI * 2);
     this.velocity.setAll(0); this.knock.setAll(0);
     this.alive = true; this.state = 'spawning'; this.timer = 0; this.attackCd = rand(0.3, 1.2);
-    this.burn = 0; this.chill = 0; this.frozen = 0; this.chillExposure = 0; this.arc = null; this.flash = 0; this.deathTimer = 0;
+    this.burn = 0; this.chill = 0; this.frozen = 0; this.chillExposure = 0; this.bleed = 0; this.bleedDps = 0; this.slowT = 0; this.slowK = 1; this.rootT = 0; this.markT = 0; this.tauntT = 0; this.arc = null; this.flash = 0; this.deathTimer = 0;
     this.root.rotation.x = 0;
     this.root.setEnabled(true); this.collider.setEnabled(true);
     for (const m of this.meshes) m.setEnabled(true);
@@ -122,6 +127,9 @@ export class Enemy {
     return false;
   }
 
+  applyBleed(dps: number, duration: number): void { this.bleed = Math.max(this.bleed, duration); this.bleedDps = Math.max(this.bleedDps, dps); }
+  applySlow(k: number, duration: number): void { this.slowT = Math.max(this.slowT, duration); this.slowK = Math.min(this.slowK === 1 ? k : this.slowK, k); }
+  applyRoot(duration: number): void { if (this.def.behaviour === 'boss') duration *= 0.4; this.rootT = Math.max(this.rootT, duration); }
   applyBurn(dps: number, duration: number): void { this.burn = Math.max(this.burn, duration); this.burnDps = Math.max(this.burnDps, dps); }
 
   private die(launch: Vector3 | null = null): void {
@@ -149,7 +157,7 @@ export class Enemy {
   integrate(dt: number, groundY: number | null, push: Vector3): void {
     const def = this.def;
     const canMove = (this.state === 'chase' || (this.state === 'charge' && !!this.charge)) && this.frozen <= 0;
-    const slow = this.frozen > 0 ? 0 : this.chill > 0 ? 0.45 : 1;
+    const slow = (this.frozen > 0 || this.rootT > 0) ? 0 : (this.chill > 0 ? 0.45 : 1) * (this.slowT > 0 ? this.slowK : 1) * (this.tauntT > 0 ? 1.3 : 1);
     this.tmp.copyFrom(this.seek).subtractInPlace(this.root.position); this.tmp.y = 0;
     const d = this.tmp.length();
     let desiredX = 0, desiredZ = 0;

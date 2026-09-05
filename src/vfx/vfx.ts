@@ -1,10 +1,10 @@
-import { Color3, Color4, Mesh, MeshBuilder, ParticleSystem, Scene, StandardMaterial, Texture, Vector3 } from '@babylonjs/core';
+import { Color3, Color4, Mesh, MeshBuilder, ParticleSystem, Scene, StandardMaterial, Texture, TransformNode, Vector3 } from '@babylonjs/core';
 import { PALETTE, c4 } from '@/content/palette';
 import type { Element } from '@/content/abilities';
 import { Textures } from '@/rendering/textures';
 import { LightPool } from './lightPool';
 
-interface Timed { mesh: Mesh; t: number; dur: number; kind: 'ring' | 'decal' | 'ghost' | 'beam' | 'frostRing'; from: number; to: number }
+interface Timed { mesh: Mesh; t: number; dur: number; kind: 'ring' | 'decal' | 'ghost' | 'beam' | 'frostRing' | 'slash' | 'hold'; from: number; to: number }
 export interface AreaVisual { update(dt: number, life: number): void; dispose(): void }
 
 /**
@@ -22,9 +22,11 @@ export class Vfx {
   private ringSrc: Mesh;
   private decalSrc: Mesh;
   private ghostSrc: Mesh;
+  private slashSrc: Record<string, Mesh> = {};
   private beamSrc: Mesh;
   private frostRingSrc: Mesh;
   private frostMat: StandardMaterial;
+  private thornMat!: StandardMaterial;
   private iceMat: StandardMaterial;
   private runeMat: StandardMaterial;
 
@@ -53,6 +55,12 @@ export class Vfx {
     this.ringMat.emissiveColor = PALETTE.fire.clone(); this.ringMat.disableLighting = true; this.ringMat.backFaceCulling = false;
     this.ringMat.alphaMode = 1; // add
     this.ringSrc = MeshBuilder.CreatePlane('vfx.ringSrc', { size: 1 }, scene);
+    // melee slash arcs: a disc sector per tint, additive, lying flat at chest height
+    for (const [tint, color] of [['steel', new Color3(0.75, 0.88, 1.0)], ['blood', new Color3(1.0, 0.32, 0.22)], ['bone', new Color3(0.85, 0.95, 0.7)]] as const) {
+      const m = new StandardMaterial(`vfx.slash.${tint}`, scene); m.emissiveColor = color; m.diffuseColor = Color3.Black(); m.disableLighting = true; m.alphaMode = 1; m.alpha = 0.7; m.backFaceCulling = false; m.opacityTexture = Textures.ring(scene);
+      const src = MeshBuilder.CreateDisc(`vfx.slashSrc.${tint}`, { radius: 1, arc: 0.36, tessellation: 24 }, scene);
+      src.rotation.x = Math.PI / 2; src.material = m; src.isVisible = false; src.isPickable = false; this.slashSrc[tint] = src;
+    }
     this.ringSrc.rotation.x = Math.PI / 2; this.ringSrc.material = this.ringMat; this.ringSrc.isVisible = false; this.ringSrc.isPickable = false; this.ringSrc.position.y = -500;
 
     this.decalMat = new StandardMaterial('vfx.decal', scene);
@@ -76,6 +84,7 @@ export class Vfx {
     this.frostMat = new StandardMaterial('vfx.frost', scene);
     this.frostMat.diffuseTexture = Textures.frost(scene); this.frostMat.opacityTexture = Textures.frost(scene); this.frostMat.emissiveColor = new Color3(0.35, 0.7, 0.9); this.frostMat.diffuseColor = new Color3(0.5, 0.8, 1); this.frostMat.disableLighting = true; this.frostMat.backFaceCulling = false; this.frostMat.alpha = 0.85;
     this.iceMat = new StandardMaterial('vfx.ice', scene);
+    this.thornMat = new StandardMaterial('vfx.thorn', scene); this.thornMat.diffuseColor = new Color3(0.12, 0.1, 0.09); this.thornMat.specularColor = new Color3(0.4, 0.4, 0.4); this.thornMat.emissiveColor = new Color3(0.06, 0.03, 0.02);
     this.iceMat.emissiveColor = new Color3(0.12, 0.42, 0.62); this.iceMat.diffuseColor = new Color3(0.4, 0.7, 0.95); this.iceMat.specularColor = new Color3(0.6, 0.8, 1); this.iceMat.alpha = 0.85;
     this.frostRingSrc = MeshBuilder.CreatePlane('vfx.frostRingSrc', { size: 1 }, scene);
     this.frostRingSrc.rotation.x = Math.PI / 2; this.frostRingSrc.material = this.ringMat.clone('vfx.frostRingMat'); (this.frostRingSrc.material as StandardMaterial).emissiveColor = PALETTE.frost.clone(); this.frostRingSrc.isVisible = false; this.frostRingSrc.isPickable = false; this.frostRingSrc.position.y = -500;
@@ -225,6 +234,56 @@ export class Vfx {
       dispose: () => { ring.dispose(); ring2.dispose(); },
     };
   }
+  /** Melee slash: an arc sector in front of `pos` facing `yaw`, expanding and fading over 0.22 s. */
+  slash(pos: Vector3, yaw: number, radius: number, tint: 'steel' | 'blood' | 'bone' = 'steel', tilt = 0): void {
+    const src = this.slashSrc[tint] ?? this.slashSrc.steel;
+    const m = src.createInstance(`vfx.slash${this.timed.length}`) as unknown as Mesh;
+    m.position.set(pos.x, pos.y + 1.05, pos.z); m.rotation.set(Math.PI / 2 + tilt, yaw - Math.PI * 0.36, 0); m.scaling.setAll(radius * 0.5); m.isPickable = false;
+    this.timed.push({ mesh: m, t: 0, dur: 0.22, kind: 'slash', from: radius * 0.5, to: radius * 1.05 });
+    this.burst('arcaneSpark', pos.add(new Vector3(Math.sin(yaw) * radius * 0.6, 1.0, Math.cos(yaw) * radius * 0.6)), 3);
+  }
+  /** Iron Ward: a rune ring that follows the player for `dur` seconds. */
+  wardRing(parent: TransformNode, dur: number): void {
+    const m = this.ringSrc.createInstance(`vfx.ward${this.timed.length}`) as unknown as Mesh;
+    m.parent = parent; m.position.set(0, 0.12, 0); m.rotation.x = Math.PI / 2; m.scaling.setAll(3.2); m.isPickable = false;
+    this.timed.push({ mesh: m, t: 0, dur, kind: 'hold', from: 3.2, to: 3.2 });
+    this.lights.flash(parent.position.add(new Vector3(0, 1.2, 0)), new Color3(0.5, 0.7, 1), 24, 0.4, 6);
+  }
+  /** Grave Stomp and Leap landing: a shockwave ring, a crack decal and stone chips. */
+  stomp(pos: Vector3, radius: number): void {
+    const p = new Vector3(pos.x, Math.max(0.1, pos.y + 0.06), pos.z);
+    this.spawnTimed(this.ringSrc, 'ring', p, 0.5, radius * 2.2, 0.36);
+    this.spawnTimed(this.decalSrc, 'decal', p, radius * 1.2, radius * 1.2, 5);
+    this.burst('bone', pos.add(new Vector3(0, 0.3, 0)), 18, undefined, 1.4); this.burst('smoke', pos.add(new Vector3(0, 0.4, 0)), 12);
+    this.lights.flash(pos.add(new Vector3(0, 1, 0)), new Color3(0.9, 0.8, 0.6), 18, 0.25, radius * 2);
+  }
+  /** Bulwark chains: sparks along each pull line. */
+  chain(from: Vector3, to: Vector3): void {
+    const n = 5;
+    for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; this.burst('arcaneSpark', Vector3.Lerp(from, to, t).addInPlaceFromFloats(0, 0.8, 0), 3); }
+  }
+  /** Caltrops field: dark thorns scattered inside the radius; a few extra spawn as it lives. */
+  caltrops(pos: Vector3, radius: number): AreaVisual {
+    const y = Math.max(pos.y + 0.05, 0.08); const thorns: Mesh[] = [];
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * radius * 0.95;
+      const c = MeshBuilder.CreateCylinder(`vfx.thorn${i}`, { height: 0.45, diameterTop: 0, diameterBottom: 0.22, tessellation: 4 }, this.scene);
+      c.material = this.thornMat; c.isPickable = false; c.position.set(pos.x + Math.cos(a) * r, y + 0.2, pos.z + Math.sin(a) * r);
+      c.rotation.set((Math.random() - 0.5) * 0.9, Math.random() * 6, (Math.random() - 0.5) * 0.9); thorns.push(c);
+    }
+    const d = this.spawnTimed(this.decalSrc, 'decal', new Vector3(pos.x, y, pos.z), radius * 1.6, radius * 1.6, 4.2);
+    return { update: (_dt, life) => { for (const c of thorns) c.scaling.setAll(life > 0.85 ? (1 - life) / 0.15 : 1); }, dispose: () => { for (const c of thorns) c.dispose(); d.setEnabled(false); } };
+  }
+  /** Crossbow bolt impact: a small pale puff and a splinter. */
+  quarrelImpact(pos: Vector3, dir?: Vector3): void { this.burst('bone', pos, 3, dir ? dir.scale(-1) : undefined, 0.8); this.burst('smoke', pos, 2); }
+  /** Rain of Bolts strike: a bolt from above and a puff where it lands. */
+  rainStrike(at: Vector3): void {
+    const m = this.ghostSrc.createInstance(`vfx.rain${this.timed.length}`) as unknown as Mesh;
+    m.position.set(at.x, at.y + 2.2, at.z); m.scaling.set(0.12, 4.4, 0.12); m.isPickable = false;
+    this.timed.push({ mesh: m, t: 0, dur: 0.16, kind: 'hold', from: 1, to: 1 });
+    this.burst('bone', at.add(new Vector3(0, 0.2, 0)), 4, undefined, 1.2);
+  }
+
   /** Charge telegraph: a red streak on the floor from the brute toward its target. */
   chargeLine(from: Vector3, to: Vector3): void {
     const len = Vector3.Distance(from, to); const mid = Vector3.Lerp(from, to, 0.5);
@@ -256,6 +315,7 @@ export class Vfx {
       if (t.kind === 'ring' || t.kind === 'frostRing') { const e = 1 - (1 - k) * (1 - k); t.mesh.scaling.setAll(t.from + (t.to - t.from) * e); }
       else if (t.kind === 'beam') { const w = t.from + (t.to - t.from) * k; t.mesh.scaling.set(w, 18, w); }
       else if (t.kind === 'ghost') { t.mesh.scaling.setAll(t.from + (t.to - t.from) * k); t.mesh.position.y += dt * 0.4; }
+      else if (t.kind === 'slash') { const e = 1 - (1 - k) * (1 - k); t.mesh.scaling.setAll(t.from + (t.to - t.from) * e); if (k > 0.7) t.mesh.setEnabled(false); }
       // instances cannot fade individually; drop them near the end (rings are short-lived anyway)
       if ((t.kind === 'ring' || t.kind === 'frostRing' || t.kind === 'beam') && k > 0.85) t.mesh.setEnabled(false);
       if (t.kind === 'ghost' && k > 0.8) t.mesh.setEnabled(false);
