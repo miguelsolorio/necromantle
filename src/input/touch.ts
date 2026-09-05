@@ -8,6 +8,22 @@ export interface TouchHooks { pause(): void }
 function capture(el: Element, id: number): void { try { el.setPointerCapture(id); } catch { /* pointer already released */ } }
 
 /**
+ * iOS zoom guard. `touch-action: manipulation` on every element (hud.css) is the declared fix for double-tap zoom, but
+ * Safari has zoomed on a quick second tap in combat regardless, so the second `touchend` within 350 ms is cancelled
+ * outright. Its compat click is not missed: touch activation runs on pointerup (ui/tap.ts). Form controls keep their
+ * taps. `gesturestart` is Safari's pinch: two thumbs on the world must not zoom the page either.
+ */
+function guardZoom(): void {
+  let last = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = performance.now();
+    if (now - last < 350 && !(e.target instanceof Element && e.target.closest('input, select, textarea'))) e.preventDefault();
+    last = now;
+  }, { passive: false });
+  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+}
+
+/**
  * Touch layer: a floating joystick on the left, look-drag everywhere else on the world, and the HUD's own
  * skill slots as hold-to-use buttons. Every pointer is tracked by id so a thumb on the stick, a thumb aiming
  * and a held skill work at once. Everything it does goes through `Input`'s synthetic-action API, so the game,
@@ -32,6 +48,7 @@ export class TouchControls {
   private readonly walkAt = 1.1;
 
   constructor(private input: Input, hud: HTMLElement, private canvas: HTMLCanvasElement, hooks: TouchHooks) {
+    guardZoom();
     this.el = document.createElement('div'); this.el.className = 'touch-layer';
     this.el.innerHTML = `
       <div class="stick"><div class="knob"></div></div>

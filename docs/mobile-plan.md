@@ -44,6 +44,8 @@ Driven with `?touch=1&nolock&play=sorcerer` at 760×390 (the pane only emulates 
 
 Nothing on a real phone was tappable, title menu included. The joystick layer's stylesheet rule was a bare `.touch` selector, and `touch` is also the platform flag class on `<html>`, so on every touch device the rule put `pointer-events: none` on the root and every element inherited it. The harness above never noticed because it dispatched synthetic events straight at elements, bypassing hit-testing. The layer is now `.touch-layer` (`input/touch.ts`, `ui/hud.css`). Re-verified with Playwright's iPhone emulation, real touch input through the browser's hit-testing: title to select, tile tap to focus, second tap or Begin to launch, stick drag, pause and resume. The `ui/tap.ts` click-swallow window is shared across elements, since the compat click after a tap that swaps the screen lands on whatever the new screen put under the finger.
 
+Second phone test: a quick second tap in combat zoomed the page. `touch-action: manipulation` now sits on every element (`* {}` in hud.css; WebKit only carries it down to children that set it themselves, whereas `none` on the canvas and the skill arc does propagate), and `input/touch.ts` cancels the second `touchend` within 350 ms and Safari's `gesturestart` pinch as a backstop.
+
 ## Still to do on a real device
 
 The pane cannot emulate two fingers at once. On a phone: `npm run dev:lan` (port 5174 on every interface; plain http, so WebGL2), then the Pages build (https, WebGPU on iOS 26 and Android Chrome). Check stick + look + a held skill together, frame rate with a 20-ghoul pack on the low tier (`?dev=1` shows the panel), backgrounding saves and holds, add-to-home-screen opens landscape and full screen. Record the numbers here.

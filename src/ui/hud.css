@@ -204,6 +204,8 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; ove
 
 /* ======================= responsive and touch ======================= */
 #hud, #title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+/* No double-tap or pinch zoom anywhere. WebKit only carries `manipulation` down to children that set it themselves, so it goes on every element; the world canvas (#game) and the skill arc keep `none`, which does propagate. input/touch.ts backs this up on iOS. */
+* { touch-action: manipulation; }
 .inv-title .x { margin-left: auto; cursor: pointer; opacity: .7; } .inv-title .x:hover { opacity: 1; }
 .dbg h6 { justify-content: flex-start; gap: 8px; } .dbg h6 span { margin-left: auto; } .dbg h6 .x { cursor: pointer; color: #8e8577; font-style: normal; }
 .inv { z-index: 4; }
