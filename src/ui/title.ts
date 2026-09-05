@@ -124,8 +124,20 @@ export class TitleScreen {
       const b = document.createElement('button'); b.className = `cls${id === this.focused ? ' focus' : ''}`; b.style.setProperty('--accent', def.accent);
       b.innerHTML = `<b>${def.name}${slot ? `<span class="lvl">LV ${slot.level}</span>` : ''}</b><small>${def.weaponLabel} · ${def.resource.name}${def.playable ? '' : ' · in development'}</small>`;
       b.addEventListener('mouseenter', () => this.focus(id)); b.addEventListener('focus', () => this.focus(id));
-      // on touch a tap only focuses the class; the slot card's Begin / Continue starts the run
-      b.addEventListener('click', () => { this.focus(id); if (def.playable && !PLATFORM.touch) this.hooks.onBegin(id, !slot); });
+      // Mouse: click begins. Touch: the first tap focuses the class (its card shows Continue / Start over / Delete),
+      // a tap on the focused class begins. Handled on pointerup because iOS withholds the compat click when the
+      // hover handlers change content, and the compat mouseenter would otherwise focus before the click arrives.
+      b.addEventListener('click', () => { if (PLATFORM.touch) return; this.focus(id); if (def.playable) this.hooks.onBegin(id, !slot); });
+      let down: { x: number; y: number } | null = null;
+      b.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') down = { x: e.clientX, y: e.clientY }; });
+      b.addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'mouse' || !down) return;
+        const tap = Math.hypot(e.clientX - down.x, e.clientY - down.y) < 12; down = null;
+        if (!tap) return;
+        if (this.focused === id) { if (def.playable) this.hooks.onBegin(id, !this.hooks.slots().some((s) => s.classId === id)); }
+        else this.focus(id);
+      });
+      b.addEventListener('pointercancel', () => { down = null; });
       tabs.appendChild(b);
     }
     this.renderPanel(); this.renderSlot();
