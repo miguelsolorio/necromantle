@@ -78,7 +78,7 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Milestone 8 built: six connected levels (Hollowmere village hub with NPCs, Sexton's Road wilderness with dead trees and three pockets, Outer Court, Nave, Crypt, Ossuary boss chamber), the Hollow King with slam, summons, volleys and phases, victory and return.
 - Milestone 9 built: rim-light material plugin (WebGL2 and WebGPU), hit-stop, affix-coloured elite auras, charge telegraph, wider Cataclysm strikes, frost tint, SSAO as a dev-panel option, final gap-analysis pass.
 - All nine milestones are complete. Remaining items in `visual-gap-analysis.md` are art and asset replacements.
-- Next phase (planned 2026-09-05): title and character-select screens, three more classes with six abilities each (`character-plan.md`), and a scarier layered score (`music-plan.md`).
+- Next phase (planned 2026-09-05): title and character-select screens, three more classes with six abilities each, a per-class local-storage save slot system with checkpoints (`character-plan.md`), and a scarier layered score (`music-plan.md`).
 
 ## Gate before execution: style storyboard review
 

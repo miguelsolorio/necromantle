@@ -73,12 +73,25 @@ Each class keeps the loop generate → position → spend → clear. Ability def
 - Add a Skills tab beside the paper doll: six ability cards with full text, current numbers after gear and passives, unlock level, and the improvement each ability gets at levels 7 and 9.
 - The passive picker moves into this tab so all character choices live in one place.
 
+## Save system (local storage)
+
+A versioned local save already exists (`persistence/save.ts`: `SaveV1` with level, xp, area index, inventory, equipment, passives; key `necromantle.save`; autosave every 10 s, on level entry, and on pickup). This phase grows it into a proper slot system without leaving `localStorage`.
+
+- **Slots per class.** Key `necromantle.slot.<classId>` holding `SaveV2`: everything in V1 plus `classId`, `playTime` (seconds), `areaName`, `waveIndex`, `health` and `resource` at the last checkpoint, `settings` (music, sfx, SSAO, camera distance), `stats` (kills, elite kills, deaths, legendaries found), and `createdAt`.
+- **Checkpoints.** Explicit save on: level entry, wave cleared, door unlocked, boss phase, NPC heal, inventory close, and the 10 s autosave. The title screen's Continue restores the checkpoint; dying restores it too, so death costs the current wave, not the level.
+- **Migration.** On first load, a V1 record moves into the Sorcerer slot and the old key is removed. Unknown versions start fresh and keep the raw JSON under `necromantle.backup.<timestamp>` so nothing is silently lost.
+- **Index record.** `necromantle.index` lists the slots with `lastPlayed`, so the title screen's Continue knows which class to open without parsing every slot.
+- **Safety.** Every write goes through one `Save.commit(slot, data)` that JSON-serialises, checks the size against a 2 MB budget, and catches quota errors with a HUD toast ("Could not save: storage full"). Reads validate shape before use; a corrupt slot is renamed to a backup, not deleted.
+- **Delete** from the character select asks for confirmation and removes the slot and its index entry.
+- **Dev panel**: export the current slot as a JSON download and import from a file, for bug reports and testing. Still local storage underneath.
+
 ## Engineering steps
 
 | # | Step | Files | Estimate | Acceptance |
 |---|---|---|---|---|
 | 1 | Title screen and audio unlock | `ui/title.ts`, `game.ts` boot path | 0.5 day | Game opens on the title over the live hub; Continue restores the save |
-| 2 | Class select with 3D pedestals and per-class saves | `ui/classSelect.ts`, `persistence/save.ts` (v2 + migration), `assets/registry.ts` (char.knight, char.hunter, char.reaver) | 1 day | Sorcerer playable from the select; other three appear locked; old save lands in the Sorcerer slot |
+| 2 | Save slots (V2, index, migration, checkpoints, quota handling, export/import) | `persistence/save.ts`, `game.ts`, `ui/debug.ts` | 1 day | Old save lands in the Sorcerer slot; dying restores the last checkpoint; a full-storage write shows a toast instead of failing silently |
+| 2b | Class select with 3D pedestals reading the slots | `ui/classSelect.ts`, `assets/registry.ts` (char.knight, char.hunter, char.reaver) | 1 day | Sorcerer playable from the select; other three appear locked; each slot shows level, area, play time |
 | 3 | Melee primitives | `combat/melee.ts` (arc and lane hit queries from facing, lunge magnetism, weapon trail mesh), `player/animator.ts` (attack chains) | 1 day | A test ability swings an arc that hits the ring of ghouls in the harness |
 | 4 | Resource generalisation | `player/player.ts` (`resource` with gain/decay rules from `ClassDef`), `ui/hud.ts` (orb colour, name, Frenzy full-state glow) | 0.5 day | Sorcerer unchanged; Fury decays out of combat in the harness |
 | 5 | Sepulcher Knight | `content/classes.ts`, `content/abilities.ts`, `abilities/impl/knight.ts`, sfx names, VFX | 2 days | All six abilities against 8–24 packs; camera and hit reactions hold at melee range |
@@ -88,7 +101,7 @@ Each class keeps the loop generate → position → spend → clear. Ability def
 | 9 | Class-aware loot | `content/items.ts` (class restriction, per-class legendaries), `loot/generator.ts` | 1 day | A Knight never rolls a staff; each class has two legendaries |
 | 10 | Storyboard, docs, gap analysis, captures | `docs/` | 0.5 day | One capture per class in the select and mid-combat |
 
-Order: 1 → 2 → 3 → 4 → 5, then 8 and 9, then 6 and 7. The Knight goes first because melee stresses the camera, hitboxes, and enemy reactions the most.
+Order: 1 → 2 → 2b → 3 → 4 → 5, then 8 and 9, then 6 and 7. The Knight goes first because melee stresses the camera, hitboxes, and enemy reactions the most.
 
 ## Risks
 
