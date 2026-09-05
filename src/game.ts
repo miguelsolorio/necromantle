@@ -150,7 +150,7 @@ export class Game {
     this.spawnTimer = 8;
     void (async () => {
       for (let i = 0; i < 12; i++) {
-        const at = new Vector3(dp.x + (Math.random() - 0.5) * 5, dp.y, dp.z + 1 + Math.random() * 1.5);
+        const at = new Vector3(dp.x + (Math.random() - 0.5) * 5, dp.y, dp.z - 1.5 + Math.random() * 1.5);
         await this.enemies.spawn(i % 5 === 4 ? 'wraith' : 'ghoul', at, i === 11);
       }
     })();

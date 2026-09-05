@@ -108,6 +108,16 @@ export class BenchmarkScene extends World {
     p.push({ id: 'kit.wall_pillar', x: T * 1.2, z: topZ + T * 2 - 1, y: topY, scale: 2.5, collide: true });
     p.push({ id: 'kit.wall', x: -T * 2.2, z: topZ + T * 2 - 1, y: topY, rot: Math.PI, scale: 2.5, collide: true });
     p.push({ id: 'kit.wall', x: T * 2.2, z: topZ + T * 2 - 1, y: topY, rot: Math.PI, scale: 2.5, collide: true });
+    // plinth: walls under every edge of the threshold so it reads as a solid raised block, not a floating slab
+    const plinth: [number, number, number, number][] = [
+      [3.5 * stairScale[0] + 2.2, topZ, 0, 1.1], [-(3.5 * stairScale[0] + 2.2), topZ, 0, 1.1],
+      [T * 1.5, topZ + T * 0.5, Math.PI / 2, 1.5], [T * 1.5, topZ + T * 1.5, Math.PI / 2, 1.5],
+      [-T * 1.5, topZ + T * 0.5, -Math.PI / 2, 1.5], [-T * 1.5, topZ + T * 1.5, -Math.PI / 2, 1.5],
+      [-T, topZ + T * 2, Math.PI, 1.5], [0, topZ + T * 2, Math.PI, 1.5], [T, topZ + T * 2, Math.PI, 1.5],
+    ];
+    for (const [x, z, rot, sx] of plinth) p.push({ id: 'kit.wall', x, z, rot, scaleV: [sx, topY / 4, 1.5], collide: false });
+    // fill the slots between the staircase and the perimeter wall
+    for (const sx of [-1, 1]) p.push({ id: 'kit.wall', x: sx * (3.5 * stairScale[0] + 1.0), z: half, rot: Math.PI, scaleV: [0.5, S, S], collide: false });
     // banners on the door wall
     p.push({ id: 'kit.banner_triple_red', x: -T * 1.2, z: topZ + T * 2 - 1.9, y: topY + 2.5, rot: Math.PI, scale: 2.2 });
     p.push({ id: 'kit.banner_triple_red', x: T * 1.2, z: topZ + T * 2 - 1.9, y: topY + 2.5, rot: Math.PI, scale: 2.2 });
