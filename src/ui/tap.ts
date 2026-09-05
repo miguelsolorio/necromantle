@@ -2,10 +2,14 @@
  * Touch-safe activation. iOS Safari withholds the compat `click` after a tap when the hover pass changes content
  * or starts a transition on the element (the title buttons animate on hover), so touch pointers activate on a
  * clean `pointerup` instead, and the late compat click is swallowed. Mice keep the plain click path.
+ *
+ * The swallow window is shared across elements: when the activation swaps the screen under the finger (title
+ * menu to character select), the compat click can land on whatever now sits there, and that one is a ghost too.
  */
+let touchAt = 0;
+
 export function onActivate(el: Element, fn: (e: Event) => void): void {
   let down: { x: number; y: number } | null = null;
-  let touchAt = 0;
   el.addEventListener('pointerdown', (e) => { const p = e as PointerEvent; if (p.pointerType !== 'mouse') down = { x: p.clientX, y: p.clientY }; });
   el.addEventListener('pointerup', (e) => {
     const p = e as PointerEvent;

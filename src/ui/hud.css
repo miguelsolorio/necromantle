@@ -215,16 +215,16 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; ove
 @keyframes turn { 0%, 15% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
 @media (orientation: portrait) { html.phone.playing #rotate { display: grid; } }
 
-/* touch layer (input/touch.ts): floating stick, top-right buttons */
-.touch { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.touch .stick { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; border: 2px solid rgba(217,181,106,.4); background: radial-gradient(circle, rgba(20,16,26,.55), rgba(20,16,26,.12) 70%); display: none; }
-.touch .stick.on { display: block; }
-.touch .stick.sprint { border-color: #ffd27a; box-shadow: 0 0 16px rgba(255,210,122,.45); }
-.touch .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #e9dcc0, #8a6a2a 70%); box-shadow: 0 2px 8px #000, inset 0 0 0 2px rgba(0,0,0,.35); }
-.touch .tbtns { position: absolute; right: calc(var(--sr) + 10px); top: calc(var(--st) + 8px); display: flex; gap: 8px; pointer-events: auto; }
-.touch .tbtn { width: 44px; height: 44px; padding: 0; border-radius: 8px; background: rgba(10,8,14,.72); border: 1px solid #4a3b2a; box-shadow: 0 0 0 1px #17121a; color: #d9b56a; display: grid; place-items: center; touch-action: manipulation; }
-.touch .tbtn svg { width: 24px; height: 24px; }
-.touch .tbtn:active { background: #2a2235; }
+/* touch layer (input/touch.ts): floating stick, top-right buttons. Its own class, not `.touch`: that class is the platform flag on <html>, and a bare `.touch` rule would put pointer-events: none on the whole page. */
+.touch-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.touch-layer .stick { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; border: 2px solid rgba(217,181,106,.4); background: radial-gradient(circle, rgba(20,16,26,.55), rgba(20,16,26,.12) 70%); display: none; }
+.touch-layer .stick.on { display: block; }
+.touch-layer .stick.sprint { border-color: #ffd27a; box-shadow: 0 0 16px rgba(255,210,122,.45); }
+.touch-layer .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #e9dcc0, #8a6a2a 70%); box-shadow: 0 2px 8px #000, inset 0 0 0 2px rgba(0,0,0,.35); }
+.touch-layer .tbtns { position: absolute; right: calc(var(--sr) + 10px); top: calc(var(--st) + 8px); display: flex; gap: 8px; pointer-events: auto; }
+.touch-layer .tbtn { width: 44px; height: 44px; padding: 0; border-radius: 8px; background: rgba(10,8,14,.72); border: 1px solid #4a3b2a; box-shadow: 0 0 0 1px #17121a; color: #d9b56a; display: grid; place-items: center; touch-action: manipulation; }
+.touch-layer .tbtn svg { width: 24px; height: 24px; }
+.touch-layer .tbtn:active { background: #2a2235; }
 
 /* touch HUD: text top-left, buttons top-right, orbs bottom-centre, skills in a thumb arc bottom-right */
 html.touch .areaname { left: calc(var(--sl) + 12px); right: auto; top: calc(var(--st) + 10px); text-align: left; font-size: 13px; }

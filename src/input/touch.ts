@@ -32,7 +32,7 @@ export class TouchControls {
   private readonly walkAt = 1.1;
 
   constructor(private input: Input, hud: HTMLElement, private canvas: HTMLCanvasElement, hooks: TouchHooks) {
-    this.el = document.createElement('div'); this.el.className = 'touch';
+    this.el = document.createElement('div'); this.el.className = 'touch-layer';
     this.el.innerHTML = `
       <div class="stick"><div class="knob"></div></div>
       <div class="tbtns">
