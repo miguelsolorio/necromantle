@@ -5,7 +5,7 @@ import type { Enemy } from '@/enemies/enemy';
 import type { Player } from '@/player/player';
 import { ICONS } from './icons';
 import { ELITE_MODS } from '@/content/elites';
-import { CLASSES } from '@/content/classes';
+import { CLASSES, type ClassDef } from '@/content/classes';
 import { audio } from '@/audio';
 
 interface Num { el: HTMLSpanElement; t: number; busy: boolean }
@@ -17,7 +17,7 @@ export class Hud {
   private slots = new Map<string, { el: HTMLElement; cd: HTMLElement; wasReady: boolean }>();
   private xp: HTMLElement; private lvl: HTMLElement;
   private area: HTMLElement; private objective: HTMLElement; private lock: HTMLElement; private lockhint: HTMLElement; private toastEl: HTMLElement; private deadEl: HTMLElement;
-  private potion: { el: HTMLElement; cd: HTMLElement };
+  private potion!: { el: HTMLElement; cd: HTMLElement };
   private nums: Num[] = [];
   private bars = new Map<number, HTMLElement>();
   private barPool: HTMLElement[] = [];
@@ -53,16 +53,24 @@ export class Hud {
     this.enFill = q('.hud-orb.energy .fill'); this.enVal = q('.hud-orb.energy .val');
     this.xp = q('.xpbar i'); this.lvl = q('.xpbar .lvl');
     this.area = q('[data-area]'); this.objective = q('[data-obj]'); this.lock = q('.softlock'); this.lockhint = q('.lockhint'); this.toastEl = q(".toast"); this.deadEl = q(".dead"); this.hurtVig = q(".hurtvig"); this.promptEl = q(".prompt");
-    const bar = q('.skillbar');
-    for (const id of CLASSES.sorcerer.abilities) {
-      const el = document.createElement('div'); el.className = 'slot'; el.innerHTML = `${ICONS[id]}<div class="cdv" style="display:none"></div><div class="key"></div>`;
+    this.setClass(CLASSES.sorcerer);
+    for (let i = 0; i < 48; i++) { const el = document.createElement('span'); el.className = 'dmg'; this.root.appendChild(el); this.nums.push({ el, t: 0, busy: false }); }
+  }
+
+  /** Rebuild the skill bar and recolour the resource orb for a class. */
+  setClass(cls: ClassDef): void {
+    const bar = this.root.querySelector('.skillbar') as HTMLElement; bar.innerHTML = ''; this.slots.clear();
+    for (const id of cls.abilities) {
+      const el = document.createElement('div'); el.className = 'slot'; el.innerHTML = `${ICONS[id] ?? ICONS.generic}<div class="cdv" style="display:none"></div><div class="key"></div>`;
       bar.appendChild(el);
       this.slots.set(id, { el, cd: el.querySelector('.cdv')!, wasReady: false });
     }
     const div = document.createElement('div'); div.className = 'slot divider'; bar.appendChild(div);
     const pot = document.createElement('div'); pot.className = 'slot ready'; pot.innerHTML = `${ICONS.potion}<div class="cdv" style="display:none"></div><div class="key">Q</div>`; bar.appendChild(pot);
     this.potion = { el: pot, cd: pot.querySelector('.cdv')! };
-    for (let i = 0; i < 48; i++) { const el = document.createElement('span'); el.className = 'dmg'; this.root.appendChild(el); this.nums.push({ el, t: 0, busy: false }); }
+    const orb = this.root.querySelector('.hud-orb.energy') as HTMLElement;
+    orb.classList.remove('fury', 'focus', 'blood'); if (cls.resource.hudClass !== 'energy') orb.classList.add(cls.resource.hudClass);
+    orb.title = cls.resource.name;
   }
 
   setHidden(h: boolean): void { this.hidden = h; this.root.classList.toggle('hidden', h); }

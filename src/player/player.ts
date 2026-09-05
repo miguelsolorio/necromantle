@@ -28,7 +28,11 @@ export interface Bonus { arcane: number; fire: number; frost: number; moveSpeed:
 export class Player {
   readonly root: TransformNode;
   readonly collider: Mesh;
-  readonly cls: ClassDef = CLASSES.sorcerer;
+  cls: ClassDef = CLASSES.sorcerer;
+  /** Swing counter for melee attack chains. */
+  swing = 0;
+  /** Seconds since the last hit dealt or taken; resources with `decay` drain once this passes 3 s. */
+  sinceCombat = 99;
   model!: TransformNode;
   animator: Animator | null = null;
   readonly velocity = new Vector3();
@@ -48,6 +52,13 @@ export class Player {
   weaponDamage = 20;
   hpMax = 0; hp = 0;
   energyMax = CLASSES.sorcerer.resource.max; energy = CLASSES.sorcerer.resource.start;
+
+  /** Must be called before `load`. Resets the resource to the class's starting value. */
+  setClass(cls: ClassDef): void { this.cls = cls; this.energyMax = cls.resource.max; this.energy = cls.resource.start; }
+  /** Resource gain on a kill (Focus, Blood). */
+  onKill(): void { this.energy = clamp(this.energy + this.cls.resource.onKill, 0, this.energyMax); this.sinceCombat = 0; }
+  /** Resource gain on a hit dealt (all classes; abilities pass their own amount). */
+  onHit(amount: number): void { this.energy = clamp(this.energy + amount, 0, this.energyMax); this.sinceCombat = 0; }
   invulnerable = 0;
   stance = 0;             // seconds remaining in combat stance (faces camera, strafes)
   castLock = 0;           // seconds the player is held by a cast animation
@@ -234,6 +245,8 @@ export class Player {
   xpToNext(): number { return XP_TABLE[Math.min(this.level, XP_TABLE.length - 1)]; }
 
   takeDamage(n: number, god = false): void {
+    this.sinceCombat = 0;
+    if (this.cls.resource.onHurt > 0 && !this.dead && this.invulnerable <= 0) this.energy = clamp(this.energy + this.cls.resource.onHurt, 0, this.energyMax);
     if (this.dead || this.invulnerable > 0 || god) return;
     const mitigated = n * (100 / (100 + this.stats.armor * 0.6));
     this.hp = Math.max(0, this.hp - mitigated);
@@ -286,7 +299,12 @@ export class Player {
     this.stance = Math.max(0, this.stance - dt);
     this.castLock = Math.max(0, this.castLock - dt);
     this.potionCd = Math.max(0, this.potionCd - dt);
-    this.energy = clamp(this.energy + (this.cls.resource.regen + this.bonus.energyRegen) * dt, 0, this.energyMax);
+    this.sinceCombat += dt;
+    const r = this.cls.resource;
+    let gain = (r.regen + this.bonus.energyRegen) * dt;
+    if (r.stillRegen > 0 && !this.moving && !this.dead) gain += r.stillRegen * dt;
+    if (r.decay > 0 && this.sinceCombat > 3) gain -= r.decay * dt;
+    this.energy = clamp(this.energy + gain, 0, this.energyMax);
     this.staffLight.position.copyFrom(this.staffTip());
 
     if (this.dead) { this.animator?.update(dt); return; }

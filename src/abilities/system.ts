@@ -3,7 +3,7 @@ import type { ThirdPersonCamera } from '@/camera/thirdPerson';
 import { rollDamage } from '@/combat/damage';
 import type { Projectiles } from '@/combat/projectiles';
 import type { Targeting } from '@/combat/targeting';
-import { ABILITIES, ABILITY_ORDER, type AbilityDef, type AbilityId } from '@/content/abilities';
+import { ABILITIES, ABILITY_ORDER, SLOT_KEYS, type AbilityDef, type AbilityId } from '@/content/abilities';
 import type { EventBus } from '@/core/events';
 import type { EnemyManager } from '@/enemies/manager';
 import type { Input } from '@/input/input';
@@ -16,17 +16,17 @@ import { audio } from '@/audio';
 export interface AbilityContext { player: Player; cam: ThirdPersonCamera; enemies: EnemyManager; projectiles: Projectiles; vfx: Vfx; targeting: Targeting; bus: EventBus; world: World; areas: Areas }
 export interface SlotState { id: AbilityId; def: AbilityDef; ready: boolean; cd: number; cdMax: number; noEnergy: boolean; locked: boolean }
 
-const KEYS: Record<AbilityId, string> = { bolt: 'Mouse0', orb: 'Mouse2', rift: 'Digit1', nova: 'Digit2', frost: 'Digit3', cataclysm: 'Digit4' };
+const zero = (): Record<AbilityId, number> => Object.fromEntries(ABILITY_ORDER.map((id) => [id, 0])) as Record<AbilityId, number>;
 
 /** Cooldowns, costs, unlocks and the actual ability behaviours. Reads data from `content/abilities`. */
 export class AbilitySystem {
-  cooldowns: Record<AbilityId, number> = { bolt: 0, orb: 0, rift: 0, nova: 0, frost: 0, cataclysm: 0 };
+  cooldowns: Record<AbilityId, number> = zero();
   /** Extra stored uses (Boots of the Fold give Rift Step a second charge). */
-  charges: Record<AbilityId, number> = { bolt: 0, orb: 0, rift: 0, nova: 0, frost: 0, cataclysm: 0 };
+  charges: Record<AbilityId, number> = zero();
   cdMult = 1;
   infiniteEnergy = false;
   unlockAll = false;
-  private repeat: Record<AbilityId, number> = { bolt: 0, orb: 0, rift: 0, nova: 0, frost: 0, cataclysm: 0 };
+  private repeat: Record<AbilityId, number> = zero();
   private tmp = new Vector3();
 
   /** Ability behaviours keyed by id; a class lists which ids it owns (content/classes.ts). */
@@ -64,7 +64,7 @@ export class AbilitySystem {
     const p = this.ctx.player;
     if (p.dead) return;
     for (const id of p.cls.abilities) {
-      const key = KEYS[id];
+      const key = SLOT_KEYS[ABILITIES[id].slot];
       const held = key.startsWith('Mouse') ? input.buttonDown(+key.slice(5)) : input.isDown(key);
       const pressed = key.startsWith('Mouse') ? input.buttonPressed(+key.slice(5)) : input.wasPressed(key);
       const def = ABILITIES[id];

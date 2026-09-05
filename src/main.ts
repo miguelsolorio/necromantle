@@ -10,5 +10,5 @@ import('./audio').then((m) => { (window as any).audio = m.audio; });
 import('@babylonjs/core').then((B) => { (window as any).BABYLON = B; });
 
 game.start(canvas, (s) => { bootStatus.textContent = s; })
-  .then(() => { bootStatus.textContent = `${game.backend} · click to play`; boot.classList.add('done'); canvas.focus(); })
+  .then(() => { boot.classList.add('done'); canvas.focus(); })
   .catch((e) => { console.error(e); bootStatus.textContent = `Failed to start: ${e?.message ?? e}`; });

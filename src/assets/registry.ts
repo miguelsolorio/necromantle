@@ -6,11 +6,14 @@ const KIT = ['floor_tile_large', 'floor_tile_small', 'floor_tile_small_broken_A'
   'barrier', 'barrier_half', 'barrier_column', 'floor_wood_large', 'floor_wood_small', 'floor_dirt_small_A', 'floor_dirt_small_weeds', 'shelf_small_candles', 'bed_decorated', 'bottle_A_green', 'bottle_B_brown', 'plate_food_A', 'coin_stack_small', 'torch', 'table_long', 'table_medium', 'stool', 'wall_doorway', 'wall_doorway_sides', 'floor_foundation_allsides', 'trunk_medium_A'] as const;
 
 export type KitId = `kit.${(typeof KIT)[number]}`;
-export type AssetId = 'char.sorcerer' | 'char.staff' | 'npc.smith' | 'npc.merchant' | 'npc.guard' | 'enemy.ghoul' | 'enemy.fallen_knight' | 'enemy.cultist' | 'enemy.wraith' | KitId;
+export type AssetId = 'char.sorcerer' | 'char.knight' | 'char.hunter' | 'char.reaver' | 'char.staff' | 'npc.smith' | 'npc.merchant' | 'npc.guard' | 'enemy.ghoul' | 'enemy.fallen_knight' | 'enemy.cultist' | 'enemy.wraith' | KitId;
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const table: Record<string, string> = {
   'char.sorcerer': 'assets/characters/sorcerer.glb',
+  'char.knight': 'assets/characters/knight.glb',
+  'char.hunter': 'assets/characters/hunter.glb',
+  'char.reaver': 'assets/characters/reaver.glb',
   'char.staff': 'assets/characters/staff.gltf',
   'npc.smith': 'assets/characters/npc_smith.glb',
   'npc.merchant': 'assets/characters/npc_merchant.glb',

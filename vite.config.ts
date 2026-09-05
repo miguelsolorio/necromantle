@@ -30,6 +30,8 @@ function snapshotSink(): Plugin {
 }
 
 export default defineConfig({
+  // GitHub Pages serves this repo from /<repo>/; CI sets BASE_PATH, local dev/preview stay at /.
+  base: process.env.BASE_PATH ?? '/',
   plugins: [snapshotSink()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: { fs: { strict: true } },

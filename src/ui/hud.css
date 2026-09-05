@@ -21,6 +21,9 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; }
 .hud-orb .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 70%; transition: height .25s; }
 .hud-orb.health .fill { background: radial-gradient(circle at 35% 25%, #ff5b5b, #b3121f 45%, #4a0810 100%); }
 .hud-orb.energy .fill { background: radial-gradient(circle at 40% 25%, #9ef2ff, #37d2f0 35%, #4a2fb8 75%, #1a0f4a 100%); }
+.hud-orb.energy.fury .fill { background: radial-gradient(circle at 40% 25%, #ffe6b0, #f0a437 35%, #8a3a10 75%, #2a0f05 100%); }
+.hud-orb.energy.focus .fill { background: radial-gradient(circle at 40% 25%, #eaffc8, #7ed957 35%, #2f6b2a 75%, #0d2a10 100%); }
+.hud-orb.energy.blood .fill { background: radial-gradient(circle at 40% 25%, #ffb3a7, #c0392b 35%, #5a0f14 75%, #1a0508 100%); }
 .hud-orb .fill::before { content: ""; position: absolute; left: -20%; right: -20%; top: -6%; height: 12%; border-radius: 50%; background: rgba(255,255,255,.25); filter: blur(calc(var(--u)*.3)); animation: slosh 3.4s ease-in-out infinite; }
 .hud-orb .gloss { position: absolute; inset: 8% 14% 45% 14%; border-radius: 50%; background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.35), transparent 65%); }
 .hud-orb .val { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--u)*1.35); font-weight: 700; color: #fff; text-shadow: 0 0 calc(var(--u)*.4) #000, 0 .1em .2em #000; letter-spacing: .04em; font-variant-numeric: tabular-nums; }

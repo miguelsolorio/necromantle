@@ -16,6 +16,9 @@ export class ThirdPersonCamera {
   combatTarget = 0;
   combat = 0;
   distanceOverride: number | null = null;
+  /** Title and select screens: the camera glides to a fixed pose and ignores the player. */
+  cinematic: { pos: Vector3; target: Vector3 } | null = null;
+  private cinePos = new Vector3(); private cineLook = new Vector3(); private cineInit = false;
   fovOverride: number | null = null;
   private dist: number = CAMERA.exploreDistance;
   private shakeAmt = 0;
@@ -43,6 +46,16 @@ export class ThirdPersonCamera {
   }
 
   update(dt: number, feet: Vector3, mouse: { dx: number; dy: number }, obstruct: Obstruct): void {
+    if (this.cinematic) {
+      if (!this.cineInit) { this.cinePos.copyFrom(this.cinematic.pos); this.cineLook.copyFrom(this.cinematic.target); this.cineInit = true; }
+      const k = 1 - Math.exp(-dt * 1.6);
+      this.cinePos.addInPlace(this.cinematic.pos.subtract(this.cinePos).scale(k));
+      this.cineLook.addInPlace(this.cinematic.target.subtract(this.cineLook).scale(k));
+      this.camera.position.copyFrom(this.cinePos); this.camera.setTarget(this.cineLook);
+      this.camera.fov = damp(this.camera.fov, (CAMERA.exploreFov * Math.PI) / 180, 4, dt);
+      return;
+    }
+    this.cineInit = false;
     this.yaw += mouse.dx * CAMERA.sensitivity;
     this.pitch = clamp(this.pitch + mouse.dy * CAMERA.sensitivity, CAMERA.minPitch, CAMERA.maxPitch);
     this.combat = damp(this.combat, this.combatTarget, 2.2, dt);

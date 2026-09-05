@@ -9,7 +9,11 @@ import { rollItem } from '@/loot/generator';
 import { InventoryUI } from '@/ui/inventory';
 import { RARITY } from '@/content/items';
 import { IMPROVEMENTS } from '@/content/passives';
-import { Save } from '@/persistence/save';
+import { Save, type SaveV2, type Settings } from '@/persistence/save';
+import { TitleScreen, type TitleView } from '@/ui/title';
+import { SelectStage } from '@/world/selectStage';
+import { CLASSES } from '@/content/classes';
+import type { ClassId } from '@/content/abilities';
 import { Projectiles } from '@/combat/projectiles';
 import { Targeting } from '@/combat/targeting';
 import type { EnemyId } from '@/content/enemies';
@@ -72,6 +76,16 @@ export class Game {
   private transitioning = false;
   private saveTimer = 10;
   private ssaoOn = false;
+  /** 'title' and 'select' run the hub as a backdrop; 'play' is the game. */
+  mode: 'boot' | 'title' | 'select' | 'play' = 'boot';
+  title!: TitleScreen;
+  stage!: SelectStage;
+  classId: ClassId = 'sorcerer';
+  private playTime = 0;
+  private stats = { kills: 0, eliteKills: 0, deaths: 0, legendaries: 0 };
+  private settings: Settings = { music: 0.8, sfx: 0.9, ssao: false };
+  private titleT = 0;
+  private launched = false;
   private nearby: import('@/enemies/enemy').Enemy[] = [];
   private spawning = false;
   /** Nothing hostile happens until the player has clicked in once. */
@@ -92,6 +106,7 @@ export class Game {
     this.levelIndex = 0;
     this.world = new this.levels[0](this.scene, this.loader, this.rig);
     this.player = new Player(this.scene, this.bus);
+    this.hud = new Hud(this.cam);
     this.projectiles = new Projectiles(this.scene, this.vfx, this.rig);
     this.enemies = new EnemyManager(this.scene, this.loader, this.rig, this.bus, this.vfx, this.projectiles, this.world);
     this.targeting = new Targeting();
@@ -99,7 +114,6 @@ export class Game {
     this.areas = new Areas(this.enemies, this.vfx, this.cam, this.rig);
     this.drops = new Drops(this.scene, this.vfx, this.rig, this.bus, this.world);
     this.abilities = new AbilitySystem({ player: this.player, cam: this.cam, enemies: this.enemies, projectiles: this.projectiles, vfx: this.vfx, targeting: this.targeting, bus: this.bus, world: this.world, areas: this.areas });
-    this.hud = new Hud(this.cam);
     this.inventoryUI = new InventoryUI(this.player, () => { /* stats already recomputed */ }, (open) => { this.input.wantsLock = !open; if (open) this.input.release(); });
     this.dbg = new DebugPanel({
       spawn: (k, n, elite) => this.spawnPack(k as EnemyId, n, !!elite),
@@ -107,33 +121,87 @@ export class Game {
       screenshot: () => { void this.snapshot(`shot-${Date.now()}`); },
       teleport: (w) => this.teleport(w),
       levelUp: () => this.player.addXp(this.player.xpToNext() - this.player.xp),
-      wipe: () => { Save.wipe(); location.search = '?new=1'; },
+      wipe: () => { Save.wipe(); location.search = `?new=1&play=${this.classId}`; },
       nextLevel: () => { if (!this.transitioning) { this.waveState = 'done'; void this.transition(); } },
       loot: (legendary) => { for (let i = 0; i < (legendary ? 1 : 5); i++) this.drops.drop(rollItem(this.player.level + this.levelIndex * 2, legendary ? 'legendary' : undefined), this.player.position.add(new Vector3((Math.random() - 0.5) * 2, 0, 2 + Math.random()))); },
       volume: (bus, v) => audio.engine.setVolume(bus, v),
       getVolume: (bus) => audio.engine.getVolume(bus),
     }, this.input);
 
-    const startLevel = this.restore();
-    if (startLevel !== 0) { this.world.dispose(); this.levelIndex = startLevel; this.world = new this.levels[startLevel](this.scene, this.loader, this.rig); this.enemies?.setWorld?.(this.world); }
-    status(startLevel === 0 ? 'Raising Hollowmere…' : `Returning to ${this.levels[startLevel].name.toLowerCase()}…`);
+    Save.migrate();
+    Save.onError = (msg) => this.hud?.toast('SAVE', msg.toUpperCase(), 3);
+    const settings = Save.load(Save.lastPlayed() ?? 'sorcerer')?.settings; if (settings) this.applySettings(settings);
+    status('Raising Hollowmere…');
     await this.world.build();
     this.enterLevel();
-    status('Summoning the Sorcerer…');
-    await this.player.load(this.loader, this.rig);
-    this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
-    this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
-    status('Waking the dead…');
-    await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith', 'brute', 'necromancer', 'hollow_king']);
-    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
-    if (this.player.level > 1) this.hud.toast(`WELCOME BACK · LEVEL ${this.player.level}`, this.player.passiveNames ? this.player.passiveNames.toUpperCase() : '', 3);
-    this.wireEvents();
+    this.stage = new SelectStage(this.scene, this.loader, this.rig);
+    status('Carving the pedestals…');
+    await this.stage.build();
+    this.stage.setVisible(false);
+    this.hud.setHidden(true);
+    this.title = new TitleScreen({
+      slots: () => Save.slots(), lastPlayed: () => Save.lastPlayed(), backend: this.backend,
+      onView: (v) => this.onTitleView(v),
+      onFocus: (id) => { this.stage.focused = id; this.cam.cinematic = this.stage.cameraPose(id); },
+      onPreview: (id, clip) => this.stage.preview(id, clip),
+      onBegin: (id, fresh) => { void this.launch(id, fresh); },
+      onDelete: (id) => Save.remove(id),
+      getSettings: () => this.settings, onSettings: (st) => this.applySettings(st),
+    });
     this.instr = new SceneInstrumentation(this.scene);
     this.instr.captureFrameTime = true;
-
     window.addEventListener('resize', () => engine.resize());
     this.loop = new GameLoop(engine, this.scene, (dt) => this.fixed(dt), (dt) => this.frame(dt));
     this.loop.start();
+    // harness and deep links: ?play=<class> skips the title
+    const auto = new URLSearchParams(location.search).get('play') as ClassId | null;
+    if (auto && CLASSES[auto]) await this.launch(auto, new URLSearchParams(location.search).has('new'));
+    else this.title.show('title');
+  }
+
+  private onTitleView(v: TitleView): void {
+    if (v === 'hidden') return;
+    this.mode = v;
+    this.stage.setVisible(v === 'select');
+    if (v === 'select') this.cam.cinematic = this.stage.cameraPose(this.stage.focused);
+    else this.cam.cinematic = this.titlePose(0);
+  }
+
+  /** Slow drift around the village square for the title backdrop. */
+  private titlePose(t: number): { pos: Vector3; target: Vector3 } {
+    const a = t * 0.05; const r = 15;
+    return { pos: new Vector3(Math.sin(a) * r, 5.5, Math.cos(a) * r), target: new Vector3(0, 1.5, 0) };
+  }
+
+  applySettings(st: Settings): void {
+    this.settings = { ...st };
+    audio.engine.setVolume('music', st.music); audio.engine.setVolume('sfx', st.sfx);
+    if (this.dbg) this.dbg.state.ssao = st.ssao;
+  }
+
+  /** Leave the title: load the chosen class, restore its slot (or start fresh), build the saved level, hand over the controls. */
+  async launch(classId: ClassId, fresh: boolean): Promise<void> {
+    if (this.launched) return; this.launched = true;
+    const cls = CLASSES[classId]; this.classId = classId;
+    this.title.show('hidden'); this.mode = 'play'; this.stage.setVisible(false); this.cam.cinematic = null;
+    this.hud.fade(true);
+    if (fresh) Save.remove(classId);
+    if (new URLSearchParams(location.search).has('new')) Save.wipe();
+    this.player.setClass(cls);
+    const startLevel = this.restore();
+    if (startLevel !== 0) { this.world.dispose(); this.levelIndex = startLevel; this.world = new this.levels[startLevel](this.scene, this.loader, this.rig); await this.world.build(); this.enterLevel(); }
+    this.hud.setClass(cls);
+    await this.player.load(this.loader, this.rig);
+    this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
+    this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
+    await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith', 'brute', 'necromancer', 'hollow_king']);
+    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
+    this.wireEvents();
+    this.hud.setHidden(this.dbg.state.hideHud);
+    this.hud.fade(false);
+    if (this.player.level > 1) this.hud.toast(`WELCOME BACK · LEVEL ${this.player.level}`, this.player.passiveNames ? this.player.passiveNames.toUpperCase() : '', 3);
+    else this.hud.toast(cls.name.toUpperCase(), 'CLICK TO TAKE THE FIELD', 3);
+    this.save();
   }
 
   private wireEvents(): void {
@@ -143,7 +211,8 @@ export class Game {
       if (!killed) audio.play(element === 'fire' && amount < 40 ? 'burnTick' : 'enemyHit', pos, { pitch: crit ? 0.8 : 0.9 + Math.random() * 0.25, gain: crit ? 1.2 : 0.8 });
     });
     this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning }) => {
-      this.player.addXp(xp);
+      this.player.addXp(xp); this.player.onKill();
+      this.stats.kills++; if (elite) this.stats.eliteKills++;
       audio.play(elite ? 'eliteDeath' : 'enemyDeath', pos);
       if (elite) this.loop.hitStop(0.14, 0.08);
       this.drops.dropFor(id, elite, pos, Math.min(10, this.player.level + this.levelIndex * 2));
@@ -188,22 +257,43 @@ export class Game {
     this.spawning = false;
   }
 
-  /** Persist progression (level, XP, bag, gear, passives, level reached). */
+  /** Persist the class slot: progression, bag, gear, passives, checkpoint, stats, settings. */
   save(): void {
-    Save.store({ level: this.player.level, xp: this.player.xp, levelIndex: this.levelIndex, inventory: this.player.inventory, equipment: this.player.equipment, passives: this.player.passives });
+    if (this.mode !== 'play') return;
+    const p = this.player;
+    const prev = Save.load(this.classId);
+    const rec: SaveV2 = {
+      version: 2, classId: this.classId, createdAt: prev?.createdAt ?? Date.now(), savedAt: Date.now(), playTime: this.playTime,
+      level: p.level, xp: p.xp, levelIndex: this.levelIndex, areaName: this.world.name, waveIndex: this.wave,
+      hp: p.hp, resource: p.energy, inventory: p.inventory, equipment: p.equipment, passives: p.passives,
+      stats: { ...this.stats }, settings: { ...this.settings },
+    };
+    Save.commit(rec);
   }
 
-  /** Restore a save if present. Returns the level index to start on. */
+  /** Restore the class slot if present. Returns the level index to start on. */
   private restore(): number {
-    if (new URLSearchParams(location.search).has('new')) { Save.wipe(); return 0; }
-    const s = Save.load();
-    if (!s) return 0;
+    const s = Save.load(this.classId);
+    if (!s) { this.playTime = 0; this.stats = { kills: 0, eliteKills: 0, deaths: 0, legendaries: 0 }; return 0; }
     this.player.level = Math.max(1, Math.min(10, s.level)); this.player.xp = s.xp;
     this.player.inventory = s.inventory ?? [];
     for (const k of Object.keys(this.player.equipment)) (this.player.equipment as any)[k] = (s.equipment as any)?.[k] ?? null;
     this.player.passives = [s.passives?.[0] ?? null, s.passives?.[1] ?? null];
-    this.player.recalcStats(); this.player.hp = this.player.hpMax;
+    this.player.recalcStats(); this.player.hp = s.hp > 0 ? Math.min(this.player.hpMax, s.hp) : this.player.hpMax;
+    if (s.resource >= 0) this.player.energy = Math.min(this.player.energyMax, s.resource);
+    this.playTime = s.playTime ?? 0; this.stats = { ...{ kills: 0, eliteKills: 0, deaths: 0, legendaries: 0 }, ...(s.stats ?? {}) };
+    if (s.settings) this.applySettings(s.settings);
     return Math.max(0, Math.min(this.levels.length - 1, s.levelIndex ?? 0));
+  }
+
+  /** Death: count it, then bring the level back to the last checkpoint (start of the level, waves reset). */
+  private checkpoint(): void {
+    this.stats.deaths++;
+    this.player.respawn(this.world.playerStart); this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
+    this.enemies.clear(); this.projectiles.clear(); this.areas.clear();
+    this.wave = 0; if (!this.world.safe) { this.waveState = 'idle'; this.countdown = 4; } this.world.setPortalOpen?.(this.world.safe ? 0.25 : 0);
+    this.hud.toast('YOU RISE AGAIN', `${this.world.name} · WAVES RESET`, 2.5);
+    this.save();
   }
 
   /** Per-level setup shared by boot, restore and transitions. */
@@ -296,13 +386,24 @@ export class Game {
   /** Simulation step. Order: input → player → abilities → projectiles → enemies → pickups → vfx → camera. */
   private fixed(dt: number): void {
     const d = this.dbg.state;
+    if (this.mode !== 'play') {
+      this.titleT += dt;
+      if (this.mode === 'title') this.cam.cinematic = this.titlePose(this.titleT);
+      if (this.mode === 'select') this.stage.update(dt);
+      this.world.update(this.loop.time); this.vfx.update(dt);
+      this.cam.update(dt, this.world.playerStart, { dx: 0, dy: 0 }, () => null);
+      audio.setListener(this.cam.camera.position, 0); audio.setIntensity(0);
+      this.input.endFrame();
+      return;
+    }
+    this.playTime += dt;
     if (this.input.wasPressed('F1')) this.dbg.toggle();
     if (this.input.wasPressed('KeyI') || this.input.wasPressed('Tab')) this.inventoryUI.toggle();
     if (this.input.wasPressed('Escape') && this.inventoryUI.open) this.inventoryUI.close();
     if (this.input.wasPressed('KeyM')) { const m = audio.engine.toggleMute(); this.hud.toast(m ? 'AUDIO MUTED' : 'AUDIO ON', '', 1); }
-    if (this.input.locked && !audio.ready) void audio.unlock();
+    if (!audio.ready) void audio.unlock();
     if (this.input.wasPressed('F2')) { d.hideHud = !d.hideHud; }
-    if (this.input.wasPressed('KeyR') && this.player.dead) { this.player.respawn(this.world.playerStart); this.enemies.clear(); }
+    if (this.input.wasPressed('KeyR') && this.player.dead) this.checkpoint();
     this.hud.setHidden(d.hideHud);
     this.abilities.cdMult = d.cdMult; this.abilities.infiniteEnergy = d.infiniteEnergy; this.abilities.unlockAll = d.unlockAll;
     if (this.input.locked && !this.playing) { this.playing = true; if (!this.world.safe) { this.waveState = 'idle'; this.countdown = 3; } }
@@ -322,6 +423,7 @@ export class Game {
     this.enemies.update(dt, this.player, d.god);
     this.pickups.update(dt, this.player);
     this.drops.update(dt, this.player, (item, ok) => {
+      if (ok && item.rarity === 'legendary') this.stats.legendaries++;
       if (ok) { this.hud.toast(item.name.toUpperCase(), `${RARITY[item.rarity].label.toUpperCase()} · ${item.slot.toUpperCase()} · PRESS I`, item.rarity === 'legendary' ? 3 : 1.4); if (this.inventoryUI.open) this.inventoryUI.refresh(); }
       else this.hud.toast('BAG FULL', 'DROP SOMETHING FROM THE INVENTORY', 1.4);
     });
@@ -377,6 +479,7 @@ export class Game {
 
   /** Per-render-frame work: HUD sync and stats. */
   private frame(dt: number): void {
+    if (this.mode !== 'play') return;
     this.hud.update(dt, this.player, this.abilities.slots(), this.targeting.target, this.enemies.pool, this.input.locked || this.inventoryUI.open);
     this.hud.updateLoot(this.drops.views);
     const king = this.enemies.pool.find((e) => e.alive && e.def.id === 'hollow_king');
