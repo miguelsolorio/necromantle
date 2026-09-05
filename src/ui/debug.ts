@@ -1,5 +1,5 @@
 export interface DebugState { god: boolean; infiniteEnergy: boolean; freezeAI: boolean; hideHud: boolean; unlockAll: boolean; camDist: number; fov: number; density: number; cdMult: number; hpMult: number; }
-export interface DebugHooks { spawn(kind: string, n: number, elite?: boolean): void; clear(): void; screenshot(): void; teleport(where: string): void; levelUp(): void; loot(legendary: boolean): void; volume(bus: 'music' | 'sfx', v: number): void; getVolume(bus: 'music' | 'sfx'): number; }
+export interface DebugHooks { spawn(kind: string, n: number, elite?: boolean): void; clear(): void; screenshot(): void; teleport(where: string): void; levelUp(): void; loot(legendary: boolean): void; wipe(): void; volume(bus: 'music' | 'sfx', v: number): void; getVolume(bus: 'music' | 'sfx'): number; }
 
 /** Developer panel (design section 43). F1 toggles it; sliders map straight onto live systems. */
 export class DebugPanel {
@@ -26,7 +26,7 @@ export class DebugPanel {
     const btns = document.createElement('div'); btns.className = 'btns';
     const b = (label: string, fn: () => void) => { const x = document.createElement('button'); x.textContent = label; x.onclick = (e) => { e.preventDefault(); fn(); }; btns.appendChild(x); };
     b('+10 ghouls', () => hooks.spawn('ghoul', 10)); b('+20 ghouls', () => hooks.spawn('ghoul', 20)); b('+4 knights', () => hooks.spawn('fallen_knight', 4)); b('+4 cultists', () => hooks.spawn('cultist', 4)); b('+3 wraiths', () => hooks.spawn('wraith', 3)); b('+ elite knight', () => hooks.spawn('fallen_knight', 1, true)); b('+ brute', () => hooks.spawn('brute', 1)); b('+ necromancer', () => hooks.spawn('necromancer', 1)); b('+ elite ghoul', () => hooks.spawn('ghoul', 1, true));
-    b('clear', () => hooks.clear()); b('+ loot', () => hooks.loot(false)); b('force legendary', () => hooks.loot(true)); b('level up', () => hooks.levelUp()); b('tp court', () => hooks.teleport('court')); b('tp door', () => hooks.teleport('door')); b('screenshot', () => hooks.screenshot());
+    b('clear', () => hooks.clear()); b('+ loot', () => hooks.loot(false)); b('force legendary', () => hooks.loot(true)); b('wipe save', () => hooks.wipe()); b('level up', () => hooks.levelUp()); b('tp court', () => hooks.teleport('court')); b('tp door', () => hooks.teleport('door')); b('screenshot', () => hooks.screenshot());
     this.el.appendChild(btns);
     this.stat = document.createElement('div'); this.stat.className = 'stat'; this.el.appendChild(this.stat);
     document.getElementById('hud')!.appendChild(this.el);

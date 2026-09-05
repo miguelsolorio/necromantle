@@ -2,6 +2,7 @@ import { RARITY, SLOT_LABEL, STAT_LABEL, type Item } from '@/content/items';
 import { itemScore } from '@/loot/generator';
 import { EQUIP_KEYS, type EquipKey, type Player } from '@/player/player';
 import { audio } from '@/audio';
+import { PASSIVES, PASSIVE_ORDER, passiveSlots } from '@/content/passives';
 
 const SLOT_ICON: Record<string, string> = {
   weapon: '<svg viewBox="0 0 40 40"><path d="M12 34 L28 6" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="29" cy="7" r="5" fill="currentColor"/></svg>',
@@ -16,13 +17,14 @@ const SLOT_ICON: Record<string, string> = {
 /** Inventory screen from the storyboard: paper doll left, 10×4 bag right, hover compares with the equipped item. */
 export class InventoryUI {
   readonly el: HTMLElement;
-  private doll: HTMLElement; private grid: HTMLElement; private stats: HTMLElement; private tip: HTMLElement;
+  private doll: HTMLElement; private grid: HTMLElement; private stats: HTMLElement; private tip: HTMLElement; private passives: HTMLElement;
+  private pickSlot = 0;
   open = false;
   constructor(private player: Player, private onChange: () => void, private onToggle: (open: boolean) => void) {
     this.el = document.createElement('div'); this.el.className = 'inv';
-    this.el.innerHTML = `<div class="inv-panel"><div class="inv-title">INVENTORY</div><div class="inv-doll"><div class="inv-stand"></div><div class="inv-slots"></div><div class="inv-stats"></div></div><div class="inv-bag"><div class="inv-grid"></div><div class="inv-hint">LEFT CLICK EQUIP · RIGHT CLICK DROP · I OR ESC CLOSE</div></div><div class="inv-tip"></div></div>`;
+    this.el.innerHTML = `<div class="inv-panel"><div class="inv-title">INVENTORY</div><div class="inv-doll"><div class="inv-stand"></div><div class="inv-slots"></div><div class="inv-stats"></div></div><div class="inv-bag"><div class="inv-grid"></div><div class="inv-passives"></div><div class="inv-hint">LEFT CLICK EQUIP · RIGHT CLICK DROP · I OR ESC CLOSE</div></div><div class="inv-tip"></div></div>`;
     document.getElementById('hud')!.appendChild(this.el);
-    this.doll = this.el.querySelector('.inv-slots')!; this.grid = this.el.querySelector('.inv-grid')!; this.stats = this.el.querySelector('.inv-stats')!; this.tip = this.el.querySelector('.inv-tip')!;
+    this.doll = this.el.querySelector('.inv-slots')!; this.grid = this.el.querySelector('.inv-grid')!; this.stats = this.el.querySelector('.inv-stats')!; this.tip = this.el.querySelector('.inv-tip')!; this.passives = this.el.querySelector('.inv-passives')!;
     this.el.addEventListener('contextmenu', (e) => e.preventDefault());
     this.el.addEventListener('mouseleave', () => this.hideTip());
   }
@@ -57,6 +59,17 @@ export class InventoryUI {
       }
       this.grid.appendChild(cell);
     }
+    // passives: two slots (levels 5 and 8) and the six choices
+    const slots = passiveSlots(p.level);
+    let html = `<div class="pv-head">PASSIVES <span>${slots === 0 ? 'FIRST SLOT AT LEVEL 5' : slots === 1 ? 'SECOND SLOT AT LEVEL 8' : ''}</span></div><div class="pv-slots">`;
+    for (let i = 0; i < 2; i++) { const id = p.passives[i]; html += `<div class="pv-slot ${i < slots ? 'open' : 'locked'} ${this.pickSlot === i ? 'sel' : ''}" data-slot="${i}">${id ? PASSIVES[id].icon : ''}<div class="tag">${i < slots ? (id ? PASSIVES[id].name : 'EMPTY') : `LEVEL ${i === 0 ? 5 : 8}`}</div></div>`; }
+    html += '</div><div class="pv-list">';
+    for (const id of PASSIVE_ORDER) html += `<div class="pv ${p.passives.includes(id) ? 'on' : ''}" data-id="${id}">${PASSIVES[id].icon}<div><b>${PASSIVES[id].name}</b><span>${PASSIVES[id].text}</span></div></div>`;
+    html += '</div>';
+    this.passives.innerHTML = html;
+    this.passives.querySelectorAll<HTMLElement>('.pv-slot.open').forEach((el) => { el.onclick = () => { this.pickSlot = +el.dataset.slot!; this.refresh(); }; el.oncontextmenu = (e) => { e.preventDefault(); p.setPassive(+el.dataset.slot!, null); this.refresh(); this.onChange(); }; });
+    this.passives.querySelectorAll<HTMLElement>('.pv').forEach((el) => { el.onclick = () => { if (slots === 0) { audio.play('denied'); return; } if (this.pickSlot >= slots) this.pickSlot = 0; if (p.setPassive(this.pickSlot, el.dataset.id as any)) { audio.play('levelUp'); this.refresh(); this.onChange(); } else audio.play('denied'); }; });
+
     const s = p.stats, b = p.bonus;
     const row = (k: string, v: string) => `<span>${k}<b>${v}</b></span>`;
     this.stats.innerHTML = row('Vitality', `${s.vitality}`) + row('Power', `${s.power}`) + row('Intelligence', `${s.intelligence}`) + row('Armor', `${s.armor}`) + row('Crit chance', `${(s.critChance * 100).toFixed(1)}%`) + row('Crit damage', `+${Math.round(s.critDamage * 100)}%`) + row('Attack speed', s.attackSpeed.toFixed(2)) + row('Spell power', `${Math.round(p.spellPower() * 100)}%`) + row('Arcane / Fire / Frost', `+${Math.round(b.arcane * 100)} / ${Math.round(b.fire * 100)} / ${Math.round(b.frost * 100)}%`) + row('Cooldown', `${Math.round(b.cooldown * 100)}%`);

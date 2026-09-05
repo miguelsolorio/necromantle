@@ -74,7 +74,8 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Milestone 4 built: Frost Field (chill, freeze, shatter), Cataclysm (rune ring, strikes, storm lighting), status tints, ragdoll-lite death arcs.
 - Milestone 5 built: Brute (charge), Necromancer (aura, summons), wraith blink, six elite affixes with nameplates, class-definition groundwork and ability registry.
 - Milestone 6 built: item data and generator (four rarities, affix pool, name tables, five legendaries), physical drops with beams and labels, walk-over pickup, inventory screen with comparison tooltips, gear-driven stats, legendary powers (Starfall, Ashen, Fold, Hollow Crown, Cinder Band).
-- Next: Milestone 7 (progression: passives, ability improvements, level-up celebration, save system).
+- Milestone 7 built: six passives with two slots (levels 5 and 8), Twin Bolt (7) and Greater Orb (9), level-up toasts naming the change, versioned local save with restore, enemy damage and HP scaling with player level.
+- Next: Milestone 8 (world: Hollowmere village hub, Sexton's Road wilderness, crypt, Hollow King boss chamber, connected in order).
 
 ## Gate before execution: style storyboard review
 

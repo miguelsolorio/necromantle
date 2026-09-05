@@ -5,6 +5,7 @@ import { PLAYER, XP_TABLE } from '@/content/player';
 import { CLASSES, type ClassDef } from '@/content/classes';
 import type { Element } from '@/content/abilities';
 import { type Item, type PowerId, type Slot } from '@/content/items';
+import { PASSIVES, passiveSlots, type PassiveId } from '@/content/passives';
 import { PALETTE } from '@/content/palette';
 import type { AbilityDef } from '@/content/abilities';
 import { clamp, damp, dampAngle, dirToYaw } from '@/core/mathx';
@@ -39,6 +40,9 @@ export class Player {
   inventory: Item[] = [];
   readonly inventoryMax = 40;
   powers = new Set<PowerId>();
+  /** Chosen passives by slot (slots open at levels 5 and 8). */
+  passives: (PassiveId | null)[] = [null, null];
+  momentum = 0;   // Arcane Momentum timer
   bonus: Bonus = { arcane: 0, fire: 0, frost: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
   weaponDamage = 20;
   hpMax = 0; hp = 0;
@@ -168,11 +172,22 @@ export class Player {
       if (it.power) this.powers.add(it.power.id);
     }
     b.cooldown = Math.min(0.4, b.cooldown);
+    if (this.hasPassive('glassStar')) { b.arcane += 0.3; b.fire += 0.3; b.frost += 0.3; st.vitality = Math.round(st.vitality * 0.75); }
+    this.energyMax = this.cls.resource.max + (this.hasPassive('deepWell') ? 40 : 0);
+    if (this.hasPassive('deepWell')) b.energyRegen += 1.5;
     this.stats = st; this.bonus = b;
     const hpFrac = this.hpMax > 0 ? this.hp / this.hpMax : 1;
     this.hpMax = Math.round(this.stats.vitality * PLAYER.hpPerVitality);
     this.hp = Math.min(this.hpMax, Math.max(this.hp, Math.round(this.hpMax * hpFrac)));
   }
+
+  hasPassive(id: PassiveId): boolean { return this.passives.includes(id); }
+  setPassive(slot: number, id: PassiveId | null): boolean {
+    if (slot >= passiveSlots(this.level)) return false;
+    if (id && this.passives.some((p, i) => p === id && i !== slot)) return false;
+    this.passives[slot] = id; this.recalcStats(); return true;
+  }
+  get passiveNames(): string { return this.passives.filter(Boolean).map((p) => PASSIVES[p!].name).join(', '); }
 
   /** Damage multiplier for an element from gear. */
   elementMult(el: Element): number { return 1 + (el === 'arcane' ? this.bonus.arcane : el === 'fire' ? this.bonus.fire : this.bonus.frost); }
@@ -226,7 +241,7 @@ export class Player {
     if (this.hp <= 0) this.die();
   }
   heal(n: number): void { const before = this.hp; this.hp = Math.min(this.hpMax, this.hp + n); this.bus.emit('player:healed', { amount: this.hp - before }); }
-  addEnergy(n: number): void { this.energy = clamp(this.energy + n, 0, this.energyMax); }
+  addEnergy(n: number): void { this.energy = clamp(this.energy + n, 0, this.energyMax); if (n > 0 && this.hasPassive('momentum')) this.momentum = 3; }
   spendEnergy(n: number): boolean { if (this.energy < n) return false; this.energy -= n; return true; }
   usePotion(): boolean { if (this.potionCd > 0 || this.dead) return false; this.potionCd = PLAYER.potionCooldown; this.heal(this.hpMax * PLAYER.potionHeal); return true; }
 
@@ -280,7 +295,8 @@ export class Player {
     const wantMove = (axis.x !== 0 || axis.z !== 0) && this.castLock <= 0;
     const inStance = this.stance > 0;
     const sprint = input.sprint && !inStance;
-    const maxSpeed = (sprint ? PLAYER.sprintSpeed : inStance ? PLAYER.strafeSpeed : PLAYER.jogSpeed) * this.speedMult * (1 + this.bonus.moveSpeed);
+    this.momentum = Math.max(0, this.momentum - dt);
+    const maxSpeed = (sprint ? PLAYER.sprintSpeed : inStance ? PLAYER.strafeSpeed : PLAYER.jogSpeed) * this.speedMult * (1 + this.bonus.moveSpeed + (this.momentum > 0 ? 0.3 : 0));
     this.tmpMove.set(cam.forward.x * axis.z + cam.right.x * axis.x, 0, cam.forward.z * axis.z + cam.right.z * axis.x);
     const target = wantMove ? this.tmpMove.normalize().scaleInPlace(maxSpeed) : Vector3.ZeroReadOnly;
     const rate = wantMove ? PLAYER.accel : PLAYER.decel;

@@ -8,6 +8,8 @@ import { Drops } from '@/loot/drops';
 import { rollItem } from '@/loot/generator';
 import { InventoryUI } from '@/ui/inventory';
 import { RARITY } from '@/content/items';
+import { IMPROVEMENTS } from '@/content/passives';
+import { Save } from '@/persistence/save';
 import { Projectiles } from '@/combat/projectiles';
 import { Targeting } from '@/combat/targeting';
 import type { EnemyId } from '@/content/enemies';
@@ -61,6 +63,7 @@ export class Game {
   waveState: 'idle' | 'countdown' | 'active' | 'done' = 'idle';
   private countdown = 3;
   private transitioning = false;
+  private saveTimer = 10;
   private nearby: import('@/enemies/enemy').Enemy[] = [];
   private spawning = false;
   /** Nothing hostile happens until the player has clicked in once. */
@@ -78,6 +81,7 @@ export class Game {
     this.rig = setupRendering(this.scene, this.cam.camera, backend);
     this.loader = new AssetLoader(this.scene);
     this.vfx = new Vfx(this.scene);
+    this.levelIndex = 0;
     this.world = new this.levels[0](this.scene, this.loader, this.rig);
     this.player = new Player(this.scene, this.bus);
     this.projectiles = new Projectiles(this.scene, this.vfx, this.rig);
@@ -95,12 +99,15 @@ export class Game {
       screenshot: () => { void this.snapshot(`shot-${Date.now()}`); },
       teleport: (w) => this.teleport(w),
       levelUp: () => this.player.addXp(this.player.xpToNext() - this.player.xp),
+      wipe: () => { Save.wipe(); location.search = '?new=1'; },
       loot: (legendary) => { for (let i = 0; i < (legendary ? 1 : 5); i++) this.drops.drop(rollItem(this.player.level + this.levelIndex * 2, legendary ? 'legendary' : undefined), this.player.position.add(new Vector3((Math.random() - 0.5) * 2, 0, 2 + Math.random()))); },
       volume: (bus, v) => audio.engine.setVolume(bus, v),
       getVolume: (bus) => audio.engine.getVolume(bus),
     }, this.input);
 
-    status('Raising the courtyard…');
+    const startLevel = this.restore();
+    if (startLevel !== 0) { this.world.dispose(); this.levelIndex = startLevel; this.world = new this.levels[startLevel](this.scene, this.loader, this.rig); this.enemies?.setWorld?.(this.world); }
+    status(startLevel === 0 ? 'Raising the courtyard…' : 'Returning to the nave…');
     await this.world.build();
     this.hud.setArea(this.world.name, this.world.sub);
     this.hud.setObjective('Survive three waves to open the cathedral door');
@@ -110,6 +117,8 @@ export class Game {
     this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
     status('Waking the dead…');
     await this.enemies.preload(['ghoul', 'fallen_knight', 'cultist', 'wraith', 'brute', 'necromancer']);
+    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
+    if (this.player.level > 1) this.hud.toast(`WELCOME BACK · LEVEL ${this.player.level}`, this.player.passiveNames ? this.player.passiveNames.toUpperCase() : '', 3);
     this.wireEvents();
     this.instr = new SceneInstrumentation(this.scene);
     this.instr.captureFrameTime = true;
@@ -129,7 +138,7 @@ export class Game {
       this.player.addXp(xp);
       audio.play(elite ? 'eliteDeath' : 'enemyDeath', pos);
       this.drops.dropFor(id, elite, pos, Math.min(10, this.player.level + this.levelIndex * 2));
-      if (burning && this.player.powers.has('cinderBand')) { const at = pos.add(new Vector3(0, 0.8, 0)); this.vfx.nova(pos, 2.2); this.enemies.damageArea(at, 2.4, () => Math.round(40 * this.player.spellPower()), { element: 'fire', knockback: 5, burn: { dps: 10, dur: 2 } }); }
+      if (burning && (this.player.powers.has('cinderBand') || this.player.hasPassive('chainReaction'))) { const at = pos.add(new Vector3(0, 0.8, 0)); this.vfx.nova(pos, 2.2); this.enemies.damageArea(at, 2.4, () => Math.round(40 * this.player.spellPower()), { element: 'fire', knockback: 5, burn: { dps: 10, dur: 2 } }); }
       const def = this.enemies.pool.find((e) => e.position.equalsWithEpsilon(pos, 0.01))?.def;
       const chance = (def?.globeChance ?? 0.12) * (elite ? 3 : 1);
       if (Math.random() < chance || this.player.hp < this.player.hpMax * 0.35 && Math.random() < 0.3) this.pickups.spawnGlobe(pos);
@@ -138,8 +147,10 @@ export class Game {
     this.bus.on('player:levelup', ({ level }) => {
       this.vfx.levelUp(this.player.position);
       audio.play('levelUp');
-      const unlock = ({ 2: 'ASTRAL ORB', 3: 'RIFT STEP', 4: 'FLAME NOVA', 5: 'PASSIVE SLOT', 6: 'FROST FIELD', 8: 'SECOND PASSIVE SLOT', 10: 'CATACLYSM' } as Record<number, string>)[level];
-      this.hud.toast(`LEVEL ${level}`, unlock ? `${unlock} UNLOCKED` : '');
+      const unlock = ({ 2: 'ASTRAL ORB UNLOCKED', 3: 'RIFT STEP UNLOCKED', 4: 'FLAME NOVA UNLOCKED', 6: 'FROST FIELD UNLOCKED', 10: 'CATACLYSM UNLOCKED' } as Record<number, string>)[level];
+      const imp = IMPROVEMENTS.find((i) => i.level === level);
+      this.hud.toast(`LEVEL ${level}`, unlock ?? (imp ? `${imp.title.toUpperCase()} · ${imp.text}` : ''), 3.2);
+      this.save();
       this.cam.shake(0.1, 0.3);
     });
     this.bus.on('pickup:globe', ({ pos }) => audio.play('globe', pos));
@@ -168,13 +179,31 @@ export class Game {
     this.spawning = false;
   }
 
+  /** Persist progression (level, XP, bag, gear, passives, level reached). */
+  save(): void {
+    Save.store({ level: this.player.level, xp: this.player.xp, levelIndex: this.levelIndex, inventory: this.player.inventory, equipment: this.player.equipment, passives: this.player.passives });
+  }
+
+  /** Restore a save if present. Returns the level index to start on. */
+  private restore(): number {
+    if (new URLSearchParams(location.search).has('new')) { Save.wipe(); return 0; }
+    const s = Save.load();
+    if (!s) return 0;
+    this.player.level = Math.max(1, Math.min(10, s.level)); this.player.xp = s.xp;
+    this.player.inventory = s.inventory ?? [];
+    for (const k of Object.keys(this.player.equipment)) (this.player.equipment as any)[k] = (s.equipment as any)?.[k] ?? null;
+    this.player.passives = [s.passives?.[0] ?? null, s.passives?.[1] ?? null];
+    this.player.recalcStats(); this.player.hp = this.player.hpMax;
+    return Math.max(0, Math.min(this.levels.length - 1, s.levelIndex ?? 0));
+  }
+
   /** Spawn the next wave. Wave 3 bursts from the door with a flare; the others rise around the player. */
   private async startWave(): Promise<void> {
     const def: WaveDef | undefined = this.world.waves[this.wave];
     if (!def) return;
     this.wave++;
     this.waveState = 'active';
-    this.dbg.state.hpMult = +(1 + (this.wave - 1) * 0.12 + this.levelIndex * 0.3).toFixed(2);
+    this.dbg.state.hpMult = +(1 + (this.wave - 1) * 0.12 + this.levelIndex * 0.3 + (this.player.level - 1) * 0.1).toFixed(2);
     this.hud.toast(`WAVE ${this.wave} OF 3`, def.fromDoor ? 'THE DOOR ANSWERS' : 'THE DEAD STIR', 2);
     this.hud.setObjective(`Wave ${this.wave} of 3. Kill everything that moves.`);
     audio.play(def.fromDoor ? 'door' : 'waveStart');
@@ -217,6 +246,7 @@ export class Game {
     this.hud.toast(this.world.name, this.world.sub, 3.5);
     this.hud.fade(false);
     this.transitioning = false;
+    this.save();
   }
 
   private teleport(where: string): void {
@@ -237,7 +267,10 @@ export class Game {
     this.hud.setHidden(d.hideHud);
     this.abilities.cdMult = d.cdMult; this.abilities.infiniteEnergy = d.infiniteEnergy; this.abilities.unlockAll = d.unlockAll;
     if (this.input.locked && !this.playing) { this.playing = true; this.waveState = 'idle'; this.countdown = 3; }
-    this.enemies.frozen = d.freezeAI || !this.playing || !this.input.locked; this.enemies.hpMult = d.hpMult; this.vfx.density = d.density;
+    this.enemies.frozen = d.freezeAI || !this.playing || !this.input.locked || this.inventoryUI.open; this.enemies.hpMult = d.hpMult; this.vfx.density = d.density;
+    this.enemies.damageMult = 1 + (this.player.level - 1) * 0.07 + this.levelIndex * 0.25;
+    this.enemies.frozenBonus = this.player.hasPassive('frozenHeart') ? 1.6 : 1; this.enemies.frozenExtra = this.player.hasPassive('frozenHeart') ? 1 : 0;
+    this.saveTimer -= dt; if (this.saveTimer <= 0) { this.saveTimer = 10; this.save(); }
     this.cam.distanceOverride = d.camDist > 0 ? d.camDist : null; this.cam.fovOverride = d.fov > 0 ? d.fov : null;
 
     const mouse = this.input.locked ? this.input.consumeMouse() : { dx: 0, dy: 0 };

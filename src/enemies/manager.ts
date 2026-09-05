@@ -25,6 +25,11 @@ export class EnemyManager {
   readonly hash = new SpatialHash<Enemy>(3);
   frozen = false;
   hpMult = 1;
+  /** Enemy outgoing damage scale (rises with player level so gear growth stays dangerous). */
+  damageMult = 1;
+  /** Frozen Heart passive: extra multiplier on frozen targets. */
+  frozenBonus = 1;
+  frozenExtra = 0;
   private nextId = 1;
   private ringT = 0;
   private tmp = new Vector3();
@@ -106,6 +111,7 @@ export class EnemyManager {
 
   damage(e: Enemy, amount: number, opts: { dir?: Vector3 | null; knockback?: number; crit?: boolean; element?: string; pos?: Vector3 }): void {
     if (!e.alive) return;
+    if (e.frozen > 0) amount = Math.round(amount * this.frozenBonus);
     const killed = e.hurt(amount, opts.dir ?? null, opts.knockback ?? 0);
     const at = opts.pos ?? e.hitCenter();
     this.bus.emit('enemy:damaged', { pos: at.clone(), amount, crit: !!opts.crit, element: opts.element ?? 'arcane', killed });
@@ -128,7 +134,7 @@ export class EnemyManager {
       if (dir.lengthSquared() < 0.001) dir.set(rand(-1, 1), 0, rand(-1, 1));
       dir.normalize();
       if (opts.burn) e.applyBurn(opts.burn.dps, opts.burn.dur);
-      if (opts.chill) { const wasFrozen = e.frozen > 0; e.applyChill(opts.chill); if (!wasFrozen && e.frozen > 0) { this.vfx.freeze(c); audio.play('freeze', c); } }
+      if (opts.chill) { const wasFrozen = e.frozen > 0; e.applyChill(opts.chill); if (!wasFrozen && e.frozen > 0) { e.frozen += this.frozenExtra; this.vfx.freeze(c); audio.play('freeze', c); } }
       const dmg = amount(e);
       if (dmg > 0) this.damage(e, dmg, { dir, knockback: opts.knockback, element: opts.element, crit: opts.crit, pos: c });
       n++;
@@ -183,7 +189,7 @@ export class EnemyManager {
         e.charge.left -= 13 * dt;
         const dp2 = Math.hypot(e.position.x - pp.x, e.position.z - pp.z);
         if (dp2 < e.radius + 0.9 && !player.dead) {
-          player.takeDamage(def.damage * 1.4 * e.auraDamage * (e.elite ? 1.8 : 1), god);
+          player.takeDamage(def.damage * 1.4 * this.damageMult * e.auraDamage * (e.elite ? 1.8 : 1), god);
           player.shove(e.charge.dir.scale(7));
           this.vfx.burst('gore', player.chest(), 8); audio.play('playerHurt');
           e.charge = null; e.state = 'recover'; e.timer = 0; e.attackCd = def.attack.cooldown;
@@ -231,7 +237,7 @@ export class EnemyManager {
             e.state = 'recover'; e.timer = 0; e.attackCd = def.attack.cooldown + rand(0, 0.4);
             if (def.attack.ranged) this.fireShard(e, player);
             else if (dist < def.attack.range + 0.5 && !player.dead) {
-              player.takeDamage(def.damage * e.auraDamage * (e.elite ? 1.8 : 1), god);
+              player.takeDamage(def.damage * this.damageMult * e.auraDamage * (e.elite ? 1.8 : 1), god);
               this.vfx.burst('gore', player.chest(), 6);
             }
           }
@@ -280,7 +286,7 @@ export class EnemyManager {
     audio.play('cultistShot', from);
     this.projectiles.spawn({
       team: 'enemy', pos: from, dir, speed: r.speed, radius: r.radius, range: e.def.attack.range + 4, visual: 'shard',
-      onHitPlayer: (p) => { player.takeDamage(e.def.damage * e.auraDamage * (e.elite ? 1.8 : 1), false); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); },
+      onHitPlayer: (p) => { player.takeDamage(e.def.damage * this.damageMult * e.auraDamage * (e.elite ? 1.8 : 1), false); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); },
       onExpire: (p) => { this.vfx.cultistImpact(p); audio.play('cultistImpact', p, { gain: 0.5 }); },
     });
   }

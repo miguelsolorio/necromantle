@@ -41,7 +41,7 @@ export class AbilitySystem {
   unlocked(id: AbilityId): boolean { return this.unlockAll || this.ctx.player.level >= ABILITIES[id].unlockLevel; }
 
   private maxCharges(id: AbilityId): number { return id === 'rift' && this.ctx.player.powers.has('fold') ? 2 : 1; }
-  private cooldownOf(def: AbilityDef): number { return def.cooldown * this.cdMult * (1 - this.ctx.player.bonus.cooldown); }
+  private cooldownOf(def: AbilityDef): number { return def.cooldown * this.cdMult * (1 - this.ctx.player.bonus.cooldown) * (def.id === 'nova' && this.ctx.player.hasPassive('emberVeil') ? 0.65 : 1); }
 
   slots(): SlotState[] {
     return this.ctx.player.cls.abilities.map((id) => {
@@ -101,10 +101,14 @@ export class AbilitySystem {
     const dir = targeting.direction(from, this.tmp).clone();
     vfx.burst('arcaneSpark', from, 3);
     audio.play('boltCast', undefined, { pitch: 0.92 + Math.random() * 0.16, gain: 0.55 });
+    const twin = player.level >= 7;
+    for (const side of twin ? [-1, 1] : [0]) {
+    const d0 = side === 0 ? dir : new Vector3(dir.x * Math.cos(side * 0.05) + dir.z * Math.sin(side * 0.05), dir.y, -dir.x * Math.sin(side * 0.05) + dir.z * Math.cos(side * 0.05));
+    const p0 = side === 0 ? from : from.add(new Vector3(-dir.z * side * 0.25, 0, dir.x * side * 0.25));
     projectiles.spawn({
-      team: 'player', pos: from, dir, speed: def.speed, radius: def.radius, range: def.range, homing: def.homing, target: targeting.target, visual: 'bolt',
+      team: 'player', pos: p0, dir: d0, speed: def.speed, radius: def.radius, range: def.range, homing: def.homing, target: targeting.target, visual: 'bolt',
       onHitEnemy: (e, pos, d) => {
-        const r = this.roll(def);
+        const r = this.roll(def, twin ? 0.7 : 1);
         enemies.damage(e, r.amount, { dir: d, knockback: def.knockback, crit: r.crit, element: r.element, pos });
         player.addEnergy(def.energyOnHit + player.bonus.energyOnHit);
         vfx.boltImpact(pos, d);
@@ -115,6 +119,7 @@ export class AbilitySystem {
       },
       onExpire: (pos) => { vfx.boltImpact(pos, dir); audio.play('boltImpact', pos, { gain: 0.5 }); },
     });
+    }
   }
 
   /** Hollow Crown: a second, weaker bolt leaps from the struck enemy to the nearest other enemy. */
@@ -147,8 +152,9 @@ export class AbilitySystem {
         if (player.powers.has('starfall')) { pierced++; if (pierced === 4) this.starfall(def, pos, d); }
       },
       onExpire: (pos) => {
-        vfx.orbExplode(pos, 3.2); cam.shake(0.18, 0.25); audio.play('orbExplode', pos);
-        enemies.damageArea(pos, 3.2, () => this.roll(def, 0.8).amount, { knockback: 11, element: "arcane" });
+        const blast = player.level >= 9 ? 5 : 3.2;
+        vfx.orbExplode(pos, blast); cam.shake(player.level >= 9 ? 0.3 : 0.18, 0.25); audio.play('orbExplode', pos);
+        enemies.damageArea(pos, blast, () => this.roll(def, player.level >= 9 ? 1.1 : 0.8).amount, { knockback: 11, element: 'arcane' });
       },
     });
   }
@@ -172,7 +178,8 @@ export class AbilitySystem {
     cam.shake(0.4, 0.32);
     audio.play('nova');
     const burnDps = Math.round(12 * player.spellPower());
-    enemies.damageArea(at, def.radius, () => this.roll(def).amount, { knockback: def.knockback, element: 'fire', burn: { dps: burnDps, dur: 3 } });
+    const burnDur = 3 + (player.hasPassive('emberVeil') ? 2 : 0);
+    enemies.damageArea(at, def.radius, () => this.roll(def).amount, { knockback: def.knockback, element: 'fire', burn: { dps: burnDps, dur: burnDur } });
     if (player.powers.has('ashen')) this.ctx.areas.burn(at, def.radius * 0.8, () => this.roll(def, 0.15).amount, burnDps);
   }
 
