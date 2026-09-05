@@ -39,6 +39,7 @@ export class Hud {
       <div class="lockhint">CLICK TO PLAY<small>WASD move · mouse aim · LMB bolt · RMB orb · 1 rift step · 2 flame nova · shift sprint · Q potion · F1 dev panel</small></div>
       <div class="toast"></div>
       <div class="prompt"></div>
+      <div class="bossbar"><div class="name"></div><div class="bar"><i></i></div></div>
       <div class="fade"></div>
       <div class="hurtvig"></div>
       <div class="dead">YOU HAVE FALLEN<small>PRESS R TO RISE AGAIN</small></div>
@@ -68,6 +69,8 @@ export class Hud {
   setArea(name: string, sub: string): void { this.area.textContent = name; (this.root.querySelector('[data-sub]') as HTMLElement).textContent = sub; }
   setObjective(text: string): void { this.objective.textContent = text; }
   /** Contextual key prompt near the reticle; pass null to hide. */
+  /** Boss health bar top centre; pass null to hide. */
+  setBoss(name: string | null, frac = 1): void { const el = this.root.querySelector('.bossbar') as HTMLElement; el.classList.toggle('on', !!name); if (name) { (el.querySelector('.name') as HTMLElement).textContent = name; (el.querySelector('i') as HTMLElement).style.width = `${Math.max(0, frac * 100).toFixed(1)}%`; } }
   fade(on: boolean): void { (this.root.querySelector('.fade') as HTMLElement).classList.toggle('on', on); }
   prompt(text: string | null): void { this.promptEl.textContent = text ?? ""; this.promptEl.classList.toggle("on", !!text); }
   hurt(): void { this.hurtT = 0.35; this.hurtVig.classList.add("on"); }

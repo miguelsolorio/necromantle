@@ -1,6 +1,6 @@
 import type { AssetId } from '@/assets/registry';
-export type EnemyId = 'ghoul' | 'fallen_knight' | 'cultist' | 'wraith' | 'brute' | 'necromancer';
-export type Behaviour = 'blink' | 'charge' | 'summoner';
+export type EnemyId = 'ghoul' | 'fallen_knight' | 'cultist' | 'wraith' | 'brute' | 'necromancer' | 'hollow_king';
+export type Behaviour = 'blink' | 'charge' | 'summoner' | 'boss';
 
 export interface EnemyDef {
   id: EnemyId;
@@ -79,5 +79,14 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     anims: { idle: 'Idle_Combat', run: 'Walking_A', hit: 'Hit_A', death: ['Death_B'], spawn: 'Spawn_Ground_Skeletons' },
     eye: '#B14DFF', tint: [0.2, 0.15, 0.28], globeChance: 0.4, eliteName: 'Grave Cantor',
     behaviour: 'summoner', behaviourCooldown: 9, aura: { radius: 9, speed: 1.25, damage: 1.3 },
+  },
+  hollow_king: {
+    id: 'hollow_king', name: 'The Hollow King', model: 'enemy.fallen_knight', height: 3.6, radius: 0.95,
+    hp: 2600, speed: 2.8, accel: 9, turnRate: 3.5, mass: 12, damage: 48,
+    attack: { range: 3.4, windup: 0.8, recovery: 0.9, cooldown: 2.4, anim: '2H_Melee_Attack_Spin' },
+    xp: 600,
+    anims: { idle: 'Idle_Combat', run: 'Walking_D_Skeletons', hit: 'Hit_B', death: ['Death_A'], spawn: 'Skeletons_Awaken_Standing' },
+    eye: '#FF3AB0', tint: [0.16, 0.1, 0.2], globeChance: 1, eliteName: 'The Hollow King',
+    behaviour: 'boss', behaviourCooldown: 6, aura: { radius: 12, speed: 1.15, damage: 1.2 },
   },
 };

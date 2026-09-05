@@ -67,7 +67,7 @@ export class EnemyManager {
       blob.parent = e.root; blob.position.y = 0.05; blob.isPickable = false; blob.scaling.setAll(def.radius * 5.5);
       this.pool.push(e);
     }
-    if (elite && !mod) mod = ELITE_POOL[Math.floor(Math.random() * ELITE_POOL.length)];
+    if (elite && !mod && def.behaviour !== 'boss') mod = ELITE_POOL[Math.floor(Math.random() * ELITE_POOL.length)];
     e.spawn(def, pos, elite, this.nextId++, mod);
     e.hpMax = Math.round(e.hpMax * this.hpMult); e.hp = e.hpMax;
     e.slot = this.pool.indexOf(e);
@@ -104,7 +104,7 @@ export class EnemyManager {
       const mat = m.material;
       if (!(mat instanceof PBRMaterial)) continue;
       if (/eyes/i.test(m.name) || /glow/i.test(mat.name)) { mat.emissiveColor = elite ? Color3.FromHexString('#FFB347') : Color3.FromHexString(e.def.eye); continue; }
-      const base = elite ? new Color3(0.25, 0.12, 0.02) : Color3.Black();
+      const base = elite ? (e.def.behaviour === 'boss' ? new Color3(0.22, 0.05, 0.38) : new Color3(0.25, 0.12, 0.02)) : Color3.Black();
       mat.emissiveColor = base.clone(); mat.metadata = { ...(mat.metadata ?? {}), baseEmissive: base };
     }
   }
@@ -177,6 +177,16 @@ export class EnemyManager {
       }
 
 
+      // --- boss: slam on its own timer, phases by health ---
+      if (def.behaviour === 'boss' && e.state === 'chase' && !player.dead) {
+        e.slamTimer -= dt;
+        const frac = e.hp / e.hpMax;
+        if (frac < 0.5 && e.bossPhase < 1) { e.bossPhase = 1; this.vfx.lights.flash(e.hitCenter(), Color3.FromHexString('#FF3AB0'), 60, 1, 16); audio.play('cataclysmCast', e.position); this.bus.emit('boss:phase', { phase: 1 }); }
+        if (frac < 0.25 && e.bossPhase < 2) { e.bossPhase = 2; audio.play('waveStart', e.position); this.bus.emit('boss:phase', { phase: 2 }); }
+        e.auraSpeed = Math.max(e.auraSpeed, e.bossPhase >= 2 ? 1.45 : 1);
+        if (e.slamTimer <= 0 && dist < 6) { e.slamTimer = e.bossPhase >= 1 ? 5 : 7; this.slam(e, player, god); }
+      }
+
       // --- special behaviours ---
       e.behaviourTimer -= dt;
       if (def.behaviour && e.behaviourTimer <= 0 && e.state === 'chase' && e.frozen <= 0 && !player.dead) {
@@ -184,6 +194,7 @@ export class EnemyManager {
         if (def.behaviour === 'blink' && dist > 3.5) this.blink(e, player);
         else if (def.behaviour === 'charge' && dist > 4 && dist < 14) this.startCharge(e, player);
         else if (def.behaviour === 'summoner') void this.summon(e, 2);
+        else if (def.behaviour === 'boss') this.bossAct(e, player, dist, god);
       }
       if (e.charge) {
         e.charge.left -= 13 * dt;
@@ -319,6 +330,32 @@ export class EnemyManager {
     audio.play('summon', e.position);
     e.animator?.clearOneShot(); e.animator?.once('Spellcast_Summon', { speed: 1.3 });
     for (let i = 0; i < n; i++) { const at = this.world.randomSpawn(e.position, 1.5, 3.5); await this.spawn('ghoul', at); }
+  }
+
+  /** Hollow King: raises the dead every cooldown; from half health also fires radial volleys. */
+  private bossAct(e: Enemy, player: Player, dist: number, god: boolean): void {
+    void this.summon(e, e.bossPhase >= 1 ? 5 : 3);
+    if (e.bossPhase >= 1) {
+      const c = e.hitCenter(); audio.play('cultistShot', c);
+      for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2 + Math.random() * 0.2; this.projectiles.spawn({ team: 'enemy', pos: c.clone(), dir: new Vector3(Math.sin(a), 0.03, Math.cos(a)), speed: 10, radius: 0.4, range: 16, visual: 'shard', onHitPlayer: (p) => { player.takeDamage(16 * this.damageMult, god); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); }, onExpire: (p) => this.vfx.cultistImpact(p) }); }
+    }
+    if (dist > 7 && Math.random() < 0.5) this.startCharge(e, player);
+  }
+
+  /** Boss ground slam: a violet shockwave ring that throws everything nearby. */
+  private slam(e: Enemy, player: Player, god: boolean): void {
+    e.state = 'windup'; e.timer = 0; e.attackCd = 1;
+    e.animator?.clearOneShot(); e.animator?.once('2H_Melee_Attack_Chop', { speed: 1.1 });
+    audio.play('waveStart', e.position, { gain: 0.5, pitch: 1.3 });
+    window.setTimeout(() => {
+      if (!e.alive) return;
+      const at = e.position.clone();
+      this.vfx.nova(at, 6); this.vfx.lights.flash(at.add(new Vector3(0, 2, 0)), Color3.FromHexString('#B14DFF'), 60, 0.5, 16);
+      audio.play('strike', at);
+      const d = Math.hypot(player.position.x - at.x, player.position.z - at.z);
+      if (d < 6.5 && !player.dead) { player.takeDamage(e.def.damage * 0.9 * this.damageMult, god); const dir = new Vector3(player.position.x - at.x, 0, player.position.z - at.z).normalize(); player.shove(dir.scale(9)); }
+      e.state = 'recover'; e.timer = 0;
+    }, 700);
   }
 
   /** Elite affix tick. */

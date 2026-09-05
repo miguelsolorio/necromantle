@@ -15,6 +15,9 @@ export interface RenderRig {
   setFov(deg: number): void;
   /** 0 = normal night, 1 = arcane storm: the moon and fill turn violet, fog brightens (rule R-17). */
   setStormTint(k: number): void;
+  /** Per-level fog colour and density (the storm tint blends from this base). */
+  setFog(color: Color3, density: number): void;
+  setMoon(boost: number): void;
 }
 
 /**
@@ -22,6 +25,8 @@ export interface RenderRig {
  * bloom with a high threshold, ACES tone mapping with a little extra contrast, vignette, no depth of field.
  */
 export function setupRendering(scene: Scene, camera: TargetCamera, backend: Backend): RenderRig {
+  let baseFog = PALETTE.fog.clone();
+  let moonBoost = 1;
   scene.clearColor = new Color4(PALETTE.fog.r, PALETTE.fog.g, PALETTE.fog.b, 1);
   scene.ambientColor = new Color3(0.12, 0.13, 0.2);
   scene.fogMode = Scene.FOGMODE_EXP2;
@@ -118,9 +123,11 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
     addGlow: (mesh) => { if (mesh instanceof Mesh) glow.addIncludedOnlyMesh(mesh); else if (mesh instanceof InstancedMesh) glow.addIncludedOnlyMesh(mesh.sourceMesh); },
     setFov: (deg) => { camera.fov = (deg * Math.PI) / 180; },
     setStormTint: (k) => {
-      moon.diffuse = Color3.Lerp(PALETTE.moon, PALETTE.arcane, k * 0.8); moon.intensity = 1.9 + k * 1.2;
+      moon.diffuse = Color3.Lerp(PALETTE.moon, PALETTE.arcane, k * 0.8); moon.intensity = 1.9 * moonBoost + k * 1.2;
       hemi.diffuse = Color3.Lerp(new Color3(0.34, 0.4, 0.62), PALETTE.arcane, k * 0.6); hemi.intensity = 0.8 + k * 0.6;
-      scene.fogColor = Color3.Lerp(PALETTE.fog, new Color3(0.25, 0.16, 0.42), k);
+      scene.fogColor = Color3.Lerp(baseFog, new Color3(0.25, 0.16, 0.42), k);
     },
+    setMoon: (boost) => { moonBoost = boost; moon.intensity = 1.9 * boost; hemi.intensity = 0.8 * (0.7 + 0.3 * boost); },
+    setFog: (color, density) => { baseFog = color.clone(); scene.fogColor = color.clone(); scene.fogDensity = density; scene.clearColor = new Color4(color.r, color.g, color.b, 1); },
   };
 }

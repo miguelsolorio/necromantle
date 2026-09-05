@@ -70,12 +70,16 @@ export class Enemy {
 
   get plateTitle(): string { return this.elite ? this.def.eliteName : this.def.name; }
 
+  bossPhase = 0;
+  slamTimer = 0;
+
   spawn(def: EnemyDef, pos: Vector3, elite: boolean, id: number, mod: EliteModId | null = null): void {
-    this.def = def; this.elite = elite; this.id = id; this.mod = elite ? mod : null; this.modTimer = 2 + Math.random() * 2; this.behaviourTimer = (def.behaviourCooldown ?? 4) * (0.5 + Math.random() * 0.5); this.charge = null; this.auraSpeed = 1; this.auraDamage = 1;
-    this.radius = def.radius * (elite ? 1.3 : 1); this.height = def.height * (elite ? 1.3 : 1);
+    this.def = def; this.elite = elite; this.id = id; this.mod = elite ? mod : null; this.bossPhase = 0; this.slamTimer = 5; this.modTimer = 2 + Math.random() * 2; this.behaviourTimer = (def.behaviourCooldown ?? 4) * (0.5 + Math.random() * 0.5); this.charge = null; this.auraSpeed = 1; this.auraDamage = 1;
+    const bossy = def.behaviour === 'boss';
+    this.radius = def.radius * (elite && !bossy ? 1.3 : 1); this.height = def.height * (elite && !bossy ? 1.3 : 1);
     this.collider.ellipsoid.set(this.radius, this.height / 2, this.radius); this.collider.ellipsoidOffset.set(0, this.height / 2, 0);
-    if (this.model) this.model.scaling.setAll((def.height / 2.17) * (elite ? 1.3 : 1));
-    this.hpMax = Math.round(def.hp * (elite ? 4.5 : 1)); this.hp = this.hpMax;
+    if (this.model) this.model.scaling.setAll((def.height / 2.17) * (elite && !bossy ? 1.3 : 1));
+    this.hpMax = Math.round(def.hp * (elite && !bossy ? 4.5 : 1)); this.hp = this.hpMax;
     this.root.position.copyFrom(pos); this.collider.position.copyFrom(pos);
     this.yaw = rand(0, Math.PI * 2);
     this.velocity.setAll(0); this.knock.setAll(0);
@@ -95,7 +99,7 @@ export class Enemy {
   applyChill(duration: number): void {
     this.chill = Math.max(this.chill, duration);
     this.chillExposure += 0.5;
-    if (this.chillExposure >= 1.0 && this.frozen <= 0 && !this.elite && this.def.mass < 2) { this.frozen = 2.5; this.chillExposure = 0; this.state = 'stagger'; this.timer = 2.5; this.animator?.clearOneShot(); }
+    if (this.chillExposure >= 1.0 && this.frozen <= 0 && !this.elite && this.def.mass < 2 && this.def.behaviour !== 'boss') { this.frozen = 2.5; this.chillExposure = 0; this.state = 'stagger'; this.timer = 2.5; this.animator?.clearOneShot(); }
   }
 
   /** Damage with an optional knockback impulse (m/s). Returns true if this hit killed it. */

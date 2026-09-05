@@ -75,7 +75,8 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Milestone 5 built: Brute (charge), Necromancer (aura, summons), wraith blink, six elite affixes with nameplates, class-definition groundwork and ability registry.
 - Milestone 6 built: item data and generator (four rarities, affix pool, name tables, five legendaries), physical drops with beams and labels, walk-over pickup, inventory screen with comparison tooltips, gear-driven stats, legendary powers (Starfall, Ashen, Fold, Hollow Crown, Cinder Band).
 - Milestone 7 built: six passives with two slots (levels 5 and 8), Twin Bolt (7) and Greater Orb (9), level-up toasts naming the change, versioned local save with restore, enemy damage and HP scaling with player level.
-- Next: Milestone 8 (world: Hollowmere village hub, Sexton's Road wilderness, crypt, Hollow King boss chamber, connected in order).
+- Milestone 8 built: six connected levels (Hollowmere village hub with NPCs, Sexton's Road wilderness with dead trees and three pockets, Outer Court, Nave, Crypt, Ossuary boss chamber), the Hollow King with slam, summons, volleys and phases, victory and return.
+- Next: Milestone 9 (polish: open gap-analysis items, performance check, final docs).
 
 ## Gate before execution: style storyboard review
 

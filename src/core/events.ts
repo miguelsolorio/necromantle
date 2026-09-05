@@ -9,6 +9,7 @@ export interface GameEvents {
   'ability:cast': { id: string };
   'ability:denied': { id: string; reason: 'cooldown' | 'energy' | 'locked' };
   'pickup:globe': { pos: Vector3 };
+  'boss:phase': { phase: number };
 }
 
 type Handler<T> = (payload: T) => void;

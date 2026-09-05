@@ -165,3 +165,10 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; }
 .pv svg { width: 100%; height: auto; }
 .pv b { display: block; font-family: var(--font-display); font-size: calc(var(--u)*.85); letter-spacing: .06em; color: #e9dcc0; font-weight: 600; }
 .pv span { font-family: var(--font-body); font-size: calc(var(--u)*.85); color: #a99f8a; line-height: 1.2; }
+
+/* boss bar */
+.bossbar { left: 50%; top: calc(var(--u)*2); transform: translateX(-50%); width: calc(var(--u)*44); text-align: center; display: none; }
+.bossbar.on { display: block; }
+.bossbar .name { font-size: calc(var(--u)*1.5); letter-spacing: .22em; color: #ffd6a8; text-shadow: 0 0 calc(var(--u)*.6) #000, 0 0 calc(var(--u)*1.4) rgba(200,40,58,.6); }
+.bossbar .bar { margin-top: calc(var(--u)*.5); height: calc(var(--u)*1.2); background: #14060a; box-shadow: 0 0 0 calc(var(--u)*.12) #4a3b2a, 0 0 0 calc(var(--u)*.26) #0d0a10; padding: calc(var(--u)*.15); }
+.bossbar .bar i { display: block; height: 100%; width: 100%; background: linear-gradient(180deg, #ff5b5b, #8f0b18); box-shadow: 0 0 calc(var(--u)*.8) rgba(255,60,60,.5); transition: width .2s; }

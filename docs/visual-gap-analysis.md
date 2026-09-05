@@ -97,3 +97,15 @@ Capture: `m6-drops.png`.
 | 36 | Drop bodies are primitives (box, torus, sphere) tinted by rarity | R-30 | medium | mitigated | Beams and labels carry readability; authored item meshes or icon billboards later |
 | 37 | Inventory icons are line glyphs, not painted item art | R-35 | medium | open | Painted icon set per base item once the art pass starts |
 | 38 | Loot balance: one rare staff triples spell power | — | high | mitigated | Weapon curve flattened to 0.5 + damage/40; enemy HP scales per wave and level. Needs a tuning pass with the progression milestone |
+
+## Milestone 8 pass (world)
+
+Captures: `m8-village.png`, `m8-road.png`, `m8-crypt.png`, `m8-ossuary.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 39 | Huts are wall boxes with flat slab roofs; no thatch or pitched roofs in the kit | R-11 | medium | open | Authored roof modules; until then the dark slab reads as tar roofing at night |
+| 40 | Road was under-lit; trees read as silhouettes but nothing else did | R-06 | high | fixed | Moon boost 1.6 on the road, standing torches every 30 m, lighter fog |
+| 41 | Crypt and ossuary showed the sky | R-13 | high | fixed | Dark ceiling slabs; the crypt's teal fog now reads |
+| 42 | The Hollow King is a scaled knight rig with violet emissive | R-20 | high | open | Needs an authored boss rig with wings; scale, aura, slam ring and the boss bar carry it for now |
+| 43 | NPCs idle only; no lip movement or gesture beyond the Interact clip | — | low | open | Fine for a hub in a slice |

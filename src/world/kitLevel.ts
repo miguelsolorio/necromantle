@@ -7,6 +7,9 @@ import { rand } from '@/core/mathx';
 import type { RenderRig } from '@/rendering/setup';
 import { Textures } from '@/rendering/textures';
 import { World } from './world';
+import type { AssetId } from '@/assets/registry';
+import type { NpcDef } from './npc';
+import { Animator } from '@/player/animator';
 
 /** Architecture is exaggerated 1.5–2.5× (rule R-11). Kit walls are 4 m; gates become 10 m. */
 export const KIT_SCALE = 1.5;
@@ -34,6 +37,14 @@ export abstract class KitLevel extends World {
   name = 'LEVEL';
   sub = '';
   waves: WaveDef[] = [];
+  /** Safe levels have no waves; the exit is open from the start. */
+  safe = false;
+  fogDensity = 0.011;
+  fogColor: Color3 | null = null;
+  /** Objective shown on arrival. */
+  objective = 'Survive three waves to open the way onward';
+  readonly npcs: { def: NpcDef; root: TransformNode; animator: Animator | null; talked: boolean }[] = [];
+  private treeMat: StandardMaterial | null = null;
   /** Text on the door prompt once the waves are cleared. */
   exitLabel = 'ENTER';
   /** Where the player must stand to use the door, and the portal plane that brightens when it unlocks. */
@@ -136,6 +147,55 @@ export abstract class KitLevel extends World {
     }
   }
 
+  /** A townsperson standing at a spot, idling. */
+  protected async addNpc(def: NpcDef): Promise<void> {
+    const inst = await this.loader.instanceCharacter(def.model, `npc.${def.name}`);
+    inst.root.parent = this.root; inst.root.position.copyFrom(def.pos); inst.root.rotation.y = def.yaw; inst.root.scaling.setAll(1.9 / 2.2);
+    for (const m of inst.meshes) { m.receiveShadows = true; this.rig.addCaster(m); const mat = m.material; if (mat instanceof PBRMaterial) { mat.maxSimultaneousLights = 8; mat.metallic = 0; mat.roughness = 0.9; } }
+    const animator = inst.failed ? null : new Animator(inst.groups);
+    animator?.play(def.anim ?? 'Idle');
+    this.npcs.push({ def, root: inst.root, animator, talked: false });
+    this.addCollider(`npcCol.${def.name}`, def.pos.add(new Vector3(0, 1, 0)), new Vector3(1, 2, 1));
+  }
+
+  /** Procedural dead tree: a tapered trunk and a few crooked branches. Reads as a gothic silhouette at distance. */
+  protected addTree(pos: Vector3, scale = 1): void {
+    if (!this.treeMat) { this.treeMat = new StandardMaterial('treeMat', this.scene); this.treeMat.diffuseColor = new Color3(0.09, 0.07, 0.08); this.treeMat.specularColor = Color3.Black(); this.treeMat.maxSimultaneousLights = 8; }
+    const h = (6 + Math.random() * 4) * scale;
+    const trunk = MeshBuilder.CreateCylinder('tree', { height: h, diameterBottom: 0.9 * scale, diameterTop: 0.25 * scale, tessellation: 6 }, this.scene);
+    trunk.position.set(pos.x, pos.y + h / 2, pos.z); trunk.rotation.set((Math.random() - 0.5) * 0.15, Math.random() * 6, (Math.random() - 0.5) * 0.15);
+    trunk.material = this.treeMat; trunk.parent = this.root; trunk.isPickable = true; trunk.metadata = { static: true }; this.rig.addCaster(trunk);
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const bh = (2 + Math.random() * 3) * scale;
+      const b = MeshBuilder.CreateCylinder('branch', { height: bh, diameterBottom: 0.3 * scale, diameterTop: 0.05 * scale, tessellation: 5 }, this.scene);
+      const a = Math.random() * Math.PI * 2, tilt = 0.6 + Math.random() * 0.7;
+      const y = h * (0.45 + Math.random() * 0.45);
+      b.position.set(Math.sin(a) * Math.sin(tilt) * bh * 0.5, y - h / 2 + Math.cos(tilt) * bh * 0.5, Math.cos(a) * Math.sin(tilt) * bh * 0.5);
+      b.rotation.set(Math.cos(a) * tilt, 0, -Math.sin(a) * tilt);
+      b.material = this.treeMat; b.parent = trunk; b.isPickable = false;
+    }
+    trunk.freezeWorldMatrix();
+    this.addCollider(`treeCol${this.colliderCount}`, new Vector3(pos.x, pos.y + h / 2, pos.z), new Vector3(0.8 * scale, h, 0.8 * scale));
+  }
+
+  /** Vaulted-ceiling stand-in for interiors: a dark slab over the whole level so the sky dome does not show. */
+  protected ceiling(minX: number, maxX: number, minZ: number, maxZ: number, y: number): void {
+    const slab = MeshBuilder.CreateBox('ceiling', { width: maxX - minX + 6, height: 0.6, depth: maxZ - minZ + 6 }, this.scene);
+    const m = new StandardMaterial('ceilingMat', this.scene); m.diffuseColor = new Color3(0.06, 0.05, 0.08); m.specularColor = Color3.Black(); m.maxSimultaneousLights = 8;
+    slab.material = m; slab.position.set((minX + maxX) / 2, y, (minZ + maxZ) / 2); slab.parent = this.root; slab.isPickable = false; slab.freezeWorldMatrix();
+  }
+
+  /** Multiplier on the moon for this level (open wilderness wants more sky light than a walled court). */
+  lightBoost = 1;
+
+  /** Flat dark roof slab for huts built from wall pieces. */
+  protected roof(x: number, z: number, w: number, d: number, y: number): void {
+    const slab = MeshBuilder.CreateBox('roof', { width: w + 0.8, height: 0.4, depth: d + 0.8 }, this.scene);
+    if (!this.treeMat) { this.treeMat = new StandardMaterial('treeMat', this.scene); this.treeMat.diffuseColor = new Color3(0.09, 0.07, 0.08); this.treeMat.specularColor = Color3.Black(); this.treeMat.maxSimultaneousLights = 8; }
+    slab.material = this.treeMat; slab.position.set(x, y + 0.2, z); slab.parent = this.root; slab.isPickable = true; slab.metadata = { static: true }; this.rig.addCaster(slab); slab.freezeWorldMatrix();
+  }
+
   protected makeGround(color: Color3, y = -0.06): void {
     const ground = MeshBuilder.CreateGround('ground', { width: 400, height: 400, subdivisions: 2 }, this.scene);
     const gm = new PBRMaterial('groundMat', this.scene);
@@ -202,6 +262,7 @@ export abstract class KitLevel extends World {
 
   /** Flicker the warm lights and flames a little each frame. */
   update(t: number): void {
+    for (const n of this.npcs) n.animator?.update(1 / 60);
     for (let i = 0; i < this.flames.length; i++) { const f = this.flames[i]; const k = 0.85 + 0.15 * Math.sin(t * 11 + i * 1.7) * Math.sin(t * 5.3 + i); f.scaling.set(k, k * (1.1 + 0.2 * Math.sin(t * 7 + i)), 1); }
     for (const l of this.torches) {
       const b = l.metadata.baseIntensity as number, ph = l.metadata.phase as number;
@@ -212,6 +273,8 @@ export abstract class KitLevel extends World {
   dispose(): void {
     for (const l of this.torches) { l.intensity = 0; l.setEnabled(false); KitLevel.lightPool.push(l); }
     this.torches.length = 0;
+    for (const n of this.npcs) n.animator?.dispose();
+    this.npcs.length = 0;
     this.root.dispose(false, false);
   }
 }
