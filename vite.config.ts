@@ -10,14 +10,16 @@ function snapshotSink(): Plugin {
     configureServer(server) {
       server.middlewares.use('/__snap', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
-        const name = (new URL(req.url ?? '/', 'http://x').searchParams.get('name') ?? 'shot').replace(/[^a-z0-9_-]/gi, '_');
+        const rawName = new URL(req.url ?? '/', 'http://x').searchParams.get('name') ?? 'shot';
+        const ext = rawName.endsWith('.wav') ? '.wav' : '.png';
+        const name = rawName.replace(/\.(wav|png)$/i, '').replace(/[^a-z0-9_-]/gi, '_');
         let body = '';
         req.on('data', (c) => { body += c; });
         req.on('end', () => {
-          const b64 = body.replace(/^data:image\/\w+;base64,/, '');
+          const b64 = body.replace(/^data:[\w/-]+;base64,/, '');
           const dir = join(process.cwd(), 'docs', 'screenshots');
           mkdirSync(dir, { recursive: true });
-          const file = join(dir, `${name}.png`);
+          const file = join(dir, `${name}${ext}`);
           writeFileSync(file, Buffer.from(b64, 'base64'));
           res.setHeader('content-type', 'application/json');
           res.end(JSON.stringify({ ok: true, file }));

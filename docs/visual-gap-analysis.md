@@ -57,3 +57,13 @@ Captures: `m3-nova-fight.png`, `m3-orb-fight.png`, `m3-rift.png`, `m1-hero.png`,
 | 24 | Nova scorch decal now almost invisible | R-24 | low | open | Raise the ember rim a little; keep the dark centre |
 
 Feel check against the design's final sentence: with 18 ghouls, three cultists and an elite knight the loop reads as generate → surround → spend → scatter. Kill rate at level 2–3 is ~12 kills in 5 s once the pack closes, which is the "overwhelmed, then dominate" beat. Wave HP scales +12% per wave so it does not stay trivial.
+
+## Playtest round (levels, waves, audio)
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 25 | Thin threshold slab, visible underside, enemies trapped beside the stair | R-11 | blocker | fixed | Closed stone plinth, slots beside the stair walled, spawn surfaces flagged, safety relocation |
+| 26 | Courtyard read empty between the walls and pillars | R-04 | high | fixed | Banner or torch on every wall bay, pillars between every segment, 60+ scattered props with keep-out lanes, floor patches |
+| 27 | Blank frames after a level swap on WebGPU (destroyed light uniform buffers) | — | blocker | fixed | Level lights are pooled and reused, never disposed |
+| 28 | Nave open to the sky; the kit has no roof pieces | R-13 | medium | open | Reads as a ruin. Roof needs authored vaults; a fog ceiling could stand in |
+| 29 | Large crates scale up to 3.4 m and crowd the aisle | R-12 | low | open | Cap box_large scale at 1.4 |

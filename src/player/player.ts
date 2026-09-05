@@ -10,6 +10,7 @@ import type { Input } from '@/input/input';
 import type { RenderRig } from '@/rendering/setup';
 import type { World } from '@/world/world';
 import { Animator } from './animator';
+import { audio } from '@/audio';
 
 /** glTF characters from this pack face +Z after Babylon's handedness conversion; tune here if a model faces backwards. */
 const MODEL_YAW_OFFSET = 0;
@@ -43,6 +44,7 @@ export class Player {
   private tmp = new Vector3();
   private tmpMove = new Vector3();
   private modelTint = new Color3(1, 1, 1);
+  private stepTimer = 0;
 
   constructor(private scene: Scene, private bus: EventBus) {
     this.root = new TransformNode('player', scene);
@@ -235,6 +237,11 @@ export class Player {
     if (this.collider.position.y < -20) this.collider.position.y = 5;
     this.root.position.copyFrom(this.collider.position);
 
+    // footsteps keyed to the locomotion cadence
+    if (this.moving && this.grounded) {
+      this.stepTimer -= dt;
+      if (this.stepTimer <= 0) { this.stepTimer = sprint ? 0.26 : inStance ? 0.36 : 0.32; audio.play('footstep', undefined, { pitch: 0.85 + Math.random() * 0.3, gain: sprint ? 0.5 : 0.35 }); }
+    } else this.stepTimer = 0.05;
     // animation selection
     if (this.animator && !this.animator.busy) {
       if (!this.moving) this.animator.play('Idle');

@@ -18,7 +18,10 @@ import { setupRendering, type RenderRig } from '@/rendering/setup';
 import { DebugPanel } from '@/ui/debug';
 import { Hud } from '@/ui/hud';
 import { Vfx } from '@/vfx/vfx';
-import { BenchmarkScene } from '@/world/benchmark';
+import { audio } from '@/audio';
+import type { KitLevel, WaveDef } from '@/world/kitLevel';
+import { OuterCourt } from '@/world/outerCourt';
+import { Nave } from '@/world/nave';
 
 /** Wires every system together and owns the update order (see technical-architecture.md). */
 export class Game {
@@ -30,7 +33,9 @@ export class Game {
   cam!: ThirdPersonCamera;
   input!: Input;
   player!: Player;
-  world!: BenchmarkScene;
+  world!: KitLevel;
+  private levels = [OuterCourt, Nave];
+  levelIndex = 0;
   enemies!: EnemyManager;
   projectiles!: Projectiles;
   targeting!: Targeting;
@@ -43,11 +48,12 @@ export class Game {
   readonly bus = new EventBus();
   private instr!: SceneInstrumentation;
   private statT = 0;
-  private wave = 0;
-  private spawnTimer = 4;
+  wave = 0;
+  waveState: 'idle' | 'countdown' | 'active' | 'done' = 'idle';
+  private countdown = 3;
+  private transitioning = false;
   private nearby: import('@/enemies/enemy').Enemy[] = [];
   private spawning = false;
-  private doorState: 'closed' | 'answered' = 'closed';
   /** Nothing hostile happens until the player has clicked in once. */
   playing = false;
 
@@ -63,7 +69,7 @@ export class Game {
     this.rig = setupRendering(this.scene, this.cam.camera, backend);
     this.loader = new AssetLoader(this.scene);
     this.vfx = new Vfx(this.scene);
-    this.world = new BenchmarkScene(this.scene, this.loader, this.rig);
+    this.world = new this.levels[0](this.scene, this.loader, this.rig);
     this.player = new Player(this.scene, this.bus);
     this.projectiles = new Projectiles(this.scene, this.vfx, this.rig);
     this.enemies = new EnemyManager(this.scene, this.loader, this.rig, this.bus, this.vfx, this.projectiles, this.world);
@@ -77,10 +83,14 @@ export class Game {
       screenshot: () => { void this.snapshot(`shot-${Date.now()}`); },
       teleport: (w) => this.teleport(w),
       levelUp: () => this.player.addXp(this.player.xpToNext() - this.player.xp),
+      volume: (bus, v) => audio.engine.setVolume(bus, v),
+      getVolume: (bus) => audio.engine.getVolume(bus),
     }, this.input);
 
     status('Raising the courtyard…');
     await this.world.build();
+    this.hud.setArea(this.world.name, this.world.sub);
+    this.hud.setObjective('Survive three waves to open the cathedral door');
     status('Summoning the Sorcerer…');
     await this.player.load(this.loader, this.rig);
     this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
@@ -97,24 +107,29 @@ export class Game {
   }
 
   private wireEvents(): void {
-    this.bus.on('enemy:damaged', ({ pos, amount, crit, element }) => {
+    this.bus.on('enemy:damaged', ({ pos, amount, crit, element, killed }) => {
       this.hud.number(pos, `${amount}`, crit ? 'crit' : element === 'fire' ? 'fire' : element === 'frost' ? 'frost' : 'normal');
       if (crit) this.cam.shake(0.05, 0.1);
+      if (!killed) audio.play(element === 'fire' && amount < 40 ? 'burnTick' : 'enemyHit', pos, { pitch: crit ? 0.8 : 0.9 + Math.random() * 0.25, gain: crit ? 1.2 : 0.8 });
     });
     this.bus.on('enemy:killed', ({ pos, xp, elite }) => {
       this.player.addXp(xp);
+      audio.play(elite ? 'eliteDeath' : 'enemyDeath', pos);
       const def = this.enemies.pool.find((e) => e.position.equalsWithEpsilon(pos, 0.01))?.def;
       const chance = (def?.globeChance ?? 0.12) * (elite ? 3 : 1);
       if (Math.random() < chance || this.player.hp < this.player.hpMax * 0.35 && Math.random() < 0.3) this.pickups.spawnGlobe(pos);
     });
-    this.bus.on("player:damaged", () => { this.hud.hurt(); const o = this.hud.root.querySelector(".hud-orb.health")!; o.classList.remove('hurt'); void (o as HTMLElement).offsetWidth; o.classList.add('hurt'); this.cam.shake(0.12, 0.15); });
+    this.bus.on("player:damaged", () => { this.hud.hurt(); audio.play('playerHurt'); const o = this.hud.root.querySelector(".hud-orb.health")!; o.classList.remove('hurt'); void (o as HTMLElement).offsetWidth; o.classList.add('hurt'); this.cam.shake(0.12, 0.15); });
     this.bus.on('player:levelup', ({ level }) => {
       this.vfx.levelUp(this.player.position);
+      audio.play('levelUp');
       const unlock = ({ 2: 'ASTRAL ORB', 3: 'RIFT STEP', 4: 'FLAME NOVA', 5: 'PASSIVE SLOT', 6: 'FROST FIELD', 8: 'SECOND PASSIVE SLOT', 10: 'CATACLYSM' } as Record<number, string>)[level];
       this.hud.toast(`LEVEL ${level}`, unlock ? `${unlock} UNLOCKED` : '');
       this.cam.shake(0.1, 0.3);
     });
-    this.bus.on('ability:denied', ({ id, reason }) => { if (reason === 'locked' && (id === 'frost' || id === 'cataclysm')) this.hud.toast(id === 'frost' ? 'FROST FIELD' : 'CATACLYSM', 'ARRIVES IN MILESTONE 4', 1.4); });
+    this.bus.on('pickup:globe', ({ pos }) => audio.play('globe', pos));
+    this.bus.on('ability:denied', ({ id, reason }) => {
+      audio.play('denied'); if (reason === 'locked' && (id === 'frost' || id === 'cataclysm')) this.hud.toast(id === 'frost' ? 'FROST FIELD' : 'CATACLYSM', 'ARRIVES IN MILESTONE 4', 1.4); });
   }
 
   /** Render an off-screen 1080p frame and save it through the dev server (docs/screenshots/<name>.png). */
@@ -138,22 +153,55 @@ export class Game {
     this.spawning = false;
   }
 
-  /** The door does not open in this slice: it flares, the objective changes, and the dead pour out of it. */
-  private answerDoor(): void {
-    this.doorState = 'answered';
-    const dp = this.world.doorPoint;
-    this.vfx.lights.flash(dp.add(new Vector3(0, 4, 2)), this.player.staffLight.diffuse, 80, 1.2, 18);
-    this.vfx.burst('arcaneImpact', dp.add(new Vector3(0, 3, 2)), 80);
-    this.cam.shake(0.5, 0.6);
-    this.hud.toast('THE DOOR IS SEALED', 'FROM WITHIN · THE DEAD ANSWER INSTEAD', 3.5);
-    this.hud.setObjective('The cathedral opens in a later build. Hold the threshold.');
-    this.spawnTimer = 8;
-    void (async () => {
-      for (let i = 0; i < 12; i++) {
-        const at = new Vector3(dp.x + (Math.random() - 0.5) * 5, dp.y, dp.z - 1.5 + Math.random() * 1.5);
-        await this.enemies.spawn(i % 5 === 4 ? 'wraith' : 'ghoul', at, i === 11);
+  /** Spawn the next wave. Wave 3 bursts from the door with a flare; the others rise around the player. */
+  private async startWave(): Promise<void> {
+    const def: WaveDef | undefined = this.world.waves[this.wave];
+    if (!def) return;
+    this.wave++;
+    this.waveState = 'active';
+    this.dbg.state.hpMult = +(1 + (this.wave - 1) * 0.12 + this.levelIndex * 0.3).toFixed(2);
+    this.hud.toast(`WAVE ${this.wave} OF 3`, def.fromDoor ? 'THE DOOR ANSWERS' : 'THE DEAD STIR', 2);
+    this.hud.setObjective(`Wave ${this.wave} of 3. Kill everything that moves.`);
+    audio.play(def.fromDoor ? 'door' : 'waveStart');
+    if (def.fromDoor) {
+      const dp = this.world.doorPoint;
+      this.vfx.lights.flash(dp.add(new Vector3(0, 4, 2)), this.player.staffLight.diffuse, 80, 1.2, 18);
+      this.vfx.burst('arcaneImpact', dp.add(new Vector3(0, 3, 2)), 80);
+      this.cam.shake(0.5, 0.6);
+    }
+    this.spawning = true;
+    for (const g of def.spawns) {
+      for (let i = 0; i < g.n; i++) {
+        const at = def.fromDoor
+          ? this.world.randomSpawn(this.world.doorPoint.add(new Vector3(0, 0, -2.5)), 1, 4)
+          : this.world.randomSpawn(this.player.position, 9, 16);
+        await this.enemies.spawn(g.id, at, !!g.elite);
       }
-    })();
+    }
+    this.spawning = false;
+  }
+
+  /** Fade out, tear down the level, build the next one, place the player, fade in. */
+  private async transition(): Promise<void> {
+    this.transitioning = true;
+    this.hud.fade(true);
+    audio.play('door');
+    await new Promise((r) => setTimeout(r, 750));
+    this.enemies.clear(); this.projectiles.clear(); this.pickups.clear();
+    this.world.dispose();
+    this.levelIndex++;
+    this.world = new this.levels[this.levelIndex](this.scene, this.loader, this.rig);
+    await this.world.build();
+    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world);
+    this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
+    this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
+    this.player.heal(this.player.hpMax); this.player.energy = 60;
+    this.wave = 0; this.waveState = 'idle'; this.countdown = 4;
+    this.hud.setArea(this.world.name, this.world.sub);
+    this.hud.setObjective('Survive three waves to open the way onward');
+    this.hud.toast(this.world.name, this.world.sub, 3.5);
+    this.hud.fade(false);
+    this.transitioning = false;
   }
 
   private teleport(where: string): void {
@@ -165,11 +213,13 @@ export class Game {
   private fixed(dt: number): void {
     const d = this.dbg.state;
     if (this.input.wasPressed('F1')) this.dbg.toggle();
+    if (this.input.wasPressed('KeyM')) { const m = audio.engine.toggleMute(); this.hud.toast(m ? 'AUDIO MUTED' : 'AUDIO ON', '', 1); }
+    if (this.input.locked && !audio.ready) void audio.unlock();
     if (this.input.wasPressed('F2')) { d.hideHud = !d.hideHud; }
     if (this.input.wasPressed('KeyR') && this.player.dead) { this.player.respawn(this.world.playerStart); this.enemies.clear(); }
     this.hud.setHidden(d.hideHud);
     this.abilities.cdMult = d.cdMult; this.abilities.infiniteEnergy = d.infiniteEnergy; this.abilities.unlockAll = d.unlockAll;
-    if (this.input.locked && !this.playing) { this.playing = true; setTimeout(() => this.spawnPack("ghoul", 8), 1500); }
+    if (this.input.locked && !this.playing) { this.playing = true; this.waveState = 'idle'; this.countdown = 3; }
     this.enemies.frozen = d.freezeAI || !this.playing || !this.input.locked; this.enemies.hpMult = d.hpMult; this.vfx.density = d.density;
     this.cam.distanceOverride = d.camDist > 0 ? d.camDist : null; this.cam.fovOverride = d.fov > 0 ? d.fov : null;
 
@@ -184,29 +234,38 @@ export class Game {
     this.vfx.update(dt);
     this.world.update(this.loop.time);
 
-    // the cathedral door: sealed for this slice, but trying it answers with a pack from within
+    // door prompt: sealed until the three waves are down, then it is the way to the next level
     const dp = this.world.doorPoint;
     const nearDoor = !this.player.dead && Math.abs(this.player.position.y - dp.y) < 1.5 && Math.hypot(this.player.position.x - dp.x, this.player.position.z - dp.z) < 4.5;
-    this.hud.prompt(nearDoor && this.doorState === 'closed' ? 'PRESS E · OPEN THE DOOR' : null);
-    if (nearDoor && this.doorState === 'closed' && this.input.wasPressed('KeyE')) this.answerDoor();
+    const lastLevel = this.levelIndex >= this.levels.length - 1;
+    this.hud.prompt(nearDoor && !this.transitioning ? (this.waveState === 'done' ? (lastLevel ? 'THE CRYPT IS SEALED · NEXT BUILD' : `PRESS E · ${this.world.exitLabel}`) : `SEALED · WAVE ${Math.min(this.wave, 3)} OF 3`) : null);
+    if (nearDoor && this.input.wasPressed('KeyE') && !this.transitioning) {
+      if (this.waveState === 'done' && !lastLevel) void this.transition();
+      else if (this.waveState === 'done') { audio.play('denied'); this.hud.toast('THE CRYPT IS SEALED', 'THE DESCENT ARRIVES IN THE NEXT BUILD', 2.5); }
+      else { audio.play('denied'); this.hud.toast('THE DOOR IS SEALED', `${3 - Math.min(this.wave, 3)} WAVE${3 - this.wave === 1 ? '' : 'S'} REMAIN`, 1.8); }
+    }
 
     // combat blend for the camera: pull back and widen as the pack closes in
     const near = this.enemies.countNear(this.player.position, 14);
+    audio.setListener(this.player.position, this.cam.yaw);
+    audio.setIntensity(this.player.dead ? 0 : clamp(near / 7, 0, 1));
     this.cam.combatTarget = clamp(near / 6, 0, 1) * 0.85 + (this.player.stance > 0 ? 0.15 : 0);
     this.cam.update(dt, this.player.position, mouse, (a, b) => this.world.obstruct(a, b));
 
-    // gentle wave pressure while the sandbox is empty
-    if (this.playing && this.input.locked && !d.freezeAI && alive.length === 0 && !this.player.dead) {
-      this.spawnTimer -= dt;
-      if (this.spawnTimer <= 0) {
-        this.wave++;
-        this.spawnTimer = 6;
-        this.dbg.state.hpMult = +(1 + this.wave * 0.12).toFixed(2);
-        const n = Math.min(24, 8 + this.wave * 3);
-        this.spawnPack('ghoul', n);
-        if (this.wave >= 2) this.spawnPack('cultist', Math.min(4, this.wave));
-        if (this.wave >= 3) this.spawnPack('fallen_knight', Math.min(4, this.wave - 1), this.wave % 3 === 0);
-        this.hud.toast(`WAVE ${this.wave}`, `${n} ghouls stir in the dark`, 2);
+    // waves: countdown → active until the pack is dead → next, three per level
+    if (this.playing && this.input.locked && !d.freezeAI && !this.player.dead && !this.transitioning) {
+      if (this.waveState === 'idle' || this.waveState === 'countdown') {
+        this.waveState = 'countdown';
+        this.countdown -= dt;
+        if (this.countdown <= 0) void this.startWave();
+      } else if (this.waveState === 'active' && !this.spawning && alive.length === 0) {
+        if (this.wave >= this.world.waves.length) {
+          this.waveState = 'done';
+          this.world.setPortalOpen(1);
+          this.hud.toast('THE WAY IS OPEN', this.levelIndex >= this.levels.length - 1 ? 'THE CRYPT STAIR IS SEALED IN THIS BUILD' : 'CLIMB TO THE DOOR AND PRESS E', 3.5);
+          this.hud.setObjective(this.levelIndex >= this.levels.length - 1 ? 'The threshold is held. The descent comes in the next build.' : `${this.world.exitLabel.charAt(0)}${this.world.exitLabel.slice(1).toLowerCase()} through the glowing door`);
+          audio.play('levelUp');
+        } else { this.waveState = 'countdown'; this.countdown = 5; this.hud.setObjective(`Wave ${this.wave} of 3 cleared. The next stirs…`); }
       }
     }
     this.input.endFrame();

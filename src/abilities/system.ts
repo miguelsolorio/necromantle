@@ -10,6 +10,7 @@ import type { Input } from '@/input/input';
 import type { Player } from '@/player/player';
 import type { Vfx } from '@/vfx/vfx';
 import type { World } from '@/world/world';
+import { audio } from '@/audio';
 
 export interface AbilityContext { player: Player; cam: ThirdPersonCamera; enemies: EnemyManager; projectiles: Projectiles; vfx: Vfx; targeting: Targeting; bus: EventBus; world: World }
 export interface SlotState { id: AbilityId; def: AbilityDef; ready: boolean; cd: number; cdMax: number; noEnergy: boolean; locked: boolean }
@@ -26,6 +27,8 @@ export class AbilitySystem {
   private tmp = new Vector3();
 
   constructor(private ctx: AbilityContext) {}
+
+  setWorld(w: World): void { this.ctx.world = w; }
 
   unlocked(id: AbilityId): boolean { return this.unlockAll || this.ctx.player.level >= ABILITIES[id].unlockLevel; }
 
@@ -52,7 +55,7 @@ export class AbilitySystem {
         if (this.cast(id)) this.repeat[id] = def.castInterval / p.stats.attackSpeed;
       }
     }
-    if (input.wasPressed('KeyQ')) p.usePotion();
+    if (input.wasPressed('KeyQ')) { if (p.usePotion()) audio.play('potion'); else audio.play('denied'); }
   }
 
   cast(id: AbilityId): boolean {
@@ -84,6 +87,7 @@ export class AbilitySystem {
     const from = player.staffTip();
     const dir = targeting.direction(from, this.tmp).clone();
     vfx.burst('arcaneSpark', from, 3);
+    audio.play('boltCast', undefined, { pitch: 0.92 + Math.random() * 0.16, gain: 0.55 });
     projectiles.spawn({
       team: 'player', pos: from, dir, speed: def.speed, radius: def.radius, range: def.range, homing: def.homing, target: targeting.target, visual: 'bolt',
       onHitEnemy: (e, pos, d) => {
@@ -91,10 +95,11 @@ export class AbilitySystem {
         enemies.damage(e, r.amount, { dir: d, knockback: def.knockback, crit: r.crit, element: r.element, pos });
         player.addEnergy(def.energyOnHit);
         vfx.boltImpact(pos, d);
+        audio.play('boltImpact', pos, { gain: 0.7 });
         // minor splash on neighbours
         enemies.damageArea(pos, 1.1, (o) => (o === e ? 0 : Math.round(r.amount * 0.3)), { element: r.element });
       },
-      onExpire: (pos) => vfx.boltImpact(pos, dir),
+      onExpire: (pos) => { vfx.boltImpact(pos, dir); audio.play('boltImpact', pos, { gain: 0.5 }); },
     });
   }
 
@@ -102,6 +107,7 @@ export class AbilitySystem {
     const { player, targeting, projectiles, enemies, vfx, cam } = this.ctx;
     const from = player.staffTip();
     const dir = targeting.direction(from, this.tmp).clone(); dir.y *= 0.4; dir.normalize();
+    audio.play('orbCast');
     vfx.burst('arcaneImpact', from, 14); vfx.lights.flash(from, this.ctx.vfx.lights ? player.staffLight.diffuse : player.staffLight.diffuse, 20, 0.25, 6);
     projectiles.spawn({
       team: 'player', pos: from, dir, speed: def.speed, radius: def.radius, range: def.range, homing: def.homing, target: targeting.target, visual: 'orb', pierce: true,
@@ -112,7 +118,7 @@ export class AbilitySystem {
         vfx.hitSpark(pos, 'arcane');
       },
       onExpire: (pos) => {
-        vfx.orbExplode(pos, 3.2); cam.shake(0.18, 0.25);
+        vfx.orbExplode(pos, 3.2); cam.shake(0.18, 0.25); audio.play('orbExplode', pos);
         enemies.damageArea(pos, 3.2, () => this.roll(def, 0.8).amount, { knockback: 11, element: "arcane" });
       },
     });
@@ -123,6 +129,7 @@ export class AbilitySystem {
     const at = player.position.clone();
     vfx.nova(at, def.radius);
     cam.shake(0.4, 0.32);
+    audio.play('nova');
     const burnDps = Math.round(12 * player.spellPower());
     enemies.damageArea(at, def.radius, () => this.roll(def).amount, { knockback: def.knockback, element: 'fire', burn: { dps: burnDps, dur: 3 } });
   }
@@ -138,5 +145,6 @@ export class AbilitySystem {
     player.invulnerable = 0.3;
     player.yaw = cam.yaw;
     vfx.rift(from, player.position.clone());
+    audio.play('rift');
   }
 }

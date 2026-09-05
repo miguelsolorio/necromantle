@@ -1,5 +1,6 @@
 import { Color3, Mesh, MeshBuilder, PBRMaterial, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
 import { Textures } from "@/rendering/textures";
+import { audio } from "@/audio";
 import type { AssetLoader } from '@/assets/loader';
 import { ENEMIES, type EnemyDef, type EnemyId } from '@/content/enemies';
 import type { EventBus } from '@/core/events';
@@ -33,6 +34,8 @@ export class EnemyManager {
   private blobSrc: Mesh | null = null;
 
   constructor(private scene: Scene, private loader: AssetLoader, private rig: RenderRig, private bus: EventBus, private vfx: Vfx, private projectiles: Projectiles, private world: World) {}
+
+  setWorld(w: World): void { this.world = w; }
 
   async preload(ids: EnemyId[]): Promise<void> {
     await this.loader.preload(ids.map((id) => ENEMIES[id].model));
@@ -230,10 +233,11 @@ export class EnemyManager {
     const dir = to.subtract(from).normalize();
     const r = e.def.attack.ranged!;
     this.vfx.burst('venom', from, 6);
+    audio.play('cultistShot', from);
     this.projectiles.spawn({
       team: 'enemy', pos: from, dir, speed: r.speed, radius: r.radius, range: e.def.attack.range + 4, visual: 'shard',
-      onHitPlayer: (p) => { player.takeDamage(e.def.damage * (e.elite ? 1.8 : 1), false); this.vfx.cultistImpact(p); },
-      onExpire: (p) => this.vfx.cultistImpact(p),
+      onHitPlayer: (p) => { player.takeDamage(e.def.damage * (e.elite ? 1.8 : 1), false); this.vfx.cultistImpact(p); audio.play('cultistImpact', p); },
+      onExpire: (p) => { this.vfx.cultistImpact(p); audio.play('cultistImpact', p, { gain: 0.5 }); },
     });
   }
 

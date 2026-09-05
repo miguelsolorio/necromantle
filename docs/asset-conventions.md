@@ -41,3 +41,9 @@ Enemies: `Idle_Combat`, `Running_A`/`Running_C`, `Walking_D_Skeletons`, `Unarmed
 ## Missing asset behaviour
 
 If a registry id fails to load, the loader returns a magenta placeholder mesh of the expected size and logs a warning. Placeholders are never left in a milestone commit without an entry in `visual-gap-analysis.md`.
+
+## Audio (procedural, no files yet)
+
+All sound is synthesized at runtime with the Web Audio API (`src/audio/`): the soundtrack (`music.ts`, a generative D-minor score with drone, plucked lute, choir pad, wind, and a war layer driven by combat intensity) and every effect (`sfx.ts`, keyed by `SfxName`). The context unlocks on the first click; `M` mutes; the dev panel has music and effects sliders, saved to `localStorage`.
+
+To replace a sound with a recorded asset, put the file under `public/assets/audio/` and map its `SfxName` to a buffer in `Sfx.play`; positional panning and distance attenuation in `audio/index.ts` apply either way.

@@ -4,6 +4,7 @@ import type { SlotState } from '@/abilities/system';
 import type { Enemy } from '@/enemies/enemy';
 import type { Player } from '@/player/player';
 import { ICONS } from './icons';
+import { audio } from '@/audio';
 
 interface Num { el: HTMLSpanElement; t: number; busy: boolean }
 
@@ -34,6 +35,7 @@ export class Hud {
       <div class="lockhint">CLICK TO PLAY<small>WASD move · mouse aim · LMB bolt · RMB orb · 1 rift step · 2 flame nova · shift sprint · Q potion · F1 dev panel</small></div>
       <div class="toast"></div>
       <div class="prompt"></div>
+      <div class="fade"></div>
       <div class="hurtvig"></div>
       <div class="dead">YOU HAVE FALLEN<small>PRESS R TO RISE AGAIN</small></div>
       <div class="hudbottom">
@@ -62,6 +64,7 @@ export class Hud {
   setArea(name: string, sub: string): void { this.area.textContent = name; (this.root.querySelector('[data-sub]') as HTMLElement).textContent = sub; }
   setObjective(text: string): void { this.objective.textContent = text; }
   /** Contextual key prompt near the reticle; pass null to hide. */
+  fade(on: boolean): void { (this.root.querySelector('.fade') as HTMLElement).classList.toggle('on', on); }
   prompt(text: string | null): void { this.promptEl.textContent = text ?? ""; this.promptEl.classList.toggle("on", !!text); }
   hurt(): void { this.hurtT = 0.35; this.hurtVig.classList.add("on"); }
   toast(title: string, sub = "", dur = 2.6): void { this.toastEl.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`; this.toastEl.classList.add('on'); this.toastT = dur; }
@@ -94,7 +97,7 @@ export class Hud {
       const showCd = !s.locked && s.cd > 0 && s.cdMax > 0.5;
       ui.cd.style.display = showCd ? 'grid' : 'none';
       if (showCd) { ui.cd.style.setProperty('--sweep', `${(100 * (s.cd / s.cdMax)).toFixed(1)}%`); ui.cd.textContent = s.cd >= 1 ? `${Math.ceil(s.cd)}` : s.cd.toFixed(1); }
-      if (s.ready && !ui.wasReady && !s.locked && s.cdMax > 0.5) { ui.el.classList.remove('flash'); void ui.el.offsetWidth; ui.el.classList.add('flash'); }
+      if (s.ready && !ui.wasReady && !s.locked && s.cdMax > 0.5) { ui.el.classList.remove('flash'); void ui.el.offsetWidth; ui.el.classList.add('flash'); audio.play('ready'); }
       ui.wasReady = s.ready;
     }
     const pc = player.potionCd;
