@@ -13,6 +13,7 @@ import type { EventBus } from '@/core/events';
 import type { Input } from '@/input/input';
 import type { RenderRig } from '@/rendering/setup';
 import type { World } from '@/world/world';
+import { addRim } from '@/rendering/rimPlugin';
 import { Animator } from './animator';
 import { audio } from '@/audio';
 
@@ -101,7 +102,7 @@ export class Player {
         rig.addCaster(m);
         m.receiveShadows = true;
         const mat = m.material as PBRMaterial | null;
-        if (mat && mat instanceof PBRMaterial) { mat.metallic = 0; mat.roughness = 0.85; mat.specularIntensity = 0.3; mat.albedoColor = new Color3(0.95, 0.8, 1.05); mat.maxSimultaneousLights = 8; }
+        if (mat && mat instanceof PBRMaterial) { mat.metallic = 0; mat.roughness = 0.85; mat.specularIntensity = 0.3; mat.albedoColor = new Color3(0.95, 0.8, 1.05); mat.maxSimultaneousLights = 8; addRim(mat, new Color3(0.5, 0.62, 1.0), 0.75, 2.6); }
       }
       // The pack's Mage carries a wand, a two-handed staff and two spellbooks: keep the staff and the closed book only.
       let staffMesh: AbstractMesh | null = null;

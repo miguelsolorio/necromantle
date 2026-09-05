@@ -193,6 +193,7 @@ export class Enemy {
       }
       this.tinted = !!status || k > 0;
     }
+    if (this.elite && this.alive) { const ring = this.root.getChildMeshes().find((m) => m.name.startsWith('aura.')); if (ring) ring.rotation.y += dt * 0.8; }
     // ragdoll-lite: a lethal heavy hit launches the corpse in an arc before it settles
     if (this.arc) {
       this.arc.y -= 22 * dt;

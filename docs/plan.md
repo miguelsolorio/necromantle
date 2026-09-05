@@ -76,7 +76,8 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Milestone 6 built: item data and generator (four rarities, affix pool, name tables, five legendaries), physical drops with beams and labels, walk-over pickup, inventory screen with comparison tooltips, gear-driven stats, legendary powers (Starfall, Ashen, Fold, Hollow Crown, Cinder Band).
 - Milestone 7 built: six passives with two slots (levels 5 and 8), Twin Bolt (7) and Greater Orb (9), level-up toasts naming the change, versioned local save with restore, enemy damage and HP scaling with player level.
 - Milestone 8 built: six connected levels (Hollowmere village hub with NPCs, Sexton's Road wilderness with dead trees and three pockets, Outer Court, Nave, Crypt, Ossuary boss chamber), the Hollow King with slam, summons, volleys and phases, victory and return.
-- Next: Milestone 9 (polish: open gap-analysis items, performance check, final docs).
+- Milestone 9 built: rim-light material plugin (WebGL2 and WebGPU), hit-stop, affix-coloured elite auras, charge telegraph, wider Cataclysm strikes, frost tint, SSAO as a dev-panel option, final gap-analysis pass.
+- All nine milestones are complete. Remaining items in `visual-gap-analysis.md` are art and asset replacements, plus the second class described in `character-plan.md`.
 
 ## Gate before execution: style storyboard review
 

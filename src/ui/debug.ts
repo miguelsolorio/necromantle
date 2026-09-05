@@ -1,9 +1,9 @@
-export interface DebugState { god: boolean; infiniteEnergy: boolean; freezeAI: boolean; hideHud: boolean; unlockAll: boolean; camDist: number; fov: number; density: number; cdMult: number; hpMult: number; }
+export interface DebugState { god: boolean; infiniteEnergy: boolean; freezeAI: boolean; hideHud: boolean; unlockAll: boolean; ssao: boolean; camDist: number; fov: number; density: number; cdMult: number; hpMult: number; }
 export interface DebugHooks { spawn(kind: string, n: number, elite?: boolean): void; clear(): void; screenshot(): void; teleport(where: string): void; levelUp(): void; loot(legendary: boolean): void; wipe(): void; nextLevel(): void; volume(bus: 'music' | 'sfx', v: number): void; getVolume(bus: 'music' | 'sfx'): number; }
 
 /** Developer panel (design section 43). F1 toggles it; sliders map straight onto live systems. */
 export class DebugPanel {
-  state: DebugState = { god: false, infiniteEnergy: false, freezeAI: false, hideHud: false, unlockAll: false, camDist: 0, fov: 0, density: 1, cdMult: 1, hpMult: 1 };
+  state: DebugState = { god: false, infiniteEnergy: false, freezeAI: false, hideHud: false, unlockAll: false, ssao: false, camDist: 0, fov: 0, density: 1, cdMult: 1, hpMult: 1 };
   private el: HTMLElement;
   private stat: HTMLElement;
   private title: HTMLElement;
@@ -15,7 +15,7 @@ export class DebugPanel {
     this.title = this.el.querySelector('[data-fps]')!;
     const check = (label: string, key: keyof DebugState) => { const r = document.createElement('label'); r.className = 'row'; r.innerHTML = `<span>${label}</span><input type="checkbox">`; const c = r.querySelector('input')!; c.checked = !!this.state[key]; c.onchange = () => { (this.state as any)[key] = c.checked; }; this.el.appendChild(r); };
     const range = (label: string, key: keyof DebugState, min: number, max: number, step: number, fmt: (v: number) => string) => { const r = document.createElement('label'); r.className = 'row'; r.innerHTML = `<span>${label} <output></output></span><input type="range" min="${min}" max="${max}" step="${step}">`; const i = r.querySelector('input')!, o = r.querySelector('output')!; i.value = `${this.state[key]}`; o.textContent = fmt(+i.value); i.oninput = () => { (this.state as any)[key] = +i.value; o.textContent = fmt(+i.value); }; this.el.appendChild(r); };
-    check('God mode', 'god'); check('Infinite energy', 'infiniteEnergy'); check('Freeze AI', 'freezeAI'); check('Hide HUD', 'hideHud'); check('Unlock all abilities', 'unlockAll');
+    check('God mode', 'god'); check('Infinite energy', 'infiniteEnergy'); check('Freeze AI', 'freezeAI'); check('Hide HUD', 'hideHud'); check('Unlock all abilities', 'unlockAll'); check('Ambient occlusion', 'ssao');
     range('Camera distance', 'camDist', 0, 16, 0.5, (v) => (v === 0 ? 'auto' : `${v} m`));
     range('FOV', 'fov', 0, 100, 1, (v) => (v === 0 ? 'auto' : `${v}°`));
     range('Particle density', 'density', 0, 2, 0.1, (v) => `${Math.round(v * 100)}%`);

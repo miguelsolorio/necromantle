@@ -85,8 +85,8 @@ Capture: `m5-brute-necro.png`.
 | # | Gap | Rule | Impact | Status | Action |
 |---|---|---|---|---|---|
 | 33 | Brute and Necromancer reuse the knight and cultist rigs at larger scale with darker tints | R-20 | medium | mitigated | Silhouettes differ by scale and colour; authored rigs remain the fix |
-| 34 | Elite affix is only readable from the nameplate | R-28 | medium | open | Add an affix-coloured floor aura per modifier (ember ring for Scorched, frost ring for Chilling, violet for Blinking) |
-| 35 | Charge telegraph is the Taunt clip plus a smoke puff | R-22 | medium | open | Add a ground arrow decal along the charge line and a low horn |
+| 34 | Elite affix is only readable from the nameplate | R-28 | medium | fixed (M9) | Affix-coloured floor ring under every elite (ember, frost, violet, green, magenta, gold; boss violet) |
+| 35 | Charge telegraph is the Taunt clip plus a smoke puff | R-22 | medium | fixed (M9) | Floor streak along the charge line for the 0.9 s windup, plus the low horn |
 
 ## Milestone 6 pass (loot)
 
@@ -109,3 +109,21 @@ Captures: `m8-village.png`, `m8-road.png`, `m8-crypt.png`, `m8-ossuary.png`.
 | 41 | Crypt and ossuary showed the sky | R-13 | high | fixed | Dark ceiling slabs; the crypt's teal fog now reads |
 | 42 | The Hollow King is a scaled knight rig with violet emissive | R-20 | high | open | Needs an authored boss rig with wings; scale, aura, slam ring and the boss bar carry it for now |
 | 43 | NPCs idle only; no lip movement or gesture beyond the Interact clip | — | low | open | Fine for a hub in a slice |
+
+## Milestone 9 pass (polish)
+
+Captures: `m9-elites.png`, `m9-charge.png`, `m9-cataclysm.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 4 | No rim light on characters | R-07 / R-20 | high | fixed | `RimLightPlugin` (PBR material plugin, GLSL and WGSL) on the player (cool blue-violet) and every enemy (faint teal; amber on elites, violet on the boss) |
+| 23 | Ghouls read tan against the floor | R-07 | medium | mitigated | The teal rim separates them from the floor; a darker atlas remains an art task |
+| 24 | Nova scorch decal too dark to see | R-24 | low | fixed | Ember emissive doubled |
+| 30 | Frost crystals read white | R-26 | low | fixed | Cyan-blue emissive and albedo |
+| 31 | Cataclysm strikes are thin needles | R-25 | medium | fixed | Beam doubled in width with a soft blue-white shell and a brighter short-lived core |
+| 22 | Performance unverified on screen | — | medium | mitigated | SSAO is now opt-in from the dev panel; hidden-harness CPU time 8.5 ms per frame with 13 enemies and 519 active meshes. On-screen 60 fps still needs a visible-pane check |
+| 44 | No hit feedback beyond shake and flash | R-23 | medium | fixed | Hit-stop: 50 ms at 15 % speed on crits, 140 ms at 8 % on elite kills |
+| 45 | Charge streak shares the Scorched aura's orange | R-22 | low | open | Give the telegraph its own red material |
+| 46 | Elite rim plus emissive can wash the model toward flat gold | R-28 | low | open | Lower the elite base emissive once authored rigs land |
+
+Items still open after Milestone 9 (art and asset work, not code): #10 wear shader, #23 ghoul atlas, #28 nave roof, #29 `box_large` scale, #36–37 loot art, #39 hut roofs, #42 boss rig, #43 NPC gestures, #45, #46.

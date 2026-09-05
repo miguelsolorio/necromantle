@@ -1,4 +1,5 @@
 import { Color3, Mesh, MeshBuilder, PBRMaterial, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
+import { addRim, RimLightPlugin } from "@/rendering/rimPlugin";
 import { Textures } from "@/rendering/textures";
 import { audio } from "@/audio";
 import type { AssetLoader } from '@/assets/loader';
@@ -38,6 +39,7 @@ export class EnemyManager {
   private frame = 0;
   private modelsReady = new Set<EnemyId>();
   private blobSrc: Mesh | null = null;
+  private auraMats = new Map<string, StandardMaterial>();
 
   constructor(private scene: Scene, private loader: AssetLoader, private rig: RenderRig, private bus: EventBus, private vfx: Vfx, private projectiles: Projectiles, private world: World) {}
 
@@ -95,17 +97,34 @@ export class EnemyManager {
       } else {
         const own = mat.clone(`${mat.name}.${e.id}`);
         own.albedoColor = new Color3(def.tint[0], def.tint[1], def.tint[2]); own.metallic = 0; own.roughness = 0.95; own.specularIntensity = 0.15;
+        addRim(own, new Color3(0.35, 0.6, 0.7), 0.35, 3.2);
         m.material = own;
       }
     }
   }
+  /** Affix-coloured floor ring under elites so the modifier reads in a crowd (rule R-28). */
+  private auraFor(e: Enemy): void {
+    const old = e.root.getChildMeshes().find((m) => m.name.startsWith('aura.'));
+    old?.dispose();
+    if (!e.elite) return;
+    const color = e.def.behaviour === 'boss' ? '#B14DFF' : e.mod === 'scorched' ? '#FF7A1A' : e.mod === 'chilling' ? '#9CF1FF' : e.mod === 'blink' ? '#8B5CF6' : e.mod === 'volley' ? '#7ED957' : e.mod === 'summoner' ? '#B14DFF' : e.mod === 'pull' ? '#FF3AB0' : '#FFB347';
+    let mat = this.auraMats.get(color);
+    if (!mat) { mat = new StandardMaterial(`auraMat.${color}`, this.scene); mat.emissiveColor = Color3.FromHexString(color).scale(0.9); mat.diffuseColor = Color3.Black(); mat.opacityTexture = Textures.ring(this.scene); mat.disableLighting = true; mat.alphaMode = 1; mat.backFaceCulling = false; this.auraMats.set(color, mat); }
+    const ring = MeshBuilder.CreatePlane(`aura.${e.id}`, { size: 1 }, this.scene);
+    ring.rotation.x = Math.PI / 2; ring.material = mat; ring.isPickable = false; ring.parent = e.root; ring.position.y = 0.08; ring.scaling.setAll(e.radius * 4.2);
+    this.rig.addGlow(ring);
+  }
+
   private styleElite(e: Enemy, elite: boolean): void {
+    this.auraFor(e);
     for (const m of e.meshes) {
       const mat = m.material;
       if (!(mat instanceof PBRMaterial)) continue;
       if (/eyes/i.test(m.name) || /glow/i.test(mat.name)) { mat.emissiveColor = elite ? Color3.FromHexString('#FFB347') : Color3.FromHexString(e.def.eye); continue; }
       const base = elite ? (e.def.behaviour === 'boss' ? new Color3(0.22, 0.05, 0.38) : new Color3(0.25, 0.12, 0.02)) : Color3.Black();
       mat.emissiveColor = base.clone(); mat.metadata = { ...(mat.metadata ?? {}), baseEmissive: base };
+      const rim = mat.pluginManager?.getPlugin('RimLight') as RimLightPlugin | null | undefined;
+      if (rim) { rim.strength = elite ? 0.7 : 0.35; rim.color = elite ? Color3.FromHexString(e.def.behaviour === 'boss' ? '#B14DFF' : '#FFB347') : new Color3(0.35, 0.6, 0.7); }
     }
   }
 
@@ -319,6 +338,7 @@ export class EnemyManager {
   private startCharge(e: Enemy, player: Player): void {
     const dir = new Vector3(player.position.x - e.position.x, 0, player.position.z - e.position.z).normalize();
     e.state = 'charge'; e.timer = 0; e.charge = null;
+    this.vfx.chargeLine(e.position.clone(), e.position.add(dir.scale(10)));
     e.animator?.clearOneShot(); e.animator?.once('Taunt', { speed: 1.6, onEnd: () => { if (e.alive && e.state === 'charge' && !e.charge) { e.charge = { dir, left: 9 }; audio.play('charge', e.position); this.vfx.burst('smoke', e.position.add(new Vector3(0, 0.3, 0)), 10); } } });
     audio.play('waveStart', e.position, { gain: 0.35, pitch: 1.6 });
   }

@@ -10,7 +10,12 @@ export class GameLoop {
   time = 0;
   private acc = 0;
   paused = false;
+  /** Brief slow-motion on big hits; the simulation runs at `timeScale` until `hitStopT` runs out. */
+  private hitStopT = 0;
+  private hitStopScale = 1;
   private hiddenTimer: number | null = null;
+
+  hitStop(seconds: number, scale = 0.12): void { this.hitStopT = Math.max(this.hitStopT, seconds); this.hitStopScale = scale; }
   constructor(
     private engine: AbstractEngine,
     private scene: Scene,
@@ -19,7 +24,8 @@ export class GameLoop {
   ) {}
 
   private tick(rawDt: number, manualFrame = false): void {
-    const dt = Math.min(rawDt, 0.25);
+    let dt = Math.min(rawDt, 0.25);
+    if (this.hitStopT > 0) { this.hitStopT -= rawDt; dt *= this.hitStopScale; }
     if (!this.paused) {
       this.acc += dt;
       let n = 0;

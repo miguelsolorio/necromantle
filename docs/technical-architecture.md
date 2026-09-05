@@ -33,7 +33,7 @@ input → player controller → ability system → projectiles → enemies (AI o
 - `createEngine`: try `WebGPUEngine` (async init, `?webgl=1` forces WebGL2); fallback `Engine`. Both report which path is active to the debug panel.
 - Lights: one directional key (moon/sky) with a cascaded shadow generator on static geometry + player; up to 12 pooled point lights for lanterns and spells; hemispheric fill tinted cool with a warm ground color.
 - Fog: exponential, tinted per scene. Post: `DefaultRenderingPipeline` with bloom (threshold 0.85, weight 0.25, kernel 64), FXAA/TAA, vignette, tone-mapped image processing with mild contrast; SSAO2 on WebGPU only. No DoF in play.
-- Materials: PBR with low roughness variation; a `grime` overlay (triplanar noise darkening creases/edges) applied to kit materials so flat-atlas assets pick up painterly wear. Enemy materials are darkened and desaturated at load; the player gets a rim light material plugin.
+- Materials: PBR with low roughness variation; a `grime` overlay (triplanar noise darkening creases/edges) applied to kit materials so flat-atlas assets pick up painterly wear. Enemy materials are darkened and desaturated at load. `rendering/rimPlugin.ts` is a `MaterialPluginBase` that injects a Fresnel rim term at `CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR` in both GLSL and WGSL; the player, every enemy and elites each get their own colour and strength. SSAO2 is created detached and attached from the dev panel.
 - Instancing: environment kit pieces are `InstancedMesh`/thin instances by module; enemies of the same archetype share a skeleton-instanced mesh where the engine allows (`instantiateHierarchy` with shared animation groups per instance otherwise).
 
 ## Gameplay collision (custom, no physics engine)
@@ -58,7 +58,7 @@ Logical ids resolve through `assets/registry.ts` to files under `public/assets/`
 
 ## Performance plan
 
-Pool projectiles, numbers, decals, lights and enemies. Profile with the engine instrumentation panel before optimizing. Targets: 60 fps at 1080p with 20–30 enemies on a modern discrete GPU (this machine: M1 Pro).
+Pool projectiles, numbers, decals, lights and enemies. Profile with the engine instrumentation panel before optimizing. `GameLoop.hitStop(seconds, scale)` scales simulation time for brief slow-motion on crits and elite kills without touching the render cadence. Targets: 60 fps at 1080p with 20–30 enemies on a modern discrete GPU (this machine: M1 Pro).
 
 ## Engine gotchas found in Milestone 1–3
 
@@ -68,3 +68,5 @@ Pool projectiles, numbers, decals, lights and enemies. Profile with the engine i
 - **WebGPU lights.** At most 8 lights per mesh. World lights use `renderPriority` 50, spell lights 60–80, sun/sky 95–100, so spells win when the budget is exceeded.
 - **Hidden tab.** `requestAnimationFrame` stops when the tab is hidden; `GameLoop` falls back to a throttled timer that runs full engine frames so automated tests and off-screen captures keep working.
 - **Materials-library gradient shader** rendered black on WebGPU; the sky is a procedural gradient texture on a `StandardMaterial` instead.
+- **Material plugins on WebGPU.** `getCustomCode` receives the shader language as its second argument (1 = WGSL). WGSL code reads plugin uniforms as `uniforms.<name>` and must reassign `finalColor` as a whole `vec4f`; the `fragment` declaration string in `getUniforms` is GLSL-only and ignored on WebGPU.
+- **Enemy AI in the harness.** `EnemyManager.frozen` is true until `input.locked` is set; in `?nolock` mode that happens on the first canvas click, so automated tests set `game.input.locked = true` before stepping the simulation.

@@ -18,6 +18,8 @@ export interface RenderRig {
   /** Per-level fog colour and density (the storm tint blends from this base). */
   setFog(color: Color3, density: number): void;
   setMoon(boost: number): void;
+  /** Screen-space ambient occlusion is off by default (per-draw cost on WebGPU); the dev panel toggles it. */
+  setSsao(on: boolean): void;
 }
 
 /**
@@ -111,7 +113,7 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
 
   let ssao: SSAO2RenderingPipeline | null = null;
   try {
-    ssao = new SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.6, blurRatio: 1 }, [camera], true);
+    ssao = new SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.6, blurRatio: 1 }, [], true);
     ssao.radius = 1.6; ssao.totalStrength = 0.9; ssao.expensiveBlur = false; ssao.samples = 12; ssao.maxZ = 60;
   } catch (e) {
     console.warn('[render] SSAO unavailable on', backend, e);
@@ -127,6 +129,7 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
       hemi.diffuse = Color3.Lerp(new Color3(0.34, 0.4, 0.62), PALETTE.arcane, k * 0.6); hemi.intensity = 0.8 + k * 0.6;
       scene.fogColor = Color3.Lerp(baseFog, new Color3(0.25, 0.16, 0.42), k);
     },
+    setSsao: (on) => { if (!ssao) return; const pm = scene.postProcessRenderPipelineManager; if (on) pm.attachCamerasToRenderPipeline('ssao', camera); else pm.detachCamerasFromRenderPipeline('ssao', camera); },
     setMoon: (boost) => { moonBoost = boost; moon.intensity = 1.9 * boost; hemi.intensity = 0.8 * (0.7 + 0.3 * boost); },
     setFog: (color, density) => { baseFog = color.clone(); scene.fogColor = color.clone(); scene.fogDensity = density; scene.clearColor = new Color4(color.r, color.g, color.b, 1); },
   };

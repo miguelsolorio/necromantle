@@ -69,6 +69,7 @@ export class Game {
   private countdown = 3;
   private transitioning = false;
   private saveTimer = 10;
+  private ssaoOn = false;
   private nearby: import('@/enemies/enemy').Enemy[] = [];
   private spawning = false;
   /** Nothing hostile happens until the player has clicked in once. */
@@ -136,12 +137,13 @@ export class Game {
   private wireEvents(): void {
     this.bus.on('enemy:damaged', ({ pos, amount, crit, element, killed }) => {
       this.hud.number(pos, `${amount}`, crit ? 'crit' : element === 'fire' ? 'fire' : element === 'frost' ? 'frost' : 'normal');
-      if (crit) this.cam.shake(0.05, 0.1);
+      if (crit) { this.cam.shake(0.05, 0.1); this.loop.hitStop(0.05, 0.15); }
       if (!killed) audio.play(element === 'fire' && amount < 40 ? 'burnTick' : 'enemyHit', pos, { pitch: crit ? 0.8 : 0.9 + Math.random() * 0.25, gain: crit ? 1.2 : 0.8 });
     });
     this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning }) => {
       this.player.addXp(xp);
       audio.play(elite ? 'eliteDeath' : 'enemyDeath', pos);
+      if (elite) this.loop.hitStop(0.14, 0.08);
       this.drops.dropFor(id, elite, pos, Math.min(10, this.player.level + this.levelIndex * 2));
       if (burning && (this.player.powers.has('cinderBand') || this.player.hasPassive('chainReaction'))) { const at = pos.add(new Vector3(0, 0.8, 0)); this.vfx.nova(pos, 2.2); this.enemies.damageArea(at, 2.4, () => Math.round(40 * this.player.spellPower()), { element: 'fire', knockback: 5, burn: { dps: 10, dur: 2 } }); }
       const def = this.enemies.pool.find((e) => e.position.equalsWithEpsilon(pos, 0.01))?.def;
@@ -306,6 +308,7 @@ export class Game {
     this.enemies.frozenBonus = this.player.hasPassive('frozenHeart') ? 1.6 : 1; this.enemies.frozenExtra = this.player.hasPassive('frozenHeart') ? 1 : 0;
     this.saveTimer -= dt; if (this.saveTimer <= 0) { this.saveTimer = 10; this.save(); }
     this.cam.distanceOverride = d.camDist > 0 ? d.camDist : null; this.cam.fovOverride = d.fov > 0 ? d.fov : null;
+    if (d.ssao !== this.ssaoOn) { this.ssaoOn = d.ssao; this.rig.setSsao(d.ssao); }
 
     const mouse = this.input.locked ? this.input.consumeMouse() : { dx: 0, dy: 0 };
     this.player.update(dt, this.input, this.cam, this.world);

@@ -57,7 +57,7 @@ export class Vfx {
 
     this.decalMat = new StandardMaterial('vfx.decal', scene);
     this.decalMat.diffuseTexture = Textures.scorch(scene); this.decalMat.opacityTexture = Textures.scorch(scene);
-    this.decalMat.emissiveColor = new Color3(0.1, 0.025, 0.006); this.decalMat.diffuseColor = Color3.Black(); this.decalMat.alpha = 0.85;
+    this.decalMat.emissiveColor = new Color3(0.2, 0.05, 0.01); this.decalMat.diffuseColor = Color3.Black(); this.decalMat.alpha = 0.85;
     this.decalMat.disableLighting = true; this.decalMat.backFaceCulling = false;
     this.decalSrc = MeshBuilder.CreatePlane('vfx.decalSrc', { size: 1 }, scene);
     this.decalSrc.rotation.x = Math.PI / 2; this.decalSrc.material = this.decalMat; this.decalSrc.isVisible = false; this.decalSrc.isPickable = false; this.decalSrc.position.y = -500;
@@ -69,14 +69,14 @@ export class Vfx {
 
     // Cataclysm strike beam: tall additive cylinder that collapses over its lifetime
     const beamMat = new StandardMaterial('vfx.beam', scene);
-    beamMat.emissiveColor = PALETTE.arcaneWhite.clone(); beamMat.diffuseColor = Color3.Black(); beamMat.disableLighting = true; beamMat.alpha = 0.85; beamMat.alphaMode = 1;
-    this.beamSrc = MeshBuilder.CreateCylinder('vfx.beamSrc', { height: 1, diameterTop: 0.9, diameterBottom: 0.5, tessellation: 10 }, scene);
+    beamMat.emissiveColor = new Color3(0.42, 0.6, 1.0); beamMat.diffuseColor = Color3.Black(); beamMat.disableLighting = true; beamMat.alpha = 0.32; beamMat.alphaMode = 1; beamMat.backFaceCulling = false;
+    this.beamSrc = MeshBuilder.CreateCylinder('vfx.beamSrc', { height: 1, diameterTop: 1.9, diameterBottom: 0.9, tessellation: 12 }, scene);
     this.beamSrc.material = beamMat; this.beamSrc.isVisible = false; this.beamSrc.isPickable = false; this.beamSrc.position.y = -500;
     // Frost: floor plate, ice crystals, and the rune ring for storms
     this.frostMat = new StandardMaterial('vfx.frost', scene);
     this.frostMat.diffuseTexture = Textures.frost(scene); this.frostMat.opacityTexture = Textures.frost(scene); this.frostMat.emissiveColor = new Color3(0.35, 0.7, 0.9); this.frostMat.diffuseColor = new Color3(0.5, 0.8, 1); this.frostMat.disableLighting = true; this.frostMat.backFaceCulling = false; this.frostMat.alpha = 0.85;
     this.iceMat = new StandardMaterial('vfx.ice', scene);
-    this.iceMat.emissiveColor = new Color3(0.35, 0.75, 0.95); this.iceMat.diffuseColor = new Color3(0.6, 0.85, 1); this.iceMat.specularColor = Color3.White(); this.iceMat.alpha = 0.8;
+    this.iceMat.emissiveColor = new Color3(0.12, 0.42, 0.62); this.iceMat.diffuseColor = new Color3(0.4, 0.7, 0.95); this.iceMat.specularColor = new Color3(0.6, 0.8, 1); this.iceMat.alpha = 0.85;
     this.frostRingSrc = MeshBuilder.CreatePlane('vfx.frostRingSrc', { size: 1 }, scene);
     this.frostRingSrc.rotation.x = Math.PI / 2; this.frostRingSrc.material = this.ringMat.clone('vfx.frostRingMat'); (this.frostRingSrc.material as StandardMaterial).emissiveColor = PALETTE.frost.clone(); this.frostRingSrc.isVisible = false; this.frostRingSrc.isPickable = false; this.frostRingSrc.position.y = -500;
     this.runeMat = new StandardMaterial('vfx.rune', scene);
@@ -204,7 +204,10 @@ export class Vfx {
   strike(pos: Vector3): void {
     const beam = this.beamSrc.createInstance(`vfx.beam${this.timed.length}`) as unknown as Mesh;
     beam.position.set(pos.x, pos.y + 9, pos.z); beam.scaling.set(1, 18, 1); beam.isPickable = false;
-    this.timed.push({ mesh: beam, t: 0, dur: 0.28, kind: 'beam', from: 1, to: 0.05 });
+    this.timed.push({ mesh: beam, t: 0, dur: 0.34, kind: 'beam', from: 1, to: 0.05 });
+    const core = this.beamSrc.createInstance(`vfx.beamCore${this.timed.length}`) as unknown as Mesh;
+    core.position.set(pos.x, pos.y + 9, pos.z); core.scaling.set(0.35, 18, 0.35); core.isPickable = false;
+    this.timed.push({ mesh: core, t: 0, dur: 0.2, kind: 'beam', from: 0.35, to: 0.02 });
     this.spawnTimed(this.ringSrc, 'ring', new Vector3(pos.x, Math.max(0.1, pos.y + 0.06), pos.z), 0.4, 5.5, 0.3);
     this.burst('strike', pos.add(new Vector3(0, 0.6, 0)), 40); this.burst('arcaneImpact', pos.add(new Vector3(0, 0.8, 0)), 16); this.burst('smoke', pos.add(new Vector3(0, 0.5, 0)), 4);
     this.lights.flash(pos.add(new Vector3(0, 2.5, 0)), PALETTE.arcaneCore, 70, 0.35, 12);
@@ -222,6 +225,14 @@ export class Vfx {
       dispose: () => { ring.dispose(); ring2.dispose(); },
     };
   }
+  /** Charge telegraph: a red streak on the floor from the brute toward its target. */
+  chargeLine(from: Vector3, to: Vector3): void {
+    const len = Vector3.Distance(from, to); const mid = Vector3.Lerp(from, to, 0.5);
+    const m = this.ringSrc.createInstance(`vfx.charge${this.timed.length}`) as unknown as Mesh;
+    m.position.set(mid.x, Math.max(0.1, from.y + 0.08), mid.z); m.scaling.set(1.6, len, 1); m.rotation.y = Math.atan2(to.x - from.x, to.z - from.z); m.isPickable = false;
+    this.timed.push({ mesh: m, t: 0, dur: 0.9, kind: 'decal', from: 1, to: 1 });
+  }
+
   /** Small burning patch left by a Scorched Ground elite. */
   scorchTrail(pos: Vector3): void {
     const d = this.spawnTimed(this.decalSrc, 'decal', new Vector3(pos.x, Math.max(0.1, pos.y + 0.06), pos.z), 1.6, 1.6, 4);
