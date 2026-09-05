@@ -3,6 +3,7 @@ import { Game } from './game';
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const boot = document.getElementById('boot')!;
 const bootStatus = document.getElementById('boot-status')!;
+if (new URLSearchParams(location.search).has('probe')) import('./ui/probe').then((m) => m.startProbe());
 const game = new Game();
 (window as any).game = game;
 import('./audio').then((m) => { (window as any).audio = m.audio; });
