@@ -94,7 +94,7 @@ export class Music {
   // ------------------------------------------------------------ instruments
   private buildDrone(t: number): void {
     const c = this.eng.ctx!;
-    const g = c.createGain(); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.5, t + 6);
+    const g = c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.13, t + 4);
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 1.2;
     const lfo = c.createOscillator(); lfo.frequency.value = 0.035; const lg = c.createGain(); lg.gain.value = 160; lfo.connect(lg); lg.connect(lp.frequency); lfo.start(t);
     for (const [midi, type, det] of [[38, 'sawtooth', -6], [38, 'sawtooth', 6], [45, 'triangle', 0], [26, 'sine', 0]] as const) {
