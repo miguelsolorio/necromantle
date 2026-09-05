@@ -21,6 +21,8 @@ const KEYS: Record<AbilityId, string> = { bolt: 'Mouse0', orb: 'Mouse2', rift: '
 /** Cooldowns, costs, unlocks and the actual ability behaviours. Reads data from `content/abilities`. */
 export class AbilitySystem {
   cooldowns: Record<AbilityId, number> = { bolt: 0, orb: 0, rift: 0, nova: 0, frost: 0, cataclysm: 0 };
+  /** Extra stored uses (Boots of the Fold give Rift Step a second charge). */
+  charges: Record<AbilityId, number> = { bolt: 0, orb: 0, rift: 0, nova: 0, frost: 0, cataclysm: 0 };
   cdMult = 1;
   infiniteEnergy = false;
   unlockAll = false;
@@ -38,18 +40,27 @@ export class AbilitySystem {
 
   unlocked(id: AbilityId): boolean { return this.unlockAll || this.ctx.player.level >= ABILITIES[id].unlockLevel; }
 
+  private maxCharges(id: AbilityId): number { return id === 'rift' && this.ctx.player.powers.has('fold') ? 2 : 1; }
+  private cooldownOf(def: AbilityDef): number { return def.cooldown * this.cdMult * (1 - this.ctx.player.bonus.cooldown); }
+
   slots(): SlotState[] {
     return this.ctx.player.cls.abilities.map((id) => {
       const def = ABILITIES[id];
       const locked = !this.unlocked(id);
-      const cd = this.cooldowns[id];
+      const cd = this.charges[id] > 0 ? 0 : this.cooldowns[id];
       const noEnergy = !this.infiniteEnergy && def.cost > this.ctx.player.energy;
-      return { id, def, ready: !locked && cd <= 0 && !noEnergy, cd, cdMax: def.cooldown * this.cdMult, noEnergy, locked };
+      return { id, def, ready: !locked && cd <= 0 && !noEnergy, cd, cdMax: this.cooldownOf(def), noEnergy, locked };
     });
   }
 
   update(dt: number, input: Input): void {
-    for (const id of ABILITY_ORDER) { this.cooldowns[id] = Math.max(0, this.cooldowns[id] - dt); this.repeat[id] = Math.max(0, this.repeat[id] - dt); }
+    for (const id of ABILITY_ORDER) {
+      this.cooldowns[id] = Math.max(0, this.cooldowns[id] - dt); this.repeat[id] = Math.max(0, this.repeat[id] - dt);
+      // refill stored charges one per cooldown period
+      const max = this.maxCharges(id);
+      if (max > 1 && this.charges[id] < max - 1 && this.cooldowns[id] <= 0) { this.charges[id]++; if (this.charges[id] < max - 1) this.cooldowns[id] = this.cooldownOf(ABILITIES[id]); }
+      if (max <= 1) this.charges[id] = 0;
+    }
     const p = this.ctx.player;
     if (p.dead) return;
     for (const id of p.cls.abilities) {
@@ -68,10 +79,10 @@ export class AbilitySystem {
     const { player, bus } = this.ctx;
     const def = ABILITIES[id];
     if (!this.unlocked(id)) { bus.emit('ability:denied', { id, reason: 'locked' }); return false; }
-    if (this.cooldowns[id] > 0) { bus.emit('ability:denied', { id, reason: 'cooldown' }); return false; }
+    if (this.cooldowns[id] > 0 && this.charges[id] <= 0) { bus.emit('ability:denied', { id, reason: 'cooldown' }); return false; }
     if (player.castLock > 0 && id !== 'rift') return false;
     if (def.cost > 0 && !this.infiniteEnergy && !player.spendEnergy(def.cost)) { bus.emit('ability:denied', { id, reason: 'energy' }); return false; }
-    this.cooldowns[id] = def.cooldown * this.cdMult;
+    if (this.cooldowns[id] > 0 && this.charges[id] > 0) this.charges[id]--; else this.cooldowns[id] = this.cooldownOf(def);
     player.cast(def);
     bus.emit('ability:cast', { id });
     const impl = this.impl[id];
@@ -81,7 +92,7 @@ export class AbilitySystem {
 
   private roll(def: AbilityDef, mult = 1) {
     const p = this.ctx.player;
-    return rollDamage(def.damage.base, p.spellPower(), p.stats.critChance, p.stats.critDamage, def.damage.element, mult);
+    return rollDamage(def.damage.base, p.spellPower() * p.elementMult(def.damage.element), p.stats.critChance, p.stats.critDamage, def.damage.element, mult);
   }
 
   private bolt(def: AbilityDef): void {
@@ -95,9 +106,10 @@ export class AbilitySystem {
       onHitEnemy: (e, pos, d) => {
         const r = this.roll(def);
         enemies.damage(e, r.amount, { dir: d, knockback: def.knockback, crit: r.crit, element: r.element, pos });
-        player.addEnergy(def.energyOnHit);
+        player.addEnergy(def.energyOnHit + player.bonus.energyOnHit);
         vfx.boltImpact(pos, d);
         audio.play('boltImpact', pos, { gain: 0.7 });
+        if (player.powers.has('hollowCrown')) this.chainBolt(def, e, pos);
         // minor splash on neighbours
         enemies.damageArea(pos, 1.1, (o) => (o === e ? 0 : Math.round(r.amount * 0.3)), { element: r.element });
       },
@@ -105,12 +117,26 @@ export class AbilitySystem {
     });
   }
 
+  /** Hollow Crown: a second, weaker bolt leaps from the struck enemy to the nearest other enemy. */
+  private chainBolt(def: AbilityDef, from: import('@/enemies/enemy').Enemy, pos: Vector3): void {
+    const { enemies, projectiles, vfx } = this.ctx;
+    const near = enemies.queryNear(pos, 9, []).filter((o) => o !== from && o.alive);
+    if (!near.length) return;
+    near.sort((a, b) => Vector3.Distance(a.position, pos) - Vector3.Distance(b.position, pos));
+    const target = near[0];
+    const dir = target.hitCenter().subtract(pos).normalize();
+    projectiles.spawn({ team: 'player', pos: pos.clone(), dir, speed: def.speed * 1.2, radius: def.radius, range: 12, homing: 0.4, target, visual: 'bolt',
+      onHitEnemy: (e2, p2, d2) => { const r = this.roll(def, 0.7); enemies.damage(e2, r.amount, { dir: d2, knockback: def.knockback, crit: r.crit, element: r.element, pos: p2 }); vfx.boltImpact(p2, d2); },
+      onExpire: (p2) => vfx.boltImpact(p2, dir) });
+  }
+
   private orb(def: AbilityDef): void {
     const { player, targeting, projectiles, enemies, vfx, cam } = this.ctx;
     const from = player.staffTip();
     const dir = targeting.direction(from, this.tmp).clone(); dir.y *= 0.4; dir.normalize();
     audio.play('orbCast');
-    vfx.burst('arcaneImpact', from, 14); vfx.lights.flash(from, this.ctx.vfx.lights ? player.staffLight.diffuse : player.staffLight.diffuse, 20, 0.25, 6);
+    vfx.burst('arcaneImpact', from, 14); vfx.lights.flash(from, player.staffLight.diffuse, 20, 0.25, 6);
+    let pierced = 0;
     projectiles.spawn({
       team: 'player', pos: from, dir, speed: def.speed, radius: def.radius, range: def.range, homing: def.homing, target: targeting.target, visual: 'orb', pierce: true,
       onTick: (pos) => vfx.orbTravelTick(pos),
@@ -118,12 +144,25 @@ export class AbilitySystem {
         const r = this.roll(def);
         enemies.damage(e, r.amount, { dir: d, knockback: def.knockback, crit: r.crit, element: r.element, pos });
         vfx.hitSpark(pos, 'arcane');
+        if (player.powers.has('starfall')) { pierced++; if (pierced === 4) this.starfall(def, pos, d); }
       },
       onExpire: (pos) => {
         vfx.orbExplode(pos, 3.2); cam.shake(0.18, 0.25); audio.play('orbExplode', pos);
         enemies.damageArea(pos, 3.2, () => this.roll(def, 0.8).amount, { knockback: 11, element: "arcane" });
       },
     });
+  }
+
+  /** Starfall Circlet: after four pierces the orb splits into three smaller orbs fanning forward. */
+  private starfall(def: AbilityDef, pos: Vector3, dir: Vector3): void {
+    const { enemies, projectiles, vfx } = this.ctx;
+    vfx.orbExplode(pos, 1.5);
+    for (const spread of [-0.45, 0, 0.45]) {
+      const d = new Vector3(dir.x * Math.cos(spread) + dir.z * Math.sin(spread), dir.y * 0.5, -dir.x * Math.sin(spread) + dir.z * Math.cos(spread)).normalize();
+      projectiles.spawn({ team: 'player', pos: pos.clone(), dir: d, speed: def.speed * 1.3, radius: def.radius * 0.6, range: 12, visual: 'orb', pierce: true,
+        onHitEnemy: (e, p, dd) => { const r = this.roll(def, 0.45); enemies.damage(e, r.amount, { dir: dd, knockback: 3, crit: r.crit, element: r.element, pos: p }); vfx.hitSpark(p, 'arcane'); },
+        onExpire: (p) => { vfx.orbExplode(p, 1.6); enemies.damageArea(p, 1.6, () => this.roll(def, 0.4).amount, { knockback: 5, element: 'arcane' }); } });
+    }
   }
 
   private nova(def: AbilityDef): void {
@@ -134,6 +173,7 @@ export class AbilitySystem {
     audio.play('nova');
     const burnDps = Math.round(12 * player.spellPower());
     enemies.damageArea(at, def.radius, () => this.roll(def).amount, { knockback: def.knockback, element: 'fire', burn: { dps: burnDps, dur: 3 } });
+    if (player.powers.has('ashen')) this.ctx.areas.burn(at, def.radius * 0.8, () => this.roll(def, 0.15).amount, burnDps);
   }
 
   /** Ground target: the enemy cluster nearest the reticle, clamped to range. */

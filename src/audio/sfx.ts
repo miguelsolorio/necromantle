@@ -1,6 +1,6 @@
 import type { AudioEngine } from './engine';
 
-export type SfxName = 'boltCast' | 'boltImpact' | 'orbCast' | 'orbExplode' | 'nova' | 'rift' | 'enemyHit' | 'enemyDeath' | 'eliteDeath' | 'playerHurt' | 'globe' | 'levelUp' | 'potion' | 'denied' | 'door' | 'footstep' | 'cultistShot' | 'cultistImpact' | 'waveStart' | 'ready' | 'burnTick' | 'frostCast' | 'freeze' | 'shatter' | 'cataclysmCast' | 'strike' | 'charge' | 'summon';
+export type SfxName = 'boltCast' | 'boltImpact' | 'orbCast' | 'orbExplode' | 'nova' | 'rift' | 'enemyHit' | 'enemyDeath' | 'eliteDeath' | 'playerHurt' | 'globe' | 'levelUp' | 'potion' | 'denied' | 'door' | 'footstep' | 'cultistShot' | 'cultistImpact' | 'waveStart' | 'ready' | 'burnTick' | 'frostCast' | 'freeze' | 'shatter' | 'cataclysmCast' | 'strike' | 'charge' | 'summon' | 'loot' | 'lootRare' | 'legendary' | 'pickup';
 
 interface Opts { pan?: number; gain?: number; pitch?: number }
 
@@ -54,6 +54,10 @@ export class Sfx {
       case 'cataclysmCast': this.horn(out, t, 55, 2.2, 0.5); this.swell(out, t, 60, 240, 2.0, 0.4); this.shimmer(out, t + 0.3, 1.5, 0.4); this.reverb(out, 0.9); break;
       case 'charge': this.whoosh(out, t, 0.5, 0.6); this.thump(out, t, 90, 0.3, 0.5); break;
       case 'summon': this.swell(out, t, 80, 200, 1.2, 0.35); this.rattle(out, t + 0.3, 8, 0.4); this.shimmer(out, t + 0.2, 0.8, 0.2); this.reverb(out, 0.6); break;
+      case 'loot': this.noiseHit(out, t, 0.05, 1800, 0.25, 'bandpass'); this.thump(out, t, 300, 0.08, 0.2); break;
+      case 'lootRare': this.chime(out, t, [880, 1320], 0.5, 0.35, 0.05); this.reverb(out, 0.3); break;
+      case 'legendary': this.chime(out, t, [523, 659, 784, 1047, 1319], 2.2, 0.55, 0.09); this.swell(out, t, 65, 130, 1.8, 0.4); this.thump(out, t, 50, 1.0, 0.8); this.reverb(out, 0.9); break;
+      case 'pickup': this.chime(out, t, [1047, 1568], 0.25, 0.25, 0.03); break;
       case 'strike': this.noiseHit(out, t, 0.06, 5000, 0.6, 'highpass'); this.thump(out, t + 0.01, 60, 0.6, 0.9); this.noiseHit(out, t + 0.02, 0.35, 700, 0.5, 'lowpass'); this.reverb(out, 0.6); break;
     }
   }

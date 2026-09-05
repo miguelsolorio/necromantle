@@ -73,7 +73,8 @@ Repo sizes are not published; each is expected to be tens of MB (FBX+GLTF+OBJ), 
 - Playtest round (2026-09-04): audio (procedural soundtrack + effects), level structure (`KitLevel` base, Outer Court, Nave), three scripted waves per level with the door as the exit, dense dressing, closed stair plinth.
 - Milestone 4 built: Frost Field (chill, freeze, shatter), Cataclysm (rune ring, strikes, storm lighting), status tints, ragdoll-lite death arcs.
 - Milestone 5 built: Brute (charge), Necromancer (aura, summons), wraith blink, six elite affixes with nameplates, class-definition groundwork and ability registry.
-- Next: Milestone 6 (loot: items, rarities, drops, pickup, inventory, equipment, stat modifiers, legendary powers).
+- Milestone 6 built: item data and generator (four rarities, affix pool, name tables, five legendaries), physical drops with beams and labels, walk-over pickup, inventory screen with comparison tooltips, gear-driven stats, legendary powers (Starfall, Ashen, Fold, Hollow Crown, Cinder Band).
+- Next: Milestone 7 (progression: passives, ability improvements, level-up celebration, save system).
 
 ## Gate before execution: style storyboard review
 

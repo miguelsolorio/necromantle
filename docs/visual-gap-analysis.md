@@ -87,3 +87,13 @@ Capture: `m5-brute-necro.png`.
 | 33 | Brute and Necromancer reuse the knight and cultist rigs at larger scale with darker tints | R-20 | medium | mitigated | Silhouettes differ by scale and colour; authored rigs remain the fix |
 | 34 | Elite affix is only readable from the nameplate | R-28 | medium | open | Add an affix-coloured floor aura per modifier (ember ring for Scorched, frost ring for Chilling, violet for Blinking) |
 | 35 | Charge telegraph is the Taunt clip plus a smoke puff | R-22 | medium | open | Add a ground arrow decal along the charge line and a low horn |
+
+## Milestone 6 pass (loot)
+
+Capture: `m6-drops.png`.
+
+| # | Gap | Rule | Impact | Status | Action |
+|---|---|---|---|---|---|
+| 36 | Drop bodies are primitives (box, torus, sphere) tinted by rarity | R-30 | medium | mitigated | Beams and labels carry readability; authored item meshes or icon billboards later |
+| 37 | Inventory icons are line glyphs, not painted item art | R-35 | medium | open | Painted icon set per base item once the art pass starts |
+| 38 | Loot balance: one rare staff triples spell power | — | high | mitigated | Weapon curve flattened to 0.5 + damage/40; enemy HP scales per wave and level. Needs a tuning pass with the progression milestone |

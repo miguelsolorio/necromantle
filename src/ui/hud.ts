@@ -21,6 +21,8 @@ export class Hud {
   private nums: Num[] = [];
   private bars = new Map<number, HTMLElement>();
   private barPool: HTMLElement[] = [];
+  private lootEls = new Map<number, HTMLElement>();
+  private lootPool: HTMLElement[] = [];
   private proj = { x: 0, y: 0, z: 0, visible: false };
   private toastT = 0;
   private hurtT = 0;
@@ -82,6 +84,20 @@ export class Hud {
     el.textContent = text;
     el.style.left = `${this.proj.x + (Math.random() - 0.5) * 30}px`; el.style.top = `${this.proj.y - 20 + (Math.random() - 0.5) * 20}px`;
     void el.offsetWidth; el.classList.add('on');
+  }
+
+  /** Rarity-coloured labels over settled loot. */
+  updateLoot(views: { id: number; pos: Vector3; text: string; color: string; big: boolean }[]): void {
+    const seen = new Set<number>();
+    for (const v of views) {
+      this.cam.project(v.pos, this.proj);
+      if (!this.proj.visible) continue;
+      seen.add(v.id);
+      let el = this.lootEls.get(v.id);
+      if (!el) { el = this.lootPool.pop() ?? (() => { const d = document.createElement('div'); d.className = 'lootlbl'; this.root.appendChild(d); return d; })(); el.textContent = v.text; el.style.setProperty('--c', v.color); el.classList.toggle('big', v.big); el.classList.add('on'); this.lootEls.set(v.id, el); }
+      el.style.left = `${this.proj.x}px`; el.style.top = `${this.proj.y - 18}px`;
+    }
+    for (const [id, el] of this.lootEls) if (!seen.has(id)) { el.classList.remove('on'); this.lootEls.delete(id); this.lootPool.push(el); }
   }
 
   update(dt: number, player: Player, slots: SlotState[], target: Enemy | null, enemies: Enemy[], locked: boolean): void {

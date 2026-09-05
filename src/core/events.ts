@@ -2,7 +2,7 @@ import type { Vector3 } from '@babylonjs/core';
 
 export interface GameEvents {
   'enemy:damaged': { pos: Vector3; amount: number; crit: boolean; element: string; killed: boolean };
-  'enemy:killed': { pos: Vector3; xp: number; elite: boolean };
+  'enemy:killed': { pos: Vector3; xp: number; elite: boolean; id: string; burning: boolean };
   'player:damaged': { amount: number };
   'player:healed': { amount: number };
   'player:levelup': { level: number };

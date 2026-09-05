@@ -112,7 +112,7 @@ export class EnemyManager {
     if (killed) {
       if (e.frozen > 0 || opts.element === 'frost') this.vfx.shatter(e.hitCenter());
       this.vfx.enemyDeath(e.hitCenter(), opts.dir ?? undefined);
-      this.bus.emit('enemy:killed', { pos: e.position.clone(), xp: Math.round(e.def.xp * (e.elite ? 4 : 1)), elite: e.elite });
+      this.bus.emit('enemy:killed', { pos: e.position.clone(), xp: Math.round(e.def.xp * (e.elite ? 4 : 1)), elite: e.elite, id: e.def.id, burning: e.burn > 0 });
     }
   }
 

@@ -190,6 +190,16 @@ export class Vfx {
     };
   }
 
+  /** Burning ground (Ashen Grimoire): a scorch decal with embers rising for the effect's life. */
+  burningGround(pos: Vector3, radius: number): AreaVisual {
+    const d = this.spawnTimed(this.decalSrc, 'decal', new Vector3(pos.x, Math.max(0.1, pos.y + 0.07), pos.z), radius * 2.1, radius * 2.1, 6.5);
+    let t = 0;
+    return {
+      update: (dt, life) => { t += dt; if (t > 0.18 && life < 0.9) { t = 0; const a = Math.random() * Math.PI * 2, r = Math.random() * radius; this.burst('ember', new Vector3(pos.x + Math.cos(a) * r, pos.y + 0.2, pos.z + Math.sin(a) * r), 3); } },
+      dispose: () => { d.setEnabled(false); },
+    };
+  }
+
   /** One Cataclysm strike: beam, ground ring, spark burst, flash. */
   strike(pos: Vector3): void {
     const beam = this.beamSrc.createInstance(`vfx.beam${this.timed.length}`) as unknown as Mesh;

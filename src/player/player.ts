@@ -3,6 +3,8 @@ import type { AssetLoader } from '@/assets/loader';
 import type { ThirdPersonCamera } from '@/camera/thirdPerson';
 import { PLAYER, XP_TABLE } from '@/content/player';
 import { CLASSES, type ClassDef } from '@/content/classes';
+import type { Element } from '@/content/abilities';
+import { type Item, type PowerId, type Slot } from '@/content/items';
 import { PALETTE } from '@/content/palette';
 import type { AbilityDef } from '@/content/abilities';
 import { clamp, damp, dampAngle, dirToYaw } from '@/core/mathx';
@@ -17,6 +19,9 @@ import { audio } from '@/audio';
 const MODEL_YAW_OFFSET = 0;
 
 export interface Stats { vitality: number; power: number; intelligence: number; armor: number; critChance: number; critDamage: number; attackSpeed: number }
+export type EquipKey = Slot | 'ring2';
+export const EQUIP_KEYS: EquipKey[] = ['weapon', 'head', 'chest', 'gloves', 'boots', 'amulet', 'ring', 'ring2'];
+export interface Bonus { arcane: number; fire: number; frost: number; moveSpeed: number; energyRegen: number; energyOnHit: number; cooldown: number }
 
 export class Player {
   readonly root: TransformNode;
@@ -29,6 +34,13 @@ export class Player {
   level = 1;
   xp = 0;
   stats: Stats = { ...PLAYER.base };
+  /** Equipment and bag. Stats are recomputed whenever they change. */
+  equipment: Record<EquipKey, Item | null> = { weapon: null, head: null, chest: null, gloves: null, boots: null, amulet: null, ring: null, ring2: null };
+  inventory: Item[] = [];
+  readonly inventoryMax = 40;
+  powers = new Set<PowerId>();
+  bonus: Bonus = { arcane: 0, fire: 0, frost: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
+  weaponDamage = 20;
   hpMax = 0; hp = 0;
   energyMax = CLASSES.sorcerer.resource.max; energy = CLASSES.sorcerer.resource.start;
   invulnerable = 0;
@@ -122,18 +134,70 @@ export class Player {
 
   recalcStats(): void {
     const l = this.level - 1;
-    this.stats = {
+    const st: Stats = {
       vitality: PLAYER.base.vitality + PLAYER.perLevel.vitality * l,
       power: PLAYER.base.power + PLAYER.perLevel.power * l,
       intelligence: PLAYER.base.intelligence + PLAYER.perLevel.intelligence * l,
       armor: PLAYER.base.armor + PLAYER.perLevel.armor * l,
       critChance: PLAYER.base.critChance, critDamage: PLAYER.base.critDamage, attackSpeed: PLAYER.base.attackSpeed,
     };
-    this.hpMax = this.stats.vitality * PLAYER.hpPerVitality;
+    const b: Bonus = { arcane: 0, fire: 0, frost: 0, moveSpeed: 0, energyRegen: 0, energyOnHit: 0, cooldown: 0 };
+    this.powers.clear();
+    this.weaponDamage = 20;
+    for (const key of EQUIP_KEYS) {
+      const it = this.equipment[key]; if (!it) continue;
+      if (it.base.stat === 'spellDamage') this.weaponDamage = it.base.value; else st.armor += it.base.value;
+      for (const a of it.affixes) {
+        switch (a.stat) {
+          case 'intelligence': st.intelligence += a.value; break;
+          case 'vitality': st.vitality += a.value; break;
+          case 'power': st.power += a.value; break;
+          case 'armor': st.armor += a.value; break;
+          case 'critChance': st.critChance += a.value; break;
+          case 'critDamage': st.critDamage += a.value; break;
+          case 'attackSpeed': st.attackSpeed += a.value; break;
+          case 'arcaneDamage': b.arcane += a.value; break;
+          case 'fireDamage': b.fire += a.value; break;
+          case 'frostDamage': b.frost += a.value; break;
+          case 'moveSpeed': b.moveSpeed += a.value; break;
+          case 'energyRegen': b.energyRegen += a.value; break;
+          case 'energyOnHit': b.energyOnHit += a.value; break;
+          case 'cooldown': b.cooldown += a.value; break;
+        }
+      }
+      if (it.power) this.powers.add(it.power.id);
+    }
+    b.cooldown = Math.min(0.4, b.cooldown);
+    this.stats = st; this.bonus = b;
+    const hpFrac = this.hpMax > 0 ? this.hp / this.hpMax : 1;
+    this.hpMax = Math.round(this.stats.vitality * PLAYER.hpPerVitality);
+    this.hp = Math.min(this.hpMax, Math.max(this.hp, Math.round(this.hpMax * hpFrac)));
   }
 
-  /** Multiplier applied to ability base damage. */
-  spellPower(): number { return 1 + this.stats.intelligence / 60 + this.stats.power / 200; }
+  /** Damage multiplier for an element from gear. */
+  elementMult(el: Element): number { return 1 + (el === 'arcane' ? this.bonus.arcane : el === 'fire' ? this.bonus.fire : this.bonus.frost); }
+
+  /** Put an item in the bag. False when full (the drop stays on the ground). */
+  addItem(item: Item): boolean { if (this.inventory.length >= this.inventoryMax) return false; this.inventory.push(item); return true; }
+  removeItem(uid: number): Item | null { const i = this.inventory.findIndex((x) => x.uid === uid); return i >= 0 ? this.inventory.splice(i, 1)[0] : null; }
+
+  /** Equip from the bag; the replaced item goes back to the bag. Rings fill the first free ring slot. */
+  equip(item: Item): void {
+    let key: EquipKey = item.slot;
+    if (item.slot === 'ring') key = !this.equipment.ring ? 'ring' : !this.equipment.ring2 ? 'ring2' : 'ring';
+    this.removeItem(item.uid);
+    const old = this.equipment[key];
+    this.equipment[key] = item;
+    if (old) this.inventory.push(old);
+    this.recalcStats();
+  }
+  unequip(key: EquipKey): boolean {
+    const it = this.equipment[key]; if (!it || this.inventory.length >= this.inventoryMax) return false;
+    this.equipment[key] = null; this.inventory.push(it); this.recalcStats(); return true;
+  }
+
+  /** Multiplier applied to ability base damage: weapon, intelligence and power. */
+  spellPower(): number { return (0.5 + this.weaponDamage / 40) * (1 + this.stats.intelligence / 60 + this.stats.power / 200); }
 
   staffTip(): Vector3 {
     if (this.staffTipNode) return this.staffTipNode.getAbsolutePosition();
@@ -206,7 +270,7 @@ export class Player {
     this.stance = Math.max(0, this.stance - dt);
     this.castLock = Math.max(0, this.castLock - dt);
     this.potionCd = Math.max(0, this.potionCd - dt);
-    this.energy = clamp(this.energy + this.cls.resource.regen * dt, 0, this.energyMax);
+    this.energy = clamp(this.energy + (this.cls.resource.regen + this.bonus.energyRegen) * dt, 0, this.energyMax);
     this.staffLight.position.copyFrom(this.staffTip());
 
     if (this.dead) { this.animator?.update(dt); return; }
@@ -216,7 +280,7 @@ export class Player {
     const wantMove = (axis.x !== 0 || axis.z !== 0) && this.castLock <= 0;
     const inStance = this.stance > 0;
     const sprint = input.sprint && !inStance;
-    const maxSpeed = (sprint ? PLAYER.sprintSpeed : inStance ? PLAYER.strafeSpeed : PLAYER.jogSpeed) * this.speedMult;
+    const maxSpeed = (sprint ? PLAYER.sprintSpeed : inStance ? PLAYER.strafeSpeed : PLAYER.jogSpeed) * this.speedMult * (1 + this.bonus.moveSpeed);
     this.tmpMove.set(cam.forward.x * axis.z + cam.right.x * axis.x, 0, cam.forward.z * axis.z + cam.right.z * axis.x);
     const target = wantMove ? this.tmpMove.normalize().scaleInPlace(maxSpeed) : Vector3.ZeroReadOnly;
     const rate = wantMove ? PLAYER.accel : PLAYER.decel;

@@ -4,6 +4,10 @@ import { AssetLoader } from '@/assets/loader';
 import { ThirdPersonCamera } from '@/camera/thirdPerson';
 import { Pickups } from '@/combat/pickups';
 import { Areas } from '@/combat/areas';
+import { Drops } from '@/loot/drops';
+import { rollItem } from '@/loot/generator';
+import { InventoryUI } from '@/ui/inventory';
+import { RARITY } from '@/content/items';
 import { Projectiles } from '@/combat/projectiles';
 import { Targeting } from '@/combat/targeting';
 import type { EnemyId } from '@/content/enemies';
@@ -45,6 +49,8 @@ export class Game {
   vfx!: Vfx;
   pickups!: Pickups;
   areas!: Areas;
+  drops!: Drops;
+  inventoryUI!: InventoryUI;
   hud!: Hud;
   dbg!: DebugPanel;
   loop!: GameLoop;
@@ -79,14 +85,17 @@ export class Game {
     this.targeting = new Targeting();
     this.pickups = new Pickups(this.scene, this.vfx, this.bus, this.rig);
     this.areas = new Areas(this.enemies, this.vfx, this.cam, this.rig);
+    this.drops = new Drops(this.scene, this.vfx, this.rig, this.bus, this.world);
     this.abilities = new AbilitySystem({ player: this.player, cam: this.cam, enemies: this.enemies, projectiles: this.projectiles, vfx: this.vfx, targeting: this.targeting, bus: this.bus, world: this.world, areas: this.areas });
     this.hud = new Hud(this.cam);
+    this.inventoryUI = new InventoryUI(this.player, () => { /* stats already recomputed */ }, (open) => { this.input.wantsLock = !open; if (open) this.input.release(); });
     this.dbg = new DebugPanel({
       spawn: (k, n, elite) => this.spawnPack(k as EnemyId, n, !!elite),
       clear: () => { this.enemies.clear(); this.projectiles.clear(); this.areas.clear(); },
       screenshot: () => { void this.snapshot(`shot-${Date.now()}`); },
       teleport: (w) => this.teleport(w),
       levelUp: () => this.player.addXp(this.player.xpToNext() - this.player.xp),
+      loot: (legendary) => { for (let i = 0; i < (legendary ? 1 : 5); i++) this.drops.drop(rollItem(this.player.level + this.levelIndex * 2, legendary ? 'legendary' : undefined), this.player.position.add(new Vector3((Math.random() - 0.5) * 2, 0, 2 + Math.random()))); },
       volume: (bus, v) => audio.engine.setVolume(bus, v),
       getVolume: (bus) => audio.engine.getVolume(bus),
     }, this.input);
@@ -116,9 +125,11 @@ export class Game {
       if (crit) this.cam.shake(0.05, 0.1);
       if (!killed) audio.play(element === 'fire' && amount < 40 ? 'burnTick' : 'enemyHit', pos, { pitch: crit ? 0.8 : 0.9 + Math.random() * 0.25, gain: crit ? 1.2 : 0.8 });
     });
-    this.bus.on('enemy:killed', ({ pos, xp, elite }) => {
+    this.bus.on('enemy:killed', ({ pos, xp, elite, id, burning }) => {
       this.player.addXp(xp);
       audio.play(elite ? 'eliteDeath' : 'enemyDeath', pos);
+      this.drops.dropFor(id, elite, pos, Math.min(10, this.player.level + this.levelIndex * 2));
+      if (burning && this.player.powers.has('cinderBand')) { const at = pos.add(new Vector3(0, 0.8, 0)); this.vfx.nova(pos, 2.2); this.enemies.damageArea(at, 2.4, () => Math.round(40 * this.player.spellPower()), { element: 'fire', knockback: 5, burn: { dps: 10, dur: 2 } }); }
       const def = this.enemies.pool.find((e) => e.position.equalsWithEpsilon(pos, 0.01))?.def;
       const chance = (def?.globeChance ?? 0.12) * (elite ? 3 : 1);
       if (Math.random() < chance || this.player.hp < this.player.hpMax * 0.35 && Math.random() < 0.3) this.pickups.spawnGlobe(pos);
@@ -191,12 +202,12 @@ export class Game {
     this.hud.fade(true);
     audio.play('door');
     await new Promise((r) => setTimeout(r, 750));
-    this.enemies.clear(); this.projectiles.clear(); this.pickups.clear(); this.areas.clear();
+    this.enemies.clear(); this.projectiles.clear(); this.pickups.clear(); this.areas.clear(); this.drops.clear();
     this.world.dispose();
     this.levelIndex++;
     this.world = new this.levels[this.levelIndex](this.scene, this.loader, this.rig);
     await this.world.build();
-    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world);
+    this.enemies.setWorld(this.world); this.abilities.setWorld(this.world); this.drops.setWorld(this.world);
     this.player.collider.position.copyFrom(this.world.playerStart); this.player.position.copyFrom(this.world.playerStart);
     this.player.yaw = this.world.playerYaw; this.cam.yaw = this.world.playerYaw;
     this.player.heal(this.player.hpMax); this.player.energy = 60;
@@ -217,6 +228,8 @@ export class Game {
   private fixed(dt: number): void {
     const d = this.dbg.state;
     if (this.input.wasPressed('F1')) this.dbg.toggle();
+    if (this.input.wasPressed('KeyI') || this.input.wasPressed('Tab')) this.inventoryUI.toggle();
+    if (this.input.wasPressed('Escape') && this.inventoryUI.open) this.inventoryUI.close();
     if (this.input.wasPressed('KeyM')) { const m = audio.engine.toggleMute(); this.hud.toast(m ? 'AUDIO MUTED' : 'AUDIO ON', '', 1); }
     if (this.input.locked && !audio.ready) void audio.unlock();
     if (this.input.wasPressed('F2')) { d.hideHud = !d.hideHud; }
@@ -235,6 +248,10 @@ export class Game {
     this.projectiles.update(dt, (p, r, out) => this.enemies.queryNear(p, r, out), this.player, this.world);
     this.enemies.update(dt, this.player, d.god);
     this.pickups.update(dt, this.player);
+    this.drops.update(dt, this.player, (item, ok) => {
+      if (ok) { this.hud.toast(item.name.toUpperCase(), `${RARITY[item.rarity].label.toUpperCase()} · ${item.slot.toUpperCase()} · PRESS I`, item.rarity === 'legendary' ? 3 : 1.4); if (this.inventoryUI.open) this.inventoryUI.refresh(); }
+      else this.hud.toast('BAG FULL', 'DROP SOMETHING FROM THE INVENTORY', 1.4);
+    });
     this.areas.update(dt);
     this.vfx.update(dt);
     this.world.update(this.loop.time);
@@ -278,7 +295,8 @@ export class Game {
 
   /** Per-render-frame work: HUD sync and stats. */
   private frame(dt: number): void {
-    this.hud.update(dt, this.player, this.abilities.slots(), this.targeting.target, this.enemies.pool, this.input.locked);
+    this.hud.update(dt, this.player, this.abilities.slots(), this.targeting.target, this.enemies.pool, this.input.locked || this.inventoryUI.open);
+    this.hud.updateLoot(this.drops.views);
     this.statT += dt;
     if (this.dbg.visible && this.statT > 0.25) {
       this.statT = 0;
