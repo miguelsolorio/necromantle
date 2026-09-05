@@ -1,8 +1,11 @@
 import { Game } from './game';
+import { PLATFORM } from './core/platform';
+import { resetZoom } from './input/touch';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const boot = document.getElementById('boot')!;
 const bootStatus = document.getElementById('boot-status')!;
+if (PLATFORM.touch) resetZoom(); // a reload should never come back mid-pinch
 if (new URLSearchParams(location.search).has('probe')) import('./ui/probe').then((m) => m.startProbe());
 const game = new Game();
 (window as any).game = game;

@@ -8,16 +8,45 @@ export interface TouchHooks { pause(): void }
 function capture(el: Element, id: number): void { try { el.setPointerCapture(id); } catch { /* pointer already released */ } }
 
 /**
- * iOS zoom guard. `touch-action: manipulation` on every element (hud.css) is the declared fix for double-tap zoom, but
- * Safari has zoomed on a quick second tap in combat regardless, so the second `touchend` within 350 ms is cancelled
- * outright. Its compat click is not missed: touch activation runs on pointerup (ui/tap.ts). Form controls keep their
- * taps. `gesturestart` is Safari's pinch: two thumbs on the world must not zoom the page either.
+ * Back to 1x. iOS keeps the pinch scale across a reload, so a page that came back zoomed would stay zoomed.
+ * Dropping the scale limits from the viewport meta and putting them straight back makes WebKit re-read it and
+ * clamp the live scale into the declared 1x (index.html) — the mutation is the whole point, so both writes have
+ * to change the string. Synchronous on purpose: a hidden tab never runs the animation frame a deferred restore
+ * would need. `pageshow` repeats it for the back-forward cache, which restores the old scale without a fresh load.
+ */
+export function resetZoom(): void {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  if (!meta) return;
+  const pinned = meta.content;
+  const loose = pinned.replace(/,\s*(?:min|max)imum-scale=[^,]*/g, '');
+  const snap = (): void => { meta.content = loose; meta.content = pinned; };
+  snap();
+  addEventListener('pageshow', snap);
+}
+
+/** The surfaces the game is played on: everything a thumb lands on during combat. Menus are deliberately not here. */
+const PLAY_SURFACES = '#game, .skillbar, .touch-layer, .prompt, .dead';
+
+/**
+ * iOS zoom guard. `touch-action` (hud.css) is the declared fix for double-tap zoom and WebKit zoomed on a fast
+ * second tap on the skill arc regardless, so on the play surfaces the touch default is cancelled outright.
+ * Cancelling `touchstart` is the half that matters: by `touchend` the gesture is already recognised. Nothing is
+ * lost — touch activation runs on pointerup (ui/tap.ts), and pointer events still fire for a cancelled touch.
+ *
+ * Menus keep their ordinary touches, including flick scrolling, so there the guard stays the narrow one: drop the
+ * second `touchend` of a quick double tap and leave form controls alone. `gesturestart` is Safari's pinch: two
+ * thumbs on the world must not zoom the page either.
  */
 function guardZoom(): void {
   let last = 0;
+  const onPlaySurface = (e: TouchEvent) => e.target instanceof Element && !!e.target.closest(PLAY_SURFACES);
+  document.addEventListener('touchstart', (e) => {
+    if (e.cancelable && onPlaySurface(e)) e.preventDefault();
+  }, { passive: false });
   document.addEventListener('touchend', (e) => {
     const now = performance.now();
-    if (now - last < 350 && !(e.target instanceof Element && e.target.closest('input, select, textarea'))) e.preventDefault();
+    const fast = now - last < 350 && !(e.target instanceof Element && e.target.closest('input, select, textarea'));
+    if (e.cancelable && (fast || onPlaySurface(e))) e.preventDefault();
     last = now;
   }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
