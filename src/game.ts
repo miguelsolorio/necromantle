@@ -27,6 +27,7 @@ import { DebugPanel } from '@/ui/debug';
 import { Hud } from '@/ui/hud';
 import { Vfx } from '@/vfx/vfx';
 import { audio } from '@/audio';
+import type { MoodId } from '@/audio/music';
 import type { KitLevel, WaveDef } from '@/world/kitLevel';
 import { OuterCourt } from '@/world/outerCourt';
 import { Nave } from '@/world/nave';
@@ -48,6 +49,7 @@ export class Game {
   player!: Player;
   world!: KitLevel;
   private levels = [Village, Road, OuterCourt, Nave, Crypt, Ossuary];
+  private moods: MoodId[] = ['village', 'road', 'court', 'nave', 'crypt', 'ossuary'];
   levelIndex = 0;
   enemies!: EnemyManager;
   projectiles!: Projectiles;
@@ -212,6 +214,7 @@ export class Game {
     this.hud.setArea(w.name, w.sub);
     this.hud.setObjective(w.objective);
     this.hud.setBoss(null);
+    audio.setMood(this.moods[this.levelIndex] ?? 'court');
     this.wave = 0;
     if (w.safe) { this.waveState = 'done'; w.setPortalOpen(0.25); } else { this.waveState = 'idle'; this.countdown = 4; }
     for (const n of w.npcs) n.talked = false;
@@ -343,14 +346,19 @@ export class Game {
     const near = this.enemies.countNear(this.player.position, 14);
     audio.setListener(this.player.position, this.cam.yaw);
     audio.setIntensity(this.player.dead ? 0 : clamp(near / 7, 0, 1));
+    audio.setHealth(this.player.dead ? 1 : this.player.hp / Math.max(1, this.player.hpMax));
     this.cam.combatTarget = clamp(near / 6, 0, 1) * 0.85 + (this.player.stance > 0 ? 0.15 : 0);
     this.cam.update(dt, this.player.position, mouse, (a, b) => this.world.obstruct(a, b));
 
     // waves: countdown → active until the pack is dead → next, three per level
     if (this.playing && this.input.locked && !d.freezeAI && !this.player.dead && !this.transitioning && !this.world.safe) {
       if (this.waveState === 'idle' || this.waveState === 'countdown') {
+        // the riser lands exactly on the spawn: fire it 2.5 s out (or immediately if the countdown is shorter)
+        if (this.waveState === 'idle' && this.countdown <= 2.5) audio.riser(Math.max(0.5, this.countdown));
         this.waveState = 'countdown';
+        const before = this.countdown;
         this.countdown -= dt;
+        if (before > 2.5 && this.countdown <= 2.5) audio.riser(2.5);
         if (this.countdown <= 0) void this.startWave();
       } else if (this.waveState === 'active' && !this.spawning && alive.length === 0) {
         if (this.wave >= this.world.waves.length) {

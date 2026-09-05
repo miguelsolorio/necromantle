@@ -1,6 +1,6 @@
 import type { Vector3 } from '@babylonjs/core';
 import { AudioEngine } from './engine';
-import { Music } from './music';
+import { Music, type MoodId } from './music';
 import { Sfx, type SfxName } from './sfx';
 import { Music as MusicClass } from './music';
 
@@ -35,23 +35,29 @@ class AudioFacade {
   }
 
   setIntensity(v: number): void { this.music.setIntensity(v); }
+  setMood(id: MoodId): void { this.music.setMood(id); }
+  setHealth(frac: number): void { this.music.setHealth(frac); }
+  riser(lead?: number, gain?: number): void { this.music.riser(lead, gain); }
+  phaseSlide(): void { this.music.phaseSlide(); }
 
   /**
    * Render a demo of the score plus a scripted burst of effects to a WAV data URL (dev tooling: lets the
    * soundtrack be reviewed without a live tab). Quiet exploration for the first half, combat after.
    */
-  async renderDemo(seconds = 24): Promise<string> {
+  async renderDemo(seconds = 24, mood: MoodId = 'court', combat = true): Promise<string> {
     const rate = 44100;
     const ctx = new OfflineAudioContext(2, rate * seconds, rate);
     const eng = new AudioEngine(); eng.attach(ctx);
-    const music = new MusicClass(eng); music.start();
-    music.scheduleUntil(seconds, (t) => (t < seconds * 0.45 ? 0 : Math.min(1, (t - seconds * 0.45) / 4)));
+    const music = new MusicClass(eng); music.mood = mood; music.start();
+    const c0 = seconds * 0.45;
+    if (combat) { music.scheduleUntil(c0 - 2.5, () => 0); music.riser(2.5); music.scheduleUntil(seconds, (t) => (t < c0 ? 0 : Math.min(1, (t - c0) / 4))); }
+    else { music.scheduleUntil(seconds, () => 0); }
+    if (!combat) { const buf0 = await ctx.startRendering(); return encodeWav(buf0); }
     const sfx = new Sfx(eng);
     const at = (t: number, name: SfxName, pan = 0, gain = 1) => { (ctx as any).__t = t; sfx.playAt(name, t, { pan, gain }); };
     at(2, 'footstep', 0, 0.4); at(2.35, 'footstep', 0, 0.4); at(2.7, 'footstep', 0, 0.4);
     at(4, 'boltCast', 0, 0.6); at(4.25, 'boltImpact', 0.3, 0.7); at(4.5, 'boltCast', 0, 0.6); at(4.75, 'boltImpact', 0.4, 0.7); at(4.9, 'enemyHit', 0.4, 0.8);
     at(6, 'globe', -0.3); at(8, 'door');
-    const c0 = seconds * 0.45;
     at(c0 + 0.5, 'waveStart'); at(c0 + 2, 'orbCast'); at(c0 + 3.4, 'orbExplode', 0.2); at(c0 + 3.5, 'enemyDeath', 0.2); at(c0 + 3.6, 'enemyDeath', -0.4);
     for (let i = 0; i < 6; i++) { at(c0 + 4.5 + i * 0.3, 'boltCast', 0, 0.6); at(c0 + 4.7 + i * 0.3, 'enemyHit', (i % 2 ? 0.5 : -0.5), 0.8); }
     at(c0 + 6.8, 'playerHurt'); at(c0 + 7.2, 'nova'); at(c0 + 7.4, 'enemyDeath', 0.6); at(c0 + 7.5, 'enemyDeath', -0.6); at(c0 + 7.6, 'enemyDeath', 0.1);

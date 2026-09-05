@@ -74,6 +74,7 @@ export class EnemyManager {
     e.hpMax = Math.round(e.hpMax * this.hpMult); e.hp = e.hpMax;
     e.slot = this.pool.indexOf(e);
     if (elite) this.styleElite(e, true); else this.styleElite(e, false);
+    if (elite && def.behaviour !== 'boss') audio.riser(1.6, 0.4);
     return e;
   }
 
@@ -200,8 +201,8 @@ export class EnemyManager {
       if (def.behaviour === 'boss' && e.state === 'chase' && !player.dead) {
         e.slamTimer -= dt;
         const frac = e.hp / e.hpMax;
-        if (frac < 0.5 && e.bossPhase < 1) { e.bossPhase = 1; this.vfx.lights.flash(e.hitCenter(), Color3.FromHexString('#FF3AB0'), 60, 1, 16); audio.play('cataclysmCast', e.position); this.bus.emit('boss:phase', { phase: 1 }); }
-        if (frac < 0.25 && e.bossPhase < 2) { e.bossPhase = 2; audio.play('waveStart', e.position); this.bus.emit('boss:phase', { phase: 2 }); }
+        if (frac < 0.5 && e.bossPhase < 1) { e.bossPhase = 1; this.vfx.lights.flash(e.hitCenter(), Color3.FromHexString('#FF3AB0'), 60, 1, 16); audio.play('cataclysmCast', e.position); this.bus.emit('boss:phase', { phase: 1 }); audio.phaseSlide(); }
+        if (frac < 0.25 && e.bossPhase < 2) { e.bossPhase = 2; audio.play('waveStart', e.position); this.bus.emit('boss:phase', { phase: 2 }); audio.phaseSlide(); }
         e.auraSpeed = Math.max(e.auraSpeed, e.bossPhase >= 2 ? 1.45 : 1);
         if (e.slamTimer <= 0 && dist < 6) { e.slamTimer = e.bossPhase >= 1 ? 5 : 7; this.slam(e, player, god); }
       }
