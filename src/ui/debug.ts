@@ -1,3 +1,5 @@
+import { PLATFORM } from '@/core/platform';
+
 export interface DebugState { god: boolean; infiniteEnergy: boolean; freezeAI: boolean; hideHud: boolean; unlockAll: boolean; ssao: boolean; camDist: number; fov: number; density: number; cdMult: number; hpMult: number; }
 export interface DebugHooks { spawn(kind: string, n: number, elite?: boolean): void; clear(): void; screenshot(): void; teleport(where: string): void; levelUp(): void; loot(legendary: boolean): void; wipe(): void; nextLevel(): void; volume(bus: 'music' | 'sfx', v: number): void; getVolume(bus: 'music' | 'sfx'): number; }
 
@@ -11,8 +13,9 @@ export class DebugPanel {
 
   constructor(private hooks: DebugHooks, private input: { wantsLock: boolean; release(): void }) {
     this.el = document.createElement('div'); this.el.className = 'dbg';
-    this.el.innerHTML = `<h6>NECROMANTLE · DEV <span data-fps></span></h6>`;
+    this.el.innerHTML = `<h6>NECROMANTLE · DEV <span data-fps></span><i class="x" title="Close">✕</i></h6>`;
     this.title = this.el.querySelector('[data-fps]')!;
+    this.el.querySelector('.x')!.addEventListener('click', () => this.toggle());
     const check = (label: string, key: keyof DebugState) => { const r = document.createElement('label'); r.className = 'row'; r.innerHTML = `<span>${label}</span><input type="checkbox">`; const c = r.querySelector('input')!; c.checked = !!this.state[key]; c.onchange = () => { (this.state as any)[key] = c.checked; }; this.el.appendChild(r); };
     const range = (label: string, key: keyof DebugState, min: number, max: number, step: number, fmt: (v: number) => string) => { const r = document.createElement('label'); r.className = 'row'; r.innerHTML = `<span>${label} <output></output></span><input type="range" min="${min}" max="${max}" step="${step}">`; const i = r.querySelector('input')!, o = r.querySelector('output')!; i.value = `${this.state[key]}`; o.textContent = fmt(+i.value); i.oninput = () => { (this.state as any)[key] = +i.value; o.textContent = fmt(+i.value); }; this.el.appendChild(r); };
     check('God mode', 'god'); check('Infinite energy', 'infiniteEnergy'); check('Freeze AI', 'freezeAI'); check('Hide HUD', 'hideHud'); check('Unlock all abilities', 'unlockAll'); check('Ambient occlusion', 'ssao');
@@ -31,6 +34,7 @@ export class DebugPanel {
     this.stat = document.createElement('div'); this.stat.className = 'stat'; this.el.appendChild(this.stat);
     document.getElementById('hud')!.appendChild(this.el);
   }
-  toggle(): void { this.visible = !this.visible; this.el.classList.toggle('on', this.visible); this.input.wantsLock = !this.visible; if (this.visible) this.input.release(); }
+  /** On touch the panel sits beside live controls; with a mouse it takes the pointer like the inventory does. */
+  toggle(): void { this.visible = !this.visible; this.el.classList.toggle('on', this.visible); if (PLATFORM.touch) return; this.input.wantsLock = !this.visible; if (this.visible) this.input.release(); }
   setStats(fps: number, lines: string): void { this.title.textContent = `${fps.toFixed(0)} fps`; this.stat.innerHTML = lines; }
 }

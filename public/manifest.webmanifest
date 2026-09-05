@@ -1,0 +1,15 @@
+{
+  "name": "Necromantle",
+  "short_name": "Necromantle",
+  "description": "A third-person action RPG in the browser. Four classes, six areas, and a village that has stopped burying its dead.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#070912",
+  "theme_color": "#070912",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

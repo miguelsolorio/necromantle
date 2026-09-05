@@ -2,9 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Necromantle</title>
   <meta name="description" content="A third-person action RPG in the browser. Four classes, six areas, and a village that has stopped burying its dead.">
+  <meta name="theme-color" content="#070912">
+
+  <!-- Installable: add to home screen launches landscape and full screen. Paths are relative so the GitHub Pages base works. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Necromantle">
 
   <!-- Link previews. og:image has to be absolute, so it names the deployed site rather than the Vite base. -->
   <meta property="og:type" content="website">
@@ -26,6 +35,7 @@
 <body>
   <canvas id="game" tabindex="0"></canvas>
   <div id="hud"></div>
+  <div id="rotate"><div class="ph"></div>TURN YOUR PHONE<small>Necromantle plays in landscape.</small></div>
   <div id="boot"><div class="boot-title">NECROMANTLE</div><div class="boot-sub" id="boot-status">Waking the engine…</div></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

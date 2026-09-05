@@ -52,7 +52,18 @@ Pushes to `main` deploy to GitHub Pages through `.github/workflows/deploy.yml`.
 | `R` | Respawn at the checkpoint |
 | `F1` / `F2` | Dev panel / hide the HUD |
 
-URL flags: `?webgl=1` forces the WebGL2 path, `?new=1` wipes the save, `?play=<class>` skips the title screen, and `?nolock` drives the game without pointer lock for automated tests.
+On a phone or tablet the same actions are on screen:
+
+| Touch | Action |
+| --- | --- |
+| Left half of the screen | Floating stick to move; push it past the ring to sprint |
+| Drag anywhere else | Aim the camera |
+| Hold a skill in the bottom-right arc | Use it (the big one is the generator) |
+| Potion, prompt, bag and pause buttons | Potion, talk or take the door, inventory, settings |
+
+Phones play in landscape. Add the page to the home screen and it opens full screen.
+
+URL flags: `?webgl=1` forces the WebGL2 path, `?new=1` wipes the save, `?play=<class>` skips the title screen, `?nolock` drives the game without pointer lock for automated tests, `?touch=1` forces the touch controls on a desktop, `?quality=low|high` forces the render tier, and `?dev=1` opens the dev panel. WebGPU needs a secure page, so the game served over a LAN address falls back to WebGL2; the deployed site is https.
 
 ## Four classes
 
@@ -150,4 +161,5 @@ Everything named in the game is original. Diablo III is a reference for pacing, 
 | [`docs/asset-conventions.md`](docs/asset-conventions.md) | Asset ids, folders, licenses |
 | [`docs/visual-gap-analysis.md`](docs/visual-gap-analysis.md) | What still looks like placeholder art |
 | [`docs/music-plan.md`](docs/music-plan.md) | The procedural score |
+| [`docs/mobile-plan.md`](docs/mobile-plan.md) | Touch controls, responsive layouts, the low render tier |
 | [`docs/storyboard.html`](docs/storyboard.html) | The style frame the look was approved from |

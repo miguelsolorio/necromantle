@@ -2,6 +2,7 @@ import { AbstractMesh, CascadedShadowGenerator, Color3, Color4, DefaultRendering
 import { PALETTE } from "@/content/palette";
 import { Textures } from "./textures";
 import type { Backend } from '@/core/engine';
+import type { QualityTier } from '@/core/platform';
 
 export interface RenderRig {
   moon: DirectionalLight;
@@ -26,7 +27,8 @@ export interface RenderRig {
  * Lighting per reference rules R-08/R-15/R-16/R-18: one cool key, tinted fog, warm locals added by the world,
  * bloom with a high threshold, ACES tone mapping with a little extra contrast, vignette, no depth of field.
  */
-export function setupRendering(scene: Scene, camera: TargetCamera, backend: Backend): RenderRig {
+export function setupRendering(scene: Scene, camera: TargetCamera, backend: Backend, tier: QualityTier = 'high'): RenderRig {
+  const low = tier === 'low';
   let baseFog = PALETTE.fog.clone();
   let moonBoost = 1;
   scene.clearColor = new Color4(PALETTE.fog.r, PALETTE.fog.g, PALETTE.fog.b, 1);
@@ -50,13 +52,14 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
   hemi.intensity = 0.8;
   hemi.renderPriority = 95;
 
-  const shadows = new CascadedShadowGenerator(1536, moon);
+  // Low tier (phones): a smaller map, cheaper filtering, shorter reach. The cascade count stays at two (the minimum).
+  const shadows = new CascadedShadowGenerator(low ? 1024 : 1536, moon);
   shadows.numCascades = 2;
   shadows.lambda = 0.85;
-  shadows.shadowMaxZ = 70;
+  shadows.shadowMaxZ = low ? 45 : 70;
   shadows.stabilizeCascades = true;
-  shadows.filteringQuality = CascadedShadowGenerator.QUALITY_MEDIUM;
-  shadows.usePercentageCloserFiltering = true;
+  shadows.filteringQuality = low ? CascadedShadowGenerator.QUALITY_LOW : CascadedShadowGenerator.QUALITY_MEDIUM;
+  shadows.usePercentageCloserFiltering = !low;
   shadows.bias = 0.004;
   shadows.normalBias = 0.02;
   shadows.darkness = 0.45;
@@ -86,18 +89,18 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
   moonDisc.infiniteDistance = true;
 
   // Glow only renders meshes registered through addGlow(); a full emissive pass over the scene costs ~200 draws.
-  const glow = new GlowLayer("glow", scene, { blurKernelSize: 48, mainTextureSamples: 1, mainTextureRatio: 0.5 });
+  const glow = new GlowLayer("glow", scene, { blurKernelSize: low ? 24 : 48, mainTextureSamples: 1, mainTextureRatio: low ? 0.25 : 0.5 });
   glow.intensity = 0.7;
   glow.addIncludedOnlyMesh(moonDisc);
 
   const pipeline = new DefaultRenderingPipeline('pp', true, scene, [camera]);
-  pipeline.samples = 4;
+  pipeline.samples = low ? 1 : 4;
   pipeline.fxaaEnabled = true;
   pipeline.bloomEnabled = true;
   pipeline.bloomThreshold = 0.82;
   pipeline.bloomWeight = 0.28;
-  pipeline.bloomKernel = 72;
-  pipeline.bloomScale = 0.5;
+  pipeline.bloomKernel = low ? 32 : 72;
+  pipeline.bloomScale = low ? 0.25 : 0.5;
   pipeline.imageProcessingEnabled = true;
   pipeline.imageProcessing.toneMappingEnabled = true;
   pipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
@@ -107,12 +110,12 @@ export function setupRendering(scene: Scene, camera: TargetCamera, backend: Back
   pipeline.imageProcessing.vignetteWeight = 2.2;
   pipeline.imageProcessing.vignetteStretch = 0.6;
   pipeline.imageProcessing.vignetteColor = new Color4(0.02, 0.01, 0.04, 1);
-  pipeline.sharpenEnabled = true;
+  pipeline.sharpenEnabled = !low;
   pipeline.sharpen.edgeAmount = 0.22;
   pipeline.sharpen.colorAmount = 1;
 
   let ssao: SSAO2RenderingPipeline | null = null;
-  try {
+  if (!low) try {
     ssao = new SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.6, blurRatio: 1 }, [], true);
     ssao.radius = 1.6; ssao.totalStrength = 0.9; ssao.expensiveBlur = false; ssao.samples = 12; ssao.maxZ = 60;
   } catch (e) {

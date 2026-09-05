@@ -9,7 +9,8 @@ interface SaveV1 {
 }
 
 export interface RunStats { kills: number; eliteKills: number; deaths: number; legendaries: number }
-export interface Settings { music: number; sfx: number; ssao: boolean }
+/** `quality` and `look` (touch look multiplier) arrived with the mobile build; older records leave them unset. */
+export interface Settings { music: number; sfx: number; ssao: boolean; quality?: 'auto' | 'low' | 'high'; look?: number }
 
 export interface SaveV2 {
   version: 2;

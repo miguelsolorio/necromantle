@@ -30,6 +30,8 @@ export class Projectiles {
   private tmp = new Vector3();
   private tmp2 = new Vector3();
   private nearby: Enemy[] = [];
+  /** Multiplier on every projectile's homing (touch aim assist); the product is capped at 1. */
+  homingAssist = 1;
 
   constructor(private scene: Scene, private vfx: Vfx, private rig?: { addGlow(m: Mesh): void }) {
     const mk = (name: string, c: Color3) => { const m = new StandardMaterial(`proj.${name}`, scene); m.emissiveColor = c; m.diffuseColor = Color3.Black(); m.specularColor = Color3.Black(); m.disableLighting = true; return m; };
@@ -94,7 +96,8 @@ export class Projectiles {
       // homing: bend velocity toward the soft target's chest
       if (p.homing && p.target && p.target.alive) {
         this.tmp.copyFrom(p.target.hitCenter()).subtractInPlace(p.pos).normalize();
-        p.dir.x = damp(p.dir.x, this.tmp.x, p.homing * 30, dt); p.dir.y = damp(p.dir.y, this.tmp.y, p.homing * 30, dt); p.dir.z = damp(p.dir.z, this.tmp.z, p.homing * 30, dt);
+        const h = Math.min(1, p.homing * this.homingAssist) * 30;
+        p.dir.x = damp(p.dir.x, this.tmp.x, h, dt); p.dir.y = damp(p.dir.y, this.tmp.y, h, dt); p.dir.z = damp(p.dir.z, this.tmp.z, h, dt);
         p.dir.normalize(); p.vel.copyFrom(p.dir).scaleInPlace(p.speed);
       }
       const stepLen = p.speed * dt;

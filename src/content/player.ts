@@ -40,5 +40,7 @@ export const CAMERA = {
   maxPitch: 1.15,
   defaultPitch: 0.34,
   sensitivity: 0.0021,
+  /** Radians per CSS pixel of touch drag (scaled by the look setting); a thumb covers far fewer pixels than a mouse. */
+  touchSensitivity: 0.0052,
   collisionPad: 0.35,
 } as const;

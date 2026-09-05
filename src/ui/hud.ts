@@ -7,6 +7,8 @@ import { ICONS } from './icons';
 import { ELITE_MODS } from '@/content/elites';
 import { CLASSES, type ClassDef } from '@/content/classes';
 import { audio } from '@/audio';
+import { ABILITIES, SLOT_KEYS } from '@/content/abilities';
+import { PLATFORM } from '@/core/platform';
 
 interface Num { el: HTMLSpanElement; t: number; busy: boolean }
 
@@ -36,13 +38,13 @@ export class Hud {
       <div class="areaname"><span data-area>THE OUTER COURT</span><small data-sub>HOLLOWMERE · NIGHT</small></div>
       <div class="objective"><span data-obj-title>THE SEXTON'S KEY</span><span data-obj>Reach the cathedral door</span></div>
       <div class="reticle"></div><div class="softlock"></div>
-      <div class="lockhint">CLICK TO PLAY<small>WASD move · mouse aim · LMB bolt · RMB orb · 1 rift step · 2 flame nova · shift sprint · Q potion · F1 dev panel</small></div>
+      <div class="lockhint">${PLATFORM.touch ? 'TAP TO PLAY<small>LEFT THUMB MOVES · RIGHT THUMB AIMS · HOLD A SKILL TO USE IT · PUSH THE STICK OUT TO SPRINT</small>' : 'CLICK TO PLAY<small>WASD move · mouse aim · LMB bolt · RMB orb · 1 rift step · 2 flame nova · shift sprint · Q potion · F1 dev panel</small>'}</div>
       <div class="toast"></div>
       <div class="prompt"></div>
       <div class="bossbar"><div class="name"></div><div class="bar"><i></i></div></div>
       <div class="fade"></div>
       <div class="hurtvig"></div>
-      <div class="dead">YOU HAVE FALLEN<small>PRESS R TO RISE AGAIN</small></div>
+      <div class="dead">YOU HAVE FALLEN<small>${PLATFORM.touch ? 'TAP TO RISE AGAIN' : 'PRESS R TO RISE AGAIN'}</small></div>
       <div class="hudbottom">
         <div class="hud-orb health"><div class="fill"></div><div class="gloss"></div><div class="val">0</div></div>
         <div class="bar"><div class="skillbar"></div><div class="xpbar"><i></i><div class="lvl">1</div></div></div>
@@ -62,11 +64,12 @@ export class Hud {
     const bar = this.root.querySelector('.skillbar') as HTMLElement; bar.innerHTML = ''; this.slots.clear();
     for (const id of cls.abilities) {
       const el = document.createElement('div'); el.className = 'slot'; el.innerHTML = `${ICONS[id] ?? ICONS.generic}<div class="cdv" style="display:none"></div><div class="key"></div>`;
+      el.dataset.key = SLOT_KEYS[ABILITIES[id].slot]; // the touch layer holds this action while the slot is pressed
       bar.appendChild(el);
       this.slots.set(id, { el, cd: el.querySelector('.cdv')!, wasReady: false });
     }
     const div = document.createElement('div'); div.className = 'slot divider'; bar.appendChild(div);
-    const pot = document.createElement('div'); pot.className = 'slot ready'; pot.innerHTML = `${ICONS.potion}<div class="cdv" style="display:none"></div><div class="key">Q</div>`; bar.appendChild(pot);
+    const pot = document.createElement('div'); pot.className = 'slot ready'; pot.innerHTML = `${ICONS.potion}<div class="cdv" style="display:none"></div><div class="key">Q</div>`; pot.dataset.key = 'KeyQ'; bar.appendChild(pot);
     this.potion = { el: pot, cd: pot.querySelector('.cdv')! };
     const orb = this.root.querySelector('.hud-orb.energy') as HTMLElement;
     orb.classList.remove('fury', 'focus', 'blood'); if (cls.resource.hudClass !== 'energy') orb.classList.add(cls.resource.hudClass);

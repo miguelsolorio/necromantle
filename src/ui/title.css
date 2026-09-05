@@ -64,3 +64,50 @@
 .tmodal .close { margin-top: 16px; width: 100%; }
 .tconfirm { font-family: var(--font-body); font-size: 15px; color: #cdc3ae; margin: 0 0 14px; }
 @media (prefers-reduced-motion: reduce) { #title button { transition: none; } }
+
+/* --- settings sheet over the game (touch pause), extra rows --- */
+#title.modal-only .view, #title.modal-only .veil, #title.modal-only .backend { display: none; }
+.tmodal .box { max-height: 90dvh; overflow: auto; box-sizing: border-box; }
+.tmodal label select { font: inherit; font-size: 13px; background: #120e14; color: var(--bone); border: 1px solid #4a3b2a; padding: 4px 6px; }
+.tmodal label .note { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11px; color: #7d7466; letter-spacing: .06em; }
+.tmodal button.mute { margin-top: 14px; width: 100%; }
+html:not(.touch) .touch-only { display: none; }
+#title button { touch-action: manipulation; }
+
+/* --- small screens --- */
+@media (max-width: 900px), (max-height: 520px) {
+  .tv-wordmark { top: 12vh; }
+  .tv-sub { top: calc(12vh + clamp(52px, 11vw, 150px)); font-size: 14px; }
+  .tv-menu { top: auto; bottom: 14vh; min-width: 0; width: min(340px, 86vw); gap: 8px; }
+  .tv-menu button { padding: .7em 1em; font-size: 13px; }
+  .tv-menu .hint { font-size: 13px; }
+  #title .status { bottom: 4vh; font-size: 11px; }
+  .sv-classes { left: var(--sl); right: var(--sr); bottom: calc(var(--sb) + 8px); transform: none; padding: 0 8px; gap: 6px; box-sizing: border-box; }
+  .sv-classes .cls { width: auto; flex: 1 1 0; min-width: 0; min-height: 50px; padding: 6px 8px; }
+  .sv-classes .cls b { font-size: 11px; white-space: normal; } .sv-classes .cls small { font-size: 11px; }
+  .sv-back { bottom: auto; top: calc(var(--st) + 8px); left: calc(var(--sl) + 8px); padding: .6em 1.2em; font-size: 12px; z-index: 2; }
+  .sv-slot { left: calc(var(--sl) + 8px); top: calc(var(--st) + 54px); width: min(36vw, 320px); padding: 8px 12px 10px; box-sizing: border-box; max-height: calc(100dvh - var(--st) - var(--sb) - 54px - 88px); overflow: auto; }
+  .sv-slot h3 { margin-bottom: 6px; } .sv-slot .row { font-size: 13px; padding: 2px 0; } .sv-slot .actions { gap: 5px; margin-top: 8px; } .sv-slot button { padding: .5em 1em; font-size: 11px; }
+  .sv-panel { right: calc(var(--sr) + 8px); top: calc(var(--st) + 8px); width: min(44vw, 460px); max-height: calc(100dvh - var(--st) - var(--sb) - 88px); padding: 12px 14px; box-sizing: border-box; }
+  .sv-panel h2 { font-size: 18px; }
+  .sv-panel .blurb { font-size: 14px; margin: 6px 0 10px; }
+  .sv-panel .res { font-size: 13px; padding: 6px 8px; margin-bottom: 8px; }
+  .sv-ab { grid-template-columns: 36px 1fr auto; gap: 6px 8px; padding: 6px 8px; }
+  .sv-ab .ico { width: 36px; height: 36px; } .sv-ab .ico svg { width: 28px; height: 28px; }
+  .sv-ab b { font-size: 11px; } .sv-ab small { font-size: 12px; } .sv-ab .meta { font-size: 10px; }
+  .tmodal .box { padding: 16px 18px; }
+  .tmodal label { grid-template-columns: 1fr 120px auto; font-size: 14px; }
+}
+@media (max-width: 700px) {
+  .tv-wordmark { font-size: clamp(30px, 8.5vw, 120px); letter-spacing: .1em; }
+}
+/* portrait phones: the select view becomes one scrolling column (play itself is landscape-only) */
+@media (orientation: portrait) and (max-width: 700px) {
+  #title .view.sv.on { display: flex; flex-direction: column; gap: 8px; padding: calc(var(--st) + 8px) calc(var(--sr) + 8px) calc(var(--sb) + 8px) calc(var(--sl) + 8px); box-sizing: border-box; }
+  .sv-back, .sv-classes, .sv-slot, .sv-panel { position: static; transform: none; width: auto; max-height: none; }
+  .sv-back { order: 0; align-self: flex-start; }
+  .sv-classes { order: 1; flex-wrap: wrap; padding: 0; }
+  .sv-classes .cls { flex: 1 1 40%; }
+  .sv-slot { order: 2; }
+  .sv-panel { order: 3; flex: 1 1 auto; min-height: 0; overflow: auto; }
+}

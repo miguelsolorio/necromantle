@@ -1,4 +1,4 @@
-import { Scene, SceneInstrumentation, Tools, Vector3, type AbstractEngine } from '@babylonjs/core';
+import { Camera, Scene, SceneInstrumentation, Tools, Vector3, type AbstractEngine } from '@babylonjs/core';
 import { AbilitySystem } from '@/abilities/system';
 import { AssetLoader } from '@/assets/loader';
 import { ThirdPersonCamera } from '@/camera/thirdPerson';
@@ -25,6 +25,8 @@ import { GameLoop } from '@/core/loop';
 import { clamp } from '@/core/mathx';
 import { EnemyManager } from '@/enemies/manager';
 import { Input } from '@/input/input';
+import { TouchControls } from '@/input/touch';
+import { PLATFORM, resolveTier } from '@/core/platform';
 import { Player } from '@/player/player';
 import { setupRendering, type RenderRig } from '@/rendering/setup';
 import { DebugPanel } from '@/ui/debug';
@@ -66,6 +68,9 @@ export class Game {
   inventoryUI!: InventoryUI;
   hud!: Hud;
   dbg!: DebugPanel;
+  /** Touch layer (joystick, look drag, held skills); null with a mouse. */
+  touch: TouchControls | null = null;
+  private applyRotate: (() => void) | null = null;
   loop!: GameLoop;
   readonly bus = new EventBus();
   private instr!: SceneInstrumentation;
@@ -93,14 +98,17 @@ export class Game {
 
   async start(canvas: HTMLCanvasElement, status: (s: string) => void): Promise<void> {
     status('Waking the engine…');
-    const { engine, backend } = await createEngine(canvas);
+    // settings first: the render tier is baked into the engine and the post pipeline
+    Save.migrate();
+    const tier = resolveTier(Save.load(Save.lastPlayed() ?? 'sorcerer')?.settings?.quality);
+    const { engine, backend } = await createEngine(canvas, tier);
     this.engine = engine; this.backend = backend;
     this.scene = new Scene(engine);
     this.scene.skipPointerMovePicking = true;
     this.input = new Input(canvas);
     this.cam = new ThirdPersonCamera(this.scene);
     this.scene.activeCamera = this.cam.camera;
-    this.rig = setupRendering(this.scene, this.cam.camera, backend);
+    this.rig = setupRendering(this.scene, this.cam.camera, backend, tier);
     this.loader = new AssetLoader(this.scene);
     this.vfx = new Vfx(this.scene);
     this.levelIndex = 0;
@@ -127,8 +135,14 @@ export class Game {
       volume: (bus, v) => audio.engine.setVolume(bus, v),
       getVolume: (bus) => audio.engine.getVolume(bus),
     }, this.input);
+    if (tier === 'low') this.dbg.state.density = 0.6;
+    // touch: a wider soft-lock cone and stronger homing stand in for mouse precision
+    this.targeting.maxAngle = PLATFORM.touch ? 0.6 : 0.42;
+    this.projectiles.homingAssist = PLATFORM.touch ? 1.6 : 1;
+    if (PLATFORM.touch) this.touch = new TouchControls(this.input, this.hud.root, canvas, { pause: () => this.pause() });
+    // iOS resumes the audio context only inside a gesture handler; the loop's unlock covers desktop
+    canvas.addEventListener('pointerdown', () => { if (!audio.ready) void audio.unlock(); });
 
-    Save.migrate();
     Save.onError = (msg) => this.hud?.toast('SAVE', msg.toUpperCase(), 3);
     const settings = Save.load(Save.lastPlayed() ?? 'sorcerer')?.settings; if (settings) this.applySettings(settings);
     status('Raising Hollowmere…');
@@ -147,12 +161,25 @@ export class Game {
       onBegin: (id, fresh) => { void this.launch(id, fresh); },
       onDelete: (id) => Save.remove(id),
       getSettings: () => this.settings, onSettings: (st) => this.applySettings(st),
+      onResume: () => this.resume(),
     });
     this.instr = new SceneInstrumentation(this.scene);
     this.instr.captureFrameTime = true;
-    window.addEventListener('resize', () => engine.resize());
-    this.loop = new GameLoop(engine, this.scene, (dt) => this.fixed(dt), (dt) => this.frame(dt));
+    // portrait viewports keep the horizontal field of view so the select stage stays framed
+    const onResize = () => { engine.resize(); this.cam.camera.fovMode = engine.getRenderHeight() > engine.getRenderWidth() ? Camera.FOVMODE_HORIZONTAL_FIXED : Camera.FOVMODE_VERTICAL_FIXED; };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', () => { onResize(); setTimeout(onResize, 250); }); // iOS reports the old size first
+    onResize();
+    // touch devices hold the sim while hidden instead of ticking in the background; the harness keeps the timer
+    this.loop = new GameLoop(engine, this.scene, (dt) => this.fixed(dt), (dt) => this.frame(dt), !PLATFORM.touch || new URLSearchParams(location.search).has('nolock'));
     this.loop.start();
+    // phones play in landscape: the rotate overlay (CSS on html.playing) covers a portrait viewport and the sim holds
+    const portrait = matchMedia('(orientation: portrait)');
+    this.applyRotate = () => this.loop.hold('rotate', PLATFORM.phone && this.mode === 'play' && portrait.matches);
+    portrait.addEventListener('change', this.applyRotate);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); });
+    window.addEventListener('pagehide', () => this.save());
+    if (PLATFORM.dev) this.dbg.toggle();
     // harness and deep links: ?play=<class> skips the title
     const auto = new URLSearchParams(location.search).get('play') as ClassId | null;
     if (auto && CLASSES[auto]) await this.launch(auto, new URLSearchParams(location.search).has('new'));
@@ -177,13 +204,24 @@ export class Game {
     this.settings = { ...st };
     audio.engine.setVolume('music', st.music); audio.engine.setVolume('sfx', st.sfx);
     if (this.dbg) this.dbg.state.ssao = st.ssao;
+    this.touch?.setLook(st.look ?? 1);
   }
+
+  /** Touch pause button: hold the sim, drop the controls, open the settings sheet over the game. */
+  pause(): void {
+    if (this.mode !== 'play') return;
+    this.loop.hold('menu', true); this.input.wantsLock = false; this.input.release(); this.touch?.reset();
+    this.title.openSettings();
+  }
+  private resume(): void { this.loop.hold('menu', false); this.input.wantsLock = true; }
 
   /** Leave the title: load the chosen class, restore its slot (or start fresh), build the saved level, hand over the controls. */
   async launch(classId: ClassId, fresh: boolean): Promise<void> {
     if (this.launched) return; this.launched = true;
+    void audio.unlock(); // still inside the title button's gesture, which is what iOS needs
     const cls = CLASSES[classId]; this.classId = classId;
     this.title.show('hidden'); this.mode = 'play'; this.stage.setVisible(false); this.cam.cinematic = null;
+    document.documentElement.classList.add('playing'); this.applyRotate?.();
     this.hud.fade(true);
     if (fresh) Save.remove(classId);
     if (new URLSearchParams(location.search).has('new')) Save.wipe();
@@ -202,7 +240,7 @@ export class Game {
     this.hud.setHidden(this.dbg.state.hideHud);
     this.hud.fade(false);
     if (this.player.level > 1) this.hud.toast(`WELCOME BACK · LEVEL ${this.player.level}`, this.player.passiveNames ? this.player.passiveNames.toUpperCase() : '', 3);
-    else this.hud.toast(cls.name.toUpperCase(), 'CLICK TO TAKE THE FIELD', 3);
+    else this.hud.toast(cls.name.toUpperCase(), PLATFORM.touch ? 'TAP TO TAKE THE FIELD' : 'CLICK TO TAKE THE FIELD', 3);
     this.save();
   }
 
@@ -440,7 +478,8 @@ export class Game {
     const nearDoor = !this.player.dead && Math.abs(this.player.position.y - dp.y) < 1.5 && Math.hypot(this.player.position.x - dp.x, this.player.position.z - dp.z) < 4.5;
     const totalWaves = this.world.waves.length;
     const npc = this.world.npcs.find((x) => Math.hypot(x.def.pos.x - this.player.position.x, x.def.pos.z - this.player.position.z) < 3.2);
-    this.hud.prompt(this.transitioning ? null : nearDoor ? (this.waveState === 'done' ? `PRESS E · ${this.world.exitLabel}` : `SEALED · WAVE ${Math.min(this.wave, totalWaves)} OF ${totalWaves}`) : npc ? `PRESS E · TALK TO ${npc.def.name.toUpperCase()}` : null);
+    const key = PLATFORM.touch ? '' : 'PRESS E · '; // on touch the prompt itself is the button
+    this.hud.prompt(this.transitioning ? null : nearDoor ? (this.waveState === 'done' ? `${key}${this.world.exitLabel}` : `SEALED · WAVE ${Math.min(this.wave, totalWaves)} OF ${totalWaves}`) : npc ? `${key}TALK TO ${npc.def.name.toUpperCase()}` : null);
     if (this.input.wasPressed('KeyE') && !this.transitioning) {
       if (nearDoor) {
         if (this.waveState === 'done') void this.transition();

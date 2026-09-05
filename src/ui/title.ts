@@ -4,6 +4,8 @@ import type { ClassId } from '@/content/abilities';
 import { CLASS_ORDER, CLASSES } from '@/content/classes';
 import type { Settings, SlotInfo } from '@/persistence/save';
 import { ICONS } from './icons';
+import { audio } from '@/audio';
+import { PLATFORM } from '@/core/platform';
 
 export type TitleView = 'title' | 'select' | 'hidden';
 
@@ -18,6 +20,8 @@ export interface TitleHooks {
   onDelete(id: ClassId): void;
   getSettings(): Settings;
   onSettings(s: Settings): void;
+  /** The settings sheet was closed while it stood alone over the game (touch pause). */
+  onResume?(): void;
 }
 
 const fmtTime = (s: number) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m`; };
@@ -50,7 +54,10 @@ export class TitleScreen {
       <div class="tmodal settings"><div class="box"><h2>SETTINGS</h2>
         <label>Music <input type="range" min="0" max="1" step="0.05" data-set="music"><output></output></label>
         <label>Effects <input type="range" min="0" max="1" step="0.05" data-set="sfx"><output></output></label>
+        <label class="touch-only">Look sensitivity <input type="range" min="0.5" max="2" step="0.1" data-set="look"><output></output></label>
+        <label>Quality <select data-set="quality"><option value="auto">Auto</option><option value="low">Low</option><option value="high">High</option></select><span></span><span class="note">Auto picks Low on phones. Takes effect the next time the game loads.</span></label>
         <label>Ambient occlusion <input type="checkbox" data-set="ssao"><span></span></label>
+        <button class="mute">Mute</button>
         <button class="close">Done</button></div></div>
       <div class="tmodal credits"><div class="box"><h2>CREDITS</h2>
         <p>Necromantle is an original vertical slice built on Babylon.js, rendered with WebGPU where the browser allows it.</p>
@@ -63,10 +70,12 @@ export class TitleScreen {
     document.body.appendChild(this.root);
     (this.root.querySelector('.backend') as HTMLElement).textContent = hooks.backend;
     this.root.querySelector('.sv-back')!.addEventListener('click', () => this.show('title'));
-    for (const m of this.root.querySelectorAll('.tmodal')) m.querySelector('.close')!.addEventListener('click', () => m.classList.remove('on'));
+    for (const m of this.root.querySelectorAll('.tmodal')) m.querySelector('.close')!.addEventListener('click', () => this.closeModal(m));
+    this.root.querySelector('.settings .mute')!.addEventListener('click', () => { audio.engine.toggleMute(); this.syncMute(); });
     this.root.querySelector('[data-act="delete"]')!.addEventListener('click', () => { this.hooks.onDelete(this.focused); this.root.querySelector('.confirm')!.classList.remove('on'); this.renderSelect(); });
-    for (const input of this.root.querySelectorAll<HTMLInputElement>('.settings input')) {
-      input.addEventListener('input', () => { const s = this.readSettings(); this.hooks.onSettings(s); this.syncSettings(s); });
+    for (const input of this.root.querySelectorAll<HTMLElement>('.settings input, .settings select')) {
+      const apply = () => { const s = this.readSettings(); this.hooks.onSettings(s); this.syncSettings(s); };
+      input.addEventListener('input', apply); input.addEventListener('change', apply);
     }
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
@@ -83,6 +92,18 @@ export class TitleScreen {
   }
 
   setStatus(text: string): void { (this.root.querySelector('.status') as HTMLElement).textContent = text; }
+
+  /** Settings as a sheet over the running game (touch pause button). `onResume` fires when it closes. */
+  openSettings(): void {
+    this.syncSettings(this.hooks.getSettings()); this.syncMute();
+    this.root.classList.add('on', 'modal-only');
+    this.root.querySelector('.settings')!.classList.add('on');
+  }
+  private closeModal(m: Element): void {
+    m.classList.remove('on');
+    if (this.root.classList.contains('modal-only')) { this.root.classList.remove('on', 'modal-only'); this.hooks.onResume?.(); }
+  }
+  private syncMute(): void { (this.root.querySelector('.settings .mute') as HTMLElement).textContent = audio.engine.muted ? 'Unmute' : 'Mute'; }
 
   private renderTitle(): void {
     const menu = this.root.querySelector('.tv-menu') as HTMLElement; menu.innerHTML = '';
@@ -103,7 +124,8 @@ export class TitleScreen {
       const b = document.createElement('button'); b.className = `cls${id === this.focused ? ' focus' : ''}`; b.style.setProperty('--accent', def.accent);
       b.innerHTML = `<b>${def.name}${slot ? `<span class="lvl">LV ${slot.level}</span>` : ''}</b><small>${def.weaponLabel} · ${def.resource.name}${def.playable ? '' : ' · in development'}</small>`;
       b.addEventListener('mouseenter', () => this.focus(id)); b.addEventListener('focus', () => this.focus(id));
-      b.addEventListener('click', () => { this.focus(id); if (def.playable) this.hooks.onBegin(id, !slot); });
+      // on touch a tap only focuses the class; the slot card's Begin / Continue starts the run
+      b.addEventListener('click', () => { this.focus(id); if (def.playable && !PLATFORM.touch) this.hooks.onBegin(id, !slot); });
       tabs.appendChild(b);
     }
     this.renderPanel(); this.renderSlot();
@@ -126,7 +148,7 @@ export class TitleScreen {
     panel.innerHTML = `<h2>${def.name.toUpperCase()}</h2><p class="blurb">${def.blurb}</p>
       <div class="res"><b>${def.resource.name}</b><span><i></i></span><span style="grid-column: 1 / -1">${def.resource.desc}</span></div>
       <div class="sv-abilities">${cards}</div>`;
-    for (const c of panel.querySelectorAll<HTMLElement>('.sv-ab')) c.addEventListener('mouseenter', () => this.hooks.onPreview(this.focused, c.dataset.anim!));
+    for (const c of panel.querySelectorAll<HTMLElement>('.sv-ab')) { const preview = () => this.hooks.onPreview(this.focused, c.dataset.anim!); c.addEventListener('mouseenter', preview); c.addEventListener('click', preview); }
   }
 
   private renderSlot(): void {
@@ -142,8 +164,8 @@ export class TitleScreen {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.view === 'hidden') return;
-    if (this.root.querySelector('.tmodal.on')) { if (e.key === 'Escape') this.root.querySelectorAll('.tmodal').forEach((m) => m.classList.remove('on')); return; }
+    if (this.view === 'hidden' && !this.root.classList.contains('modal-only')) return;
+    if (this.root.querySelector('.tmodal.on')) { if (e.key === 'Escape') this.root.querySelectorAll('.tmodal.on').forEach((m) => this.closeModal(m)); return; }
     if (this.view === 'select') {
       const i = CLASS_ORDER.indexOf(this.focused);
       if (e.key === 'ArrowRight' || e.key === 'd') this.focus(CLASS_ORDER[(i + 1) % CLASS_ORDER.length]);
@@ -154,13 +176,17 @@ export class TitleScreen {
   }
 
   private readSettings(): Settings {
-    const q = (k: string) => this.root.querySelector<HTMLInputElement>(`.settings [data-set="${k}"]`)!;
-    return { music: +q('music').value, sfx: +q('sfx').value, ssao: q('ssao').checked };
+    const q = (k: string) => this.root.querySelector<HTMLInputElement | HTMLSelectElement>(`.settings [data-set="${k}"]`)!;
+    return { music: +q('music').value, sfx: +q('sfx').value, ssao: (q('ssao') as HTMLInputElement).checked, look: +q('look').value, quality: q('quality').value as Settings['quality'] };
   }
   private syncSettings(s: Settings): void {
-    for (const input of this.root.querySelectorAll<HTMLInputElement>('.settings input')) {
-      const k = input.dataset.set as keyof Settings;
-      if (input.type === 'checkbox') input.checked = !!s[k]; else { input.value = `${s[k]}`; const o = input.parentElement!.querySelector('output'); if (o) o.textContent = `${Math.round(+s[k] * 100)}%`; }
+    for (const el of this.root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.settings [data-set]')) {
+      const k = el.dataset.set as keyof Settings; const v = s[k];
+      if (el instanceof HTMLSelectElement) { el.value = `${v ?? 'auto'}`; continue; }
+      if (el.type === 'checkbox') { el.checked = !!v; continue; }
+      const n = typeof v === 'number' ? v : k === 'look' ? 1 : 0;
+      el.value = `${n}`;
+      const o = el.parentElement!.querySelector('output'); if (o) o.textContent = k === 'look' ? `${n.toFixed(1)}×` : `${Math.round(n * 100)}%`;
     }
   }
 }

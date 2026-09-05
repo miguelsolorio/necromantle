@@ -1,10 +1,12 @@
 :root {
-  --u: min(1vw, 1.78vh);
+  /* Layout unit: 1 % of the frame on desktop, never below 8 px so phone HUDs stay readable. Safe-area insets for notched phones. */
+  --u: max(min(1vw, 1.78vh), 8px);
+  --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px); --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
   --void: #0b0a10; --bone: #cdc3ae; --gilt: #d9b56a; --arcane: #8b5cf6; --arcane-2: #37d2f0; --fire: #ff7a1a; --health: #b3121f; --legend: #ff9a1e;
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif; --font-body: "Crimson Pro", Georgia, serif; --font-mono: "IBM Plex Mono", Menlo, monospace;
 }
-html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; }
-#game { width: 100vw; height: 100vh; display: block; outline: none; touch-action: none; }
+html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; overscroll-behavior: none; }
+#game { width: 100vw; height: 100vh; height: 100dvh; display: block; outline: none; touch-action: none; }
 #hud { position: fixed; inset: 0; pointer-events: none; font-family: var(--font-display); color: var(--bone); overflow: hidden; }
 #hud.hidden > *:not(.dbg) { display: none !important; }
 #hud > * { position: absolute; }
@@ -180,7 +182,7 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; }
 .inv-title { display: flex; gap: calc(var(--u)*1.6); }
 .inv-title .tab { cursor: pointer; opacity: .55; transition: opacity .12s; } .inv-title .tab.on, .inv-title .tab:hover { opacity: 1; }
 .inv-skills { display: none; grid-template-rows: auto 1fr auto; gap: calc(var(--u)*.6); min-height: 0; }
-.inv.skills-tab .inv-bag { display: none; } .inv.skills-tab .inv-skills { display: grid; }
+.inv.tab-skills .inv-bag { display: none; } .inv.tab-skills .inv-skills { display: grid; }
 .sk-head h4 { margin: 0; font-size: calc(var(--u)*1.2); letter-spacing: .2em; color: var(--accent, #d9b56a); }
 .sk-head span { display: block; font-family: var(--font-body); font-size: calc(var(--u)*.95); color: #a89c86; margin-top: calc(var(--u)*.2); }
 .sk-list { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u)*.6); overflow: auto; min-height: 0; }
@@ -199,3 +201,98 @@ html, body { margin: 0; height: 100%; background: #070912; overflow: hidden; }
 .imp { display: grid; gap: calc(var(--u)*.1); opacity: .5; } .imp.on { opacity: 1; }
 .imp span { font-family: var(--font-mono); font-size: calc(var(--u)*.65); letter-spacing: .1em; color: #d9b56a; } .imp b { font-size: calc(var(--u)*.85); letter-spacing: .08em; } .imp small { font-family: var(--font-body); font-size: calc(var(--u)*.85); color: #a89c86; }
 .inv-grid .cell.locked { filter: saturate(.3) brightness(.7); } .inv-grid .cell.locked::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(180,40,40,.25) 6px 8px); }
+
+/* ======================= responsive and touch ======================= */
+#hud, #title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.inv-title .x { margin-left: auto; cursor: pointer; opacity: .7; } .inv-title .x:hover { opacity: 1; }
+.dbg h6 { justify-content: flex-start; gap: 8px; } .dbg h6 span { margin-left: auto; } .dbg h6 .x { cursor: pointer; color: #8e8577; font-style: normal; }
+.inv { z-index: 4; }
+
+/* rotate overlay: phones play in landscape (index.html #rotate, shown while html.playing is set) */
+#rotate { position: fixed; inset: 0; z-index: 30; display: none; place-content: center; gap: 16px; text-align: center; background: #070912; color: var(--bone); font-family: var(--font-display); letter-spacing: .24em; font-size: 15px; }
+#rotate .ph { width: 40px; height: 72px; margin: 0 auto; border: 3px solid #d9b56a; border-radius: 8px; box-shadow: 0 0 18px rgba(217,181,106,.3); animation: turn 2.4s ease-in-out infinite; }
+#rotate small { display: block; font-family: var(--font-body); letter-spacing: .04em; color: #a89c86; font-size: 15px; margin-top: 2px; }
+@keyframes turn { 0%, 15% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) { html.phone.playing #rotate { display: grid; } }
+
+/* touch layer (input/touch.ts): floating stick, top-right buttons */
+.touch { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.touch .stick { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; border: 2px solid rgba(217,181,106,.4); background: radial-gradient(circle, rgba(20,16,26,.55), rgba(20,16,26,.12) 70%); display: none; }
+.touch .stick.on { display: block; }
+.touch .stick.sprint { border-color: #ffd27a; box-shadow: 0 0 16px rgba(255,210,122,.45); }
+.touch .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #e9dcc0, #8a6a2a 70%); box-shadow: 0 2px 8px #000, inset 0 0 0 2px rgba(0,0,0,.35); }
+.touch .tbtns { position: absolute; right: calc(var(--sr) + 10px); top: calc(var(--st) + 8px); display: flex; gap: 8px; pointer-events: auto; }
+.touch .tbtn { width: 44px; height: 44px; padding: 0; border-radius: 8px; background: rgba(10,8,14,.72); border: 1px solid #4a3b2a; box-shadow: 0 0 0 1px #17121a; color: #d9b56a; display: grid; place-items: center; touch-action: manipulation; }
+.touch .tbtn svg { width: 24px; height: 24px; }
+.touch .tbtn:active { background: #2a2235; }
+
+/* touch HUD: text top-left, buttons top-right, orbs bottom-centre, skills in a thumb arc bottom-right */
+html.touch .areaname { left: calc(var(--sl) + 12px); right: auto; top: calc(var(--st) + 10px); text-align: left; font-size: 13px; }
+html.touch .objective { left: calc(var(--sl) + 12px); right: auto; top: calc(var(--st) + 48px); text-align: left; font-size: 11px; max-width: 40vw; }
+html.touch .objective span { font-size: 12px; }
+html.phone .objective [data-obj-title] { display: none; }
+html.phone .objective span { margin-top: 0; }
+html.touch .dbg { right: calc(var(--sr) + 116px); top: calc(var(--st) + 8px); max-height: calc(100dvh - 40px); overflow: auto; width: min(300px, 55vw); box-sizing: border-box; }
+html.touch .hudbottom { left: 0; right: 0; transform: none; justify-content: center; bottom: calc(var(--sb) + 8px); gap: 10px; }
+html.phone .hudbottom { right: 16vw; }
+html.touch .hud-orb { width: 64px; height: 64px; box-shadow: inset 0 0 14px #000, 0 0 0 3px #1f1922, 0 0 0 5px #4a3b2a, 0 0 0 7px #17121a, 0 6px 14px rgba(0,0,0,.7); }
+html.touch .hud-orb .val { font-size: 13px; }
+html.touch .hudbottom .bar { gap: 0; padding-bottom: 8px; }
+html.touch .xpbar { width: clamp(120px, 22vw, 240px); height: 5px; }
+html.touch .xpbar .lvl { left: -22px; top: -9px; width: 20px; height: 20px; font-size: 11px; }
+html.touch .skillbar { position: fixed; right: calc(var(--sr) + 10px); bottom: calc(var(--sb) + 10px); width: 240px; height: 220px; padding: 0; background: none; box-shadow: none; pointer-events: auto; display: block; touch-action: none; }
+html.touch .skillbar .slot { position: absolute; width: 52px; height: 52px; border-radius: 50%; box-shadow: inset 0 0 0 2px #2d2433, inset 0 0 10px #000, 0 2px 8px rgba(0,0,0,.6); }
+html.touch .skillbar .slot.ready { box-shadow: inset 0 0 0 2px #7a6440, inset 0 0 10px #000, 0 0 10px rgba(255,180,80,.35), 0 2px 8px rgba(0,0,0,.6); }
+html.touch .skillbar .slot.noenergy { box-shadow: inset 0 0 0 2px #1f3a4a, inset 0 0 10px #000; }
+html.touch .skillbar .slot.press { transform: scale(.92); filter: brightness(1.35); }
+html.touch .skillbar .slot .key, html.touch .skillbar .slot.divider { display: none; }
+html.touch .skillbar .slot .cdv { font-size: 15px; border-radius: 50%; }
+html.touch .skillbar .slot:nth-child(1) { width: 78px; height: 78px; right: 0; bottom: 0; }
+html.touch .skillbar .slot:nth-child(2) { width: 60px; height: 60px; right: 109px; bottom: 9px; }
+html.touch .skillbar .slot:nth-child(3) { right: 143px; bottom: 88px; }
+html.touch .skillbar .slot:nth-child(4) { right: 109px; bottom: 128px; }
+html.touch .skillbar .slot:nth-child(5) { right: 64px; bottom: 154px; }
+html.touch .skillbar .slot:nth-child(6) { right: 13px; bottom: 163px; }
+html.touch .skillbar .slot:nth-child(8) { width: 48px; height: 48px; right: 185px; bottom: 15px; }
+html.touch .prompt { pointer-events: auto; top: auto; bottom: calc(var(--sb) + 104px); min-height: 44px; padding: 0 20px; font-size: 13px; box-shadow: 0 0 0 1px #6a5430, 0 4px 12px rgba(0,0,0,.6); border-radius: 22px; box-sizing: border-box; }
+html.touch .prompt.on { display: flex; align-items: center; }
+html.touch .dead { pointer-events: auto; }
+html.touch .lockhint { top: 44%; font-size: 15px; letter-spacing: .3em; width: 70vw; text-align: center; }
+html.touch .lockhint small { font-size: 10px; }
+html.phone .toast { font-size: 20px; letter-spacing: .2em; white-space: normal; max-width: 86vw; }
+html.phone .bossbar { width: min(352px, 60vw); }
+html.phone .dmg { font-size: 15px; } html.phone .dmg.crit { font-size: 22px; }
+
+/* item card as a bottom sheet on touch, with its own buttons instead of hover and right-click */
+html.touch .inv-tip { left: 50% !important; top: auto !important; bottom: 0; transform: translateX(-50%); width: min(92vw, 440px); max-height: 72%; overflow: auto; pointer-events: auto; padding: 12px 14px 14px; font-size: 14px; box-sizing: border-box; }
+html.touch .inv-tip h5 { font-size: 16px; } html.touch .inv-tip .kind, html.touch .inv-tip .foot { font-size: 10px; } html.touch .inv-tip .big { font-size: 22px; }
+.inv-tip .acts { display: flex; gap: 8px; margin-top: 12px; }
+.inv-tip .acts button { flex: 1; min-height: 44px; font-family: var(--font-display); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--bone); background: linear-gradient(180deg, #221c24, #120e14); border: 1px solid #4a3b2a; cursor: pointer; touch-action: manipulation; }
+.inv-tip .acts button.primary { border-color: var(--gilt); color: #ffe9b8; background: linear-gradient(180deg, #3a2c16, #1d150b); }
+.inv-tip .acts button.danger { border-color: #5a1a22; color: #d88; }
+html.touch .cell.sel, html.touch .eq.sel { outline: 2px solid #ffe2a8; outline-offset: 1px; }
+.pv-slot .clr { position: absolute; right: -7px; top: -7px; width: 22px; height: 22px; border-radius: 50%; background: #2a1014; color: #ff9a8a; font-size: 12px; font-style: normal; display: grid; place-items: center; box-shadow: 0 0 0 1px #5a1a22; }
+
+/* inventory on phones: one column, three tabs */
+html.phone .inv-panel { left: var(--sl); right: var(--sr); top: var(--st); bottom: var(--sb); width: auto; height: auto; transform: none; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); gap: 6px; padding: 4px 8px 8px; box-sizing: border-box; box-shadow: none; }
+html.phone .inv-title { position: static; transform: none; justify-content: center; gap: 22px; font-size: 12px; padding: 8px 0; background: none; box-shadow: none; }
+html.phone .inv.tab-gear .inv-bag, html.phone .inv.tab-bag .inv-doll, html.phone .inv.tab-skills .inv-doll { display: none; }
+html.phone .inv-doll { overflow: auto; min-height: 0; padding: 8px; box-sizing: border-box; }
+html.phone .inv-stand { display: none; }
+html.phone .inv-slots { display: grid; grid-template-columns: repeat(4, 44px); gap: 24px 18px; justify-content: center; padding: 4px 0 22px; }
+html.phone .eq { position: relative; top: auto !important; left: auto !important; right: auto !important; width: 44px; height: 44px; }
+html.phone .eq .tag { bottom: -16px; font-size: 9px; }
+html.phone .inv-stats { position: static; font-size: 12px; margin-top: 6px; gap: 2px 16px; }
+html.phone .inv-bag { overflow: auto; min-height: 0; grid-template-rows: auto auto auto; }
+html.phone .inv-grid { grid-template-columns: repeat(8, minmax(36px, 50px)); justify-content: center; gap: 4px; }
+html.phone .inv-passives { grid-template-columns: 1fr; }
+html.phone .pv-slots { justify-content: center; }
+html.phone .pv-slot { width: 44px; height: 44px; }
+html.phone .pv-list { grid-template-columns: 1fr 1fr; }
+html.phone .pv b, html.phone .pv span, html.phone .pv-head { font-size: 11px; }
+html.phone .inv-hint { font-size: 9px; }
+html.phone .inv-skills { overflow: auto; min-height: 0; }
+html.phone .sk-list { grid-template-columns: 1fr; }
+html.phone .sk .desc, html.phone .sk .facts { font-size: 12px; } html.phone .sk .head b { font-size: 11px; }
+html.phone .sk-imps { grid-template-columns: 1fr 1fr; }
+html.phone .imp b, html.phone .imp small { font-size: 11px; }

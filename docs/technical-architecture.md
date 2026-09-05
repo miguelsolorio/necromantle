@@ -6,8 +6,8 @@ Stack: TypeScript (strict) · Vite 8 · Babylon.js 9 (`@babylonjs/core`, `/loade
 
 | Folder | Responsibility | Key exports |
 |---|---|---|
-| `core/` | engine creation, fixed-step game loop, event bus, object pool, time, seeded random | `createEngine`, `GameLoop`, `EventBus`, `Pool` |
-| `input/` | keyboard/mouse/pointer-lock, action map | `Input` |
+| `core/` | engine creation, fixed-step game loop, event bus, object pool, platform and quality flags | `createEngine`, `GameLoop`, `EventBus`, `Pool`, `PLATFORM` |
+| `input/` | keyboard/mouse/pointer-lock, synthetic actions, the touch layer | `Input`, `TouchControls` |
 | `rendering/` | lights, fog, shadows, post pipeline, material presets, atmosphere | `setupRendering`, `Materials` |
 | `camera/` | third-person spring-arm camera, obstruction, combat blend, shake | `ThirdPersonCamera` |
 | `player/` | kinematic controller, animator, stats, resources | `Player` |
@@ -55,6 +55,12 @@ Logical ids resolve through `assets/registry.ts` to files under `public/assets/`
 ## Boot, title and classes
 
 `Game.start` builds the engine, the hub level and the select stage, then shows `ui/title.ts`. `Game.launch(classId, fresh)` sets the player's `ClassDef`, restores that class's slot, rebuilds the saved level if needed, loads the rig and hands over the controls. In title and select modes `fixed()` only drives the cinematic camera (`ThirdPersonCamera.cinematic`) and the stage; nothing hostile runs. Class ability modules (`abilities/knight.ts`, `hunter.ts`, `reaver.ts`) receive an `AbilityHost` (context, damage roll, ground targeting, a delayed-call scheduler, hit-stop) and return their implementations keyed by ability id; the Sorcerer's six remain inline in `abilities/system.ts`. Melee uses `EnemyManager.queryArc` / `queryLane` from the player's facing, and `Player.dash` moves the collider a fixed distance for leaps.
+
+## Touch and small screens
+
+`core/platform.ts` decides once at boot whether the primary pointer is a finger (`touch`), whether the screen is phone-sized (`phone`) and which render tier applies (`tier`, low on phones unless the saved setting or `?quality=` says otherwise), and stamps matching classes on `<html>` for CSS. `input/touch.ts` owns the joystick, the look drag and the held skill slots; it never talks to gameplay directly but drives `Input.setAction`, `tap`, `addLook` and `moveOverride`, so abilities and the player controller see keys and mouse buttons as before. Touch runs in the same mode as `?nolock`: `locked` is a flag set by the first tap, and `wantsLock` re-engages it as soon as a screen closes. `GameLoop.hold(reason, on)` carries system pauses (hidden tab, pause sheet, rotate overlay) separately from the manual `paused` flag. The HUD's skill slots carry `data-key` so the touch layer can hold the matching action, and the same slot elements are re-laid out into a thumb arc by CSS. See `mobile-plan.md` for the layout and the tier table.
+
+Gotchas: iOS only resumes an `AudioContext` inside a gesture handler, so `audio.unlock()` runs from the canvas `pointerdown` and the title button, not just the loop. A hidden page defers `resize` and `matchMedia` change events until its next frame, which makes the desktop Browser pane (hidden while an agent drives it) report stale orientation state; real devices fire them at once. The pane only emulates touch below 768 px wide, so landscape phone tests use `?touch=1`. `setPointerCapture` throws when the pointer is already gone (and for synthetic events), so the touch layer wraps it.
 
 ## Save data
 
